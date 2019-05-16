@@ -1,0 +1,38 @@
+cmake_minimum_required (VERSION 2.6)
+project (SSDDup)
+ 
+set (CMAKE_CXX_STANDARD 14)
+ 
+# add the binary tree to the search path for include files
+# so that we will find TutorialConfig.h
+include_directories(include)
+include_directories(src)
+
+add_library(cache
+  src/index/bucket.cpp
+  src/index/index.cpp
+  src/device/device.cpp
+  src/hashing/MurmurHash3.cpp)
+ 
+
+################################
+# GTest
+################################
+ADD_SUBDIRECTORY(third_party/gtest-1.9.0)
+#enable_testing()
+include_directories(third_party/gtest-1.9.0/googletest/include)
+
+################################
+# Unit Tests
+################################
+# Add test cpp file
+add_executable( runUnitTests src/test/main.cpp)
+# Link test executable against gtest & gtest_main
+target_link_libraries(runUnitTests gtest gtest_main cache)
+#add_test( runUnitTests runUnitTests )
+
+################################
+# GLog
+################################
+ADD_SUBDIRECTORY(third_party/glog-0.4.0)
+include_directories(third_party/gtest-1.9.0/googletest/include)

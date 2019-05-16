@@ -1,0 +1,9 @@
+2019.05.15
+1. LBAIndex, CAIndex <- LBABucket, CABucket <- Bucket.
+2. Derived classes of Bucket implement different kinds of cache eviction policy. Specifically, Bucket provide data and interfaces, while derived classes implement them and control on the data.
+3. Currently only byte-level allocation is implemented, for finer-grained controll, bit-level memory allocation for Bucket is needed.
+4. Google Test framework has been integrated.
+2019.05.16
+1. Device -> BlockDevice -> DeviceWithCache (Manage two devices)
+2. Bring in MurmurHash3 to compute Fingerprint
+3. Plan to modify byte-level bucket to bit-level bucket
