@@ -7,3 +7,9 @@
 1. Device -> BlockDevice -> DeviceWithCache (Manage two devices)
 2. Bring in MurmurHash3 to compute Fingerprint
 3. Plan to modify byte-level bucket to bit-level bucket
+2019.05.17
+1. Modify and test byte-level bucket to bit-level bucket - Done
+2. Write the skeleton of write and read of DeviceWithCache
+2019.06.03
+1. Update architecture graph
+2. Implement read/write skeleton and ChunkModule

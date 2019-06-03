@@ -10,10 +10,12 @@ namespace cache {
     public:
       Bucket(uint32_t n_bits_per_item, uint32_t n_items, uint32_t n_total_bytes);
       virtual ~Bucket();
-      virtual int find(uint8_t *key, uint32_t len, uint8_t *value) = 0;
-      virtual void insert(uint8_t *key, uint32_t len, uint8_t *value) = 0;
+      virtual int find(uint8_t *key, uint8_t *value) = 0;
+      virtual void insert(uint8_t *key, uint8_t *value) = 0;
 
     protected:
+      inline void bits_extract(uint32_t b, uint32_t e, uint32_t &v);
+      inline void bits_encode(uint32_t b, uint32_t e, uint32_t v);
       uint32_t _n_bits_per_item, _n_items, _n_total_bytes;
       std::unique_ptr< uint8_t[] > _data;
   };
@@ -26,13 +28,14 @@ namespace cache {
    */
   class LBABucket : public Bucket {
     public:
-      LBABucket(uint32_t n_bits_per_item, uint32_t n_items);
+      LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~LBABucket();
 
-      int find(uint8_t *key, uint32_t len, uint8_t *value);
-      void insert(uint8_t *key, uint32_t len, uint8_t *value);
+      int find(uint8_t *key, uint8_t *value);
+      void insert(uint8_t *key, uint8_t *value);
     private:
       int _lru_pos;
+      uint32_t _n_bits_per_key, _n_bits_per_value;
   };
 
   /*
@@ -40,11 +43,14 @@ namespace cache {
    */
   class CABucket : public Bucket {
     public:
-      CABucket(uint32_t n_bits_per_item, uint32_t n_items);
+      CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~CABucket();
 
-      int find(uint8_t *key, uint32_t len, uint8_t *value);
-      void insert(uint8_t *key, uint32_t len, uint8_t *value);
+      int find(uint8_t *key, uint8_t *value);
+      void insert(uint8_t *key, uint8_t *value);
+    private:
+      int _lru_pos;
+      uint32_t _n_bits_per_key, _n_bits_per_value;
   };
 }
 #endif

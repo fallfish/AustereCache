@@ -9,10 +9,19 @@ include_directories(include)
 include_directories(src)
 
 add_library(cache
-  src/index/bucket.cpp
-  src/index/index.cpp
-  src/device/device.cpp
-  src/hashing/MurmurHash3.cpp)
+  src/metadata/bucket.cc
+  src/metadata/index.cc
+
+  src/chunk/chunkmodule.cc
+
+  #src/metadata/metadatamodule.cc
+
+  src/deduplication/deduplicationmodule.cc
+
+  src/ssddup/ssddup.cc
+
+  src/device/device.cc
+  src/utils/MurmurHash3.cpp)
  
 
 ################################

@@ -1,7 +1,7 @@
 #include <iostream>
-#include "index/index.h"
-#include "index/bitmap.h"
-#include "index/bucket.h"
+#include "metadata/index.h"
+#include "metadata/bitmap.h"
+#include "metadata/bucket.h"
 #include "device/device.h"
 #include "gtest/gtest.h"
 
@@ -26,14 +26,14 @@ TEST(Index, LBABucket)
 {
   srand(0);
   std::map<uint32_t, uint32_t> mp;
-  cache::LBABucket bucket(8, 1024);
-  for (int i = 0; i < 1024; i++) {
-    uint32_t key = rand();
-    uint32_t value = rand();
-    bucket.insert((uint8_t*)&key, 4, (uint8_t*)&value);
+  cache::LBABucket bucket(10, 7, 1024);
+  for (int i = 0; i < 16 * 1024; i++) {
+    uint32_t key = rand() & ((1 << 10) - 1);
+    uint32_t value = rand() & ((1 << 7) - 1);
+    bucket.insert((uint8_t*)&key, (uint8_t*)&value);
     mp[key] = value;
     uint32_t _value;
-    bucket.find((uint8_t*)&key, 4, (uint8_t*)&_value);
+    bucket.find((uint8_t*)&key, (uint8_t*)&_value);
     EXPECT_EQ(_value, value);
   }
 
@@ -41,22 +41,22 @@ TEST(Index, LBABucket)
   for (auto pr : mp) {
     uint32_t key = pr.first;
     uint32_t value;
-    if (bucket.find((uint8_t*)&key, 4, (uint8_t*)&value) != 1) {
+    if (bucket.find((uint8_t*)&key, (uint8_t*)&value) != 1) {
       count += 1;
       EXPECT_EQ(value, pr.second);
     }
   }
-  //std::cout << count << std::endl;
+  std::cout << count << std::endl;
 }
 
 TEST(Index, LBAIndex)
 {
   srand(0);
   std::map<uint32_t, uint32_t> mp;
-  cache::LBAIndex index(2, 4, 16, 1024);
+  cache::LBAIndex index(12, 20, 16, 1024);
   for (int i = 0; i < 16 * 1024; i++) {
-    uint32_t key = rand();
-    uint32_t value = rand();
+    uint32_t key = rand() & ((1 << 12) - 1);
+    uint32_t value = rand() & ((1 << 20) - 1);
     index.set((uint8_t*)&key, (uint8_t*)&value);
     mp[key] = value;
     uint32_t _value;
