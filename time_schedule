@@ -1,0 +1,11 @@
+Finish a simple prototype with unit tests
+6.3  - 6.9  (Week 1): Deduplication Module and Metadata Module
+6.10 - 6.16 (Week 2): Metadata Module
+6.17 - 6.23 (Week 3): I/O Module
+6.24 - 6.30 (Week 4): Compression Module
+7.1  - 7.7  (Week 5): Manage Module
+7.8  - 7.14 (Week 6): Verify and ensure the prototype work; Consider and summarize benchmarking methods
+Benchmark
+7.15 - 7.21 (Week 7): Prepare benchmark environment
+7.22 - 7.28 (Week 8): Do some basic benchmarking to the prototype
+
