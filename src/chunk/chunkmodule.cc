@@ -30,7 +30,7 @@ namespace cache {
   // used for read-modify-write case
   // the base chunk is an unaligned write chunk
   // the delta chunk is a read chunk
-  void Chunk::merge(const Chunk &c) {
+  void Chunk::merge_write(const Chunk &c) {
     uint32_t chunk_size = Config::chunk_size;
     assert(_addr - _addr % chunk_size == c._addr - c._addr % chunk_size);
 
@@ -38,6 +38,10 @@ namespace cache {
     _len = chunk_size;
     _addr -= _addr % chunk_size;
     _buf = c._buf;
+  }
+
+  void Chunk::merge_read(const Chunk &c) {
+    memcpy(_buf, _buf + _addr % chunk_size, _len);
   }
 
   Chunker::Chunker(uint8_t *buf, uint32_t len, uint32_t addr)

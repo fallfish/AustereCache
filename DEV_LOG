@@ -13,3 +13,7 @@
 2019.06.03
 1. Update architecture graph
 2. Implement read/write skeleton and ChunkModule
+2019.06.04
+MetadataModule::lookup should be splited for write_path and read_path
+lookup and update is splited in two stages
+Problem met when evicting ca_index entries because the offsets of all entries inside the same bucket change : solved, only contiguous space evicted do we insert the new entry 

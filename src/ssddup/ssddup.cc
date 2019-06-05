@@ -6,19 +6,19 @@
 namespace cache {
   void SSDDup::read(uint32_t addr, uint32_t length, uint8_t *buf)
   {
-    Chunker chunker = _chunk_module.create_chunker(addr, length, buf);
+    Chunker chunker = _chunk_module->create_chunker(addr, length, buf);
     Chunk c;
 
     while ( chunker.next(c) ) {
       uint8_t read_buffer[Config::chunk_size];
       if (c.is_partial()) {
         Chunk read_chunk = c.construct_read_chunk(read_buffer);
-        //internal_read(read_chunk, true);
+        internal_read(read_chunk, true);
         // solve conflict
         // (copy the content read to the destination buffer)
-        //c.solve_conflict(read_chunk);
+        c.merge_read(read_chunk);
       } else {
-        //internal_read(read_chunk, true);
+        internal_read(c, true);
       }
     }
   }
@@ -32,7 +32,7 @@ namespace cache {
   void SSDDup::write(uint32_t addr, uint32_t length, uint8_t *buf)
   {
 
-    Chunker chunker = _chunk_module.create_chunker(addr, length, buf);
+    Chunker chunker = _chunk_module->create_chunker(addr, length, buf);
     Chunk c;
 
     while ( chunker.next(c) ) {
@@ -50,17 +50,14 @@ namespace cache {
         // solve_conflict and construct new write chunk with
         // the read_buffer as content
         // modify
-        //c.solve_conflict(read_chunk);
-
-        // write
-        //internal_write(write_chunk, true);
-      } else {
-        //internal_write(write_chunk, true);
+        c.merge_write(read_chunk);
       }
+      internal_write(c, true);
     }
   }
 
   void SSDDup::internal_write(const Chunk &c, bool update_metadata)
   {
+    _deduplication_module->dedup(c);
   }
 }

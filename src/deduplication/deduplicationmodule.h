@@ -1,5 +1,6 @@
 #ifndef __DEDUP_H__
 #define __DEDUP_H__
+#include <memory>
 #include "metadata/metadatamodule.h"
 #include "chunk/chunkmodule.h"
 
@@ -11,7 +12,7 @@ namespace cache {
     uint32_t deduplicate(Chunk &c);
 
    private:
-    MetadataModule *_metadata_module;
+    std::shared_ptr<MetadataModule> _metadata_module;
   };
 }
 

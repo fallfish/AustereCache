@@ -51,19 +51,23 @@ namespace cache {
     }
   }
 
-  bool CAIndex::lookup(uint8_t *key, uint8_t *value)
+  bool CAIndex::lookup(uint32_t ca_hash, uint32_t &size, uint32_t &ssd_location)
   {
-    uint32_t hash = *(uint32_t*)key;
-    uint32_t bucket_no = hash >> _n_bits_per_key;
-    uint32_t signature = hash & ((1 << _n_bits_per_key) - 1);
-    return _mapping[bucket_no]->find((uint8_t*)&signature, value) != -1;
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
+    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+    uint32_t index = _mapping[bucket_no]->find((uint8_t*)&signature, size);
+    offset = 0;
+    for (uint32_t i = 0; i < index; i++) {
+      offset += _mapping[bucket_no]->get(i);
+    }
+    ssd_location = bucket_no * 1024 * 1024 + offset * 32 * 1024;
   }
 
-  void CAIndex::set(uint8_t *key, uint8_t *value)
+  void CAIndex::update(uint32_t ca_hash, uint32_t size, uint32_t &ssd_location)
   {
-    uint32_t hash = *(uint32_t*)key;
-    uint32_t bucket_no = hash >> _n_bits_per_key;
-    uint32_t signature = hash & ((1 << _n_bits_per_key) - 1);
-    _mapping[bucket_no]->insert((uint8_t*)&signature, value);
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
+    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+    uint32_t value = (size << 3) & (0 << 1);
+    _mapping[bucket_no]->insert((uint8_t*)&signature, );
   }
 }
