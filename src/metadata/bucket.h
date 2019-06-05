@@ -8,15 +8,74 @@ namespace cache {
   // bit level bucket
   class Bucket {
     public:
-      Bucket(uint32_t n_bits_per_item, uint32_t n_items, uint32_t n_total_bytes);
+      Bucket(uint32_t n_bits_per_key, n_bits_per_value,
+          uint32_t n_items, uint32_t n_total_bytes);
       virtual ~Bucket();
-      virtual int find(uint8_t *key, uint8_t *value) = 0;
-      virtual void insert(uint8_t *key, uint8_t *value) = 0;
+      virtual int find(uint32_t key, uint32_t value) = 0;
+      virtual void update(uint32_t key, uint32_t value) = 0;
 
     protected:
-      inline void bits_extract(uint32_t b, uint32_t e, uint32_t &v);
-      inline void bits_encode(uint32_t b, uint32_t e, uint32_t v);
-      uint32_t _n_bits_per_item, _n_items, _n_total_bytes;
+      inline void bits_extract(uint32_t b, uint32_t e, uint32_t &v) {
+        uint8_t shift = 0;
+        if (b & 7) {
+          v |= _data[b >> 3] >> (b & 7);
+          shift += 8 - (b & 7);
+          b = ((b >> 3) + 1) << 3;
+        }
+        while (b < e) {
+          v |= _data[b >> 3] << shift;
+          shift += 8;
+          b += 8;
+        }
+        if (b > e) {
+          v &= (1 << (shift - b + e)) - 1;
+        }
+      }
+      inline void bits_encode(uint32_t b, uint32_t e, uint32_t v) {
+        if (b & 7) {
+          _data[b >> 3] &= ((1 << (b & 7)) - 1);
+          _data[b >> 3] |= (v & ((1 << (8 - (b & 7))) - 1)) << (b & 7);
+          v >>= 8 - (b & 7);
+          b = ((b >> 3) + 1) << 3;
+        }
+        while (b + 8 <= e) {
+          _data[b >> 3] = v & 0xff;
+          v >>= 8;
+          b += 8;
+        }
+        if (b < e) {
+          _data[b >> 3] &= ~((1 << (e - b)) - 1);
+          _data[b >> 3] |= v & ((1 << (e - b)) - 1);
+        }
+      }
+      inline uint32_t init_k(uint32_t index, uint32_t &b, uint32_t &e) {
+        b = index * _n_bits_per_item + _n_bits_per_key;
+        e = b + _n_bits_per_value;
+      }
+      inline uint32_t get_k(uint32_t index) { 
+        uint32_t b, e, v; init_k(b, e);
+        bits_extract(b, e, v);
+        return v;
+      }
+      inline uint32_t set_k(uint32_t index, uint32_t v) {
+        uint32_t b, e; init_k(b, e);
+        bits_encode(b, e, v);
+      }
+      inline uint32_t init_v(uint32_t index, uint32_t &b, uint32_t &e) {
+        b = index * _n_bits_per_item + _n_bits_per_key;
+        e = b + _n_bits_per_value;
+      }
+      inline uint32_t get_v(uint32_t index) { 
+        uint32_t b, e, v; init_v(index, b, e);
+        bits_extract(b, e, v);
+        return v;
+      }
+      inline uint32_t set_v(uint32_t index, uint32_t v) {
+        uint32_t b, e; init_v(index, b, e);
+        bits_encode(b, e, v);
+      }
+      uint32_t _n_bits_per_item, _n_items, _n_total_bytes,
+               _n_bits_per_key, _n_bits_per_value;
       std::unique_ptr< uint8_t[] > _data;
   };
 
@@ -30,12 +89,11 @@ namespace cache {
     public:
       LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~LBABucket();
+      int find(uint32_t key, uint32_t value);
+      void update(uint32_t key, uint32_t value);
 
-      int find(uint8_t *key, uint8_t *value);
-      void insert(uint8_t *key, uint8_t *value);
     private:
       int _lru_pos;
-      uint32_t _n_bits_per_key, _n_bits_per_value;
   };
 
   /*
@@ -46,11 +104,17 @@ namespace cache {
       CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~CABucket();
 
-      int find(uint8_t *key, uint8_t *value);
-      void insert(uint8_t *key, uint8_t *value);
+      int find(uint32_t key, uint32_t value);
+      void update(uint32_t key, uint32_t value);
+      //int find(uint32_t key);
+      //void set(uint32_t index, uint32_t key, uint32_t value);
     private:
-      int _lru_pos;
-      uint32_t _n_bits_per_key, _n_bits_per_value;
+      inline uint32_t size_to_comp_code(uint32_t size) { return size - 1; }
+      inline uint32_t comp_code_to_size(uint32_t comp_code) { return comp_code + 1; }
+      inline uint32_t clock_inc(uint32_t &v) { v = (v == 3) ? v : v + 1; }
+      inline uint32_t clock_dec(uint32_t &v) { v = v - 1; }
+      inline bool valid(uint32_t v) { return v & 3; }
+      uint32_t find_non_occupied_position(uint32_t size);
   };
 }
 #endif

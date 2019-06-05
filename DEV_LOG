@@ -17,3 +17,14 @@
 MetadataModule::lookup should be splited for write_path and read_path
 lookup and update is splited in two stages
 Problem met when evicting ca_index entries because the offsets of all entries inside the same bucket change : solved, only contiguous space evicted do we insert the new entry 
+2019.06.05
+I am implementing the eviction policy of indexing structures
+As we have already allocate fixed number of elements in each CABucket and the space for each CABucket is predefined already, I decide to use layout like
+-----------------------------------------------------------------
+| Elem1: 3 | empty | empty | Elem2: 1 | Elem3: 2 | empty | .... |
+-----------------------------------------------------------------
+instead of
+-----------------------------------------------------------------
+| Elem1: 3 | Elem2: 1 | Elem3: 2 | empty | .... | ... |
+-----------------------------------------------------------------
+As the former one helps when calculate the ssd_location (offset) for each chunk without sacrificing the indexing lookup and update performance.

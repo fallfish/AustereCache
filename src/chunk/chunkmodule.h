@@ -15,6 +15,10 @@ namespace cache {
     uint32_t _ca_hash;
     uint8_t  _ca[16];
 
+    uint32_t _size;
+    uint32_t _ssd_location;
+
+
     void fingerprinting();
     inline bool is_end() { return _len == 0; }
     bool is_partial();
