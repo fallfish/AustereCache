@@ -50,7 +50,7 @@ namespace cache {
       }
       inline uint32_t init_k(uint32_t index, uint32_t &b, uint32_t &e) {
         b = index * _n_bits_per_item + _n_bits_per_key;
-        e = b + _n_bits_per_value;
+           e = b + _n_bits_per_value;
       }
       inline uint32_t get_k(uint32_t index) { 
         uint32_t b, e, v; init_k(b, e);
@@ -89,11 +89,14 @@ namespace cache {
     public:
       LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~LBABucket();
-      int find(uint32_t key, uint32_t value);
-      void update(uint32_t key, uint32_t value);
+      int lookup(uint32_t lba_hash, uint32_t &ca_hash);
+      // In the eviction procedure, we firstly check whether old
+      // entries has been invalid because of evictions in ca_index.
+      // LRU evict kicks in only after evicting old obsolete mappings.
+      void update(uint32_t lba_hash, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index);
 
     private:
-      int _lru_pos;
+      void advance(uint32_t index);
   };
 
   /*
@@ -104,13 +107,20 @@ namespace cache {
       CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~CABucket();
 
-      int find(uint32_t key, uint32_t value);
-      void update(uint32_t key, uint32_t value);
+      int lookup(uint32_t ca_hash, uint32_t &size);
+      void update(uint32_t ca_hash, uint32_t size);
       //int find(uint32_t key);
       //void set(uint32_t index, uint32_t key, uint32_t value);
     private:
       inline uint32_t size_to_comp_code(uint32_t size) { return size - 1; }
       inline uint32_t comp_code_to_size(uint32_t comp_code) { return comp_code + 1; }
+      inline uint32_t v_to_comp_code(uint32_t v) { return v >> 2; }
+      inline uint32_t size_to_v(uint32_t size) { 
+        return (size_to_comp_code(size) << 2) & 1;
+      }
+      inline uint32_t v_to_size(uint32_t v) { 
+        return comp_code_to_size(v_to_comp_code(v));
+      }
       inline uint32_t clock_inc(uint32_t &v) { v = (v == 3) ? v : v + 1; }
       inline uint32_t clock_dec(uint32_t &v) { v = v - 1; }
       inline bool valid(uint32_t v) { return v & 3; }

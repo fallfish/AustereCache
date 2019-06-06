@@ -28,3 +28,14 @@ instead of
 | Elem1: 3 | Elem2: 1 | Elem3: 2 | empty | .... | ... |
 -----------------------------------------------------------------
 As the former one helps when calculate the ssd_location (offset) for each chunk without sacrificing the indexing lookup and update performance.
+2019.06.06
+Previously, the underlying data are stored in a compacted bitmap.
+|----- Bitmap (indexing) ---------------|
+Each time when we access the bucket, we firstly copy the corresponding bucket data in the bitmap out.
+Bucket is a data structure that is not compacted to support efficient update (really efficient?).
+|----- Bucket 0 -------|---- Bucket 1 --|
+Then modify-write it.
+Now I choose to in-place update the bitmap and organize it not-that-compactedly.
+Specifically, each bucket wraps a bitmap, rather than an index wraps a "huge" bitmap.
+This might create some wastes because bitmaps are aligned for buckets, but not much at all.
+

@@ -1,5 +1,6 @@
 #include <cstring>
 #include "bucket.h"
+#include "index.h"
 
 namespace cache {
   Bucket::Bucket(uint32_t n_bits_per_item, uint32_t n_items, uint32_t n_total_bytes) :
@@ -13,8 +14,7 @@ namespace cache {
   LBABucket::LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
     _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
     Bucket(n_bits_per_key, n_bits_per_value, n_items, 
-      ((n_bits_per_key + n_bits_per_value) * n_items + 7) / 8),
-    _lru_pos(0)
+      ((n_bits_per_key + n_bits_per_value) * n_items + 7) / 8)
   {
     memset(_data.get(), 0, _n_total_bytes);
   }
@@ -26,51 +26,63 @@ namespace cache {
    * alignment issue needs to be dealed for each element
    *
    */
-  int LBABucket::find(uint8_t *key, uint8_t *value) {
-    for (uint32_t i = 0; i < _n_items; i++) {
-      uint32_t b = i * _n_bits_per_item;
-      uint32_t e = b + _n_bits_per_key;
-      uint32_t v = 0;
-      bits_extract(b, e, v);
-      if (v == *(uint32_t*)key) {
-        if (value != nullptr) {
-          b = e;
-          e = b + _n_bits_per_value;
-          v = 0;
-          bits_extract(b, e, v);
-          *(uint32_t*)value = v;
-        }
-        return i;
+  int LBABucket::lookup(uint32_t lba_hash, uint32_t &ca_hash) {
+    for (uint32_t index = 0; index < _n_items; index++) {
+      uint32_t k = get_k(index);
+      if (k == lba_hash) {
+        get_v(index, ca_hash);
+        return index;
       }
     }
-    return -1;
+    return ~((uint32_t)0);
   }
-  
-  void LBABucket::insert(uint8_t *key, uint8_t *value) {
-    int index = find(key, nullptr);
-    if (index == -1) {
-      index = _lru_pos;
-      uint32_t b = index * _n_bits_per_item;
-      uint32_t e = b + _n_bits_per_key;
-      bits_encode(b, e, *(uint32_t*)key);
-      //uint32_t k = 0;
-      //bits_extract(b, e, k);
-      //std::cout << *(uint32_t*)key << " " << k << std::endl;
-      _lru_pos = (_lru_pos + 1 == _n_items) ? 0 : _lru_pos + 1;
+
+  void LBABucket::advance(uint32_t index)
+  {
+    uint32_t k = get_k(index);
+    uint32_t v = get_v(index);
+    for (uint32_t i = index; i < _n_items - 1; i++) {
+      set_k(i, get_k(i + 1));
+      set_v(i, get_v(i + 1));
     }
-    uint32_t b = index * _n_bits_per_item + _n_bits_per_key;
-    uint32_t e = b + _n_bits_per_value;
-    bits_encode(b, e, *(uint32_t*)value);
-    //uint32_t v = 0;
-    //bits_extract(b, e, v);
-    //std::cout << *(uint32_t*)value << " " << v << std::endl;
+    set_k(_n_items - 1, k);
+    set_v(_n_items - 1, v);
+  }
+
+  uint32_t LBABucket::find_non_occupied_position(std::shared_ptr<CAIndex> ca_index)
+  {
+    uint32_t position = 0;
+    for (uint32_t i = 0; i < _n_items; i++) {
+      uint32_t k = get_k(i);
+      uint32_t v = get_v(i);
+      bool valid = ca_index->lookup(k, v);
+      if (!valid) {
+        set_k(i, 0), set_v(i, 0);
+        position = 0;
+      }
+    }
+    return position;
+  }
+
+  void LBABucket::update(uint32_t lba_hash, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index) {
+    uint32_t v;
+    uint32_t index = lookup(lba_hash, v);
+    if (index != ~((uint32_t)0)) {
+      if (v != ca_hash) {
+        set_v(index, v);
+      }
+    } else {
+      index = find_non_occupied_position(ca_index);
+      set_k(index, lba_hash);
+      set_v(index, ca_index);
+    }
+    advance(index);
   }
 
   CABucket::CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
     _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
     Bucket(n_bits_per_key + n_bits_per_value, n_items, 
-      ((n_bits_per_key + n_bits_per_value) * n_items + 7) / 8),
-    _lru_pos(0)
+      ((n_bits_per_key + n_bits_per_value) * n_items + 7) / 8)
   {
     memset(_data.get(), 0, _n_total_bytes);
   }
@@ -82,30 +94,14 @@ namespace cache {
    * alignment issue needs to be dealed for each element
    *
    */
-  int CABucket::find(uint32_t key, uint32_t &value)
+  int CABucket::lookup(uint32_t ca_hash, uint32_t &size)
   {
     for (uint32_t i = 0; i < _n_items; i++) {
-      uint32_t b = i * _n_bits_per_item;
-      uint32_t e = b + _n_bits_per_key;
-      uint32_t k = 0;
-      bits_extract(b, e, k);
+      uint32_t k = get_k(i);
       if (k == key) {
-        b = e; e = (i + 1) * _n_bits_per_item;
-        bits_extract(b, e, value);
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  uint32_t CABucket::find(uint32_t key)
-  {
-    for (uint32_t i = 0; i < _n_items; i++) {
-      uint32_t b = i * _n_bits_per_item;
-      uint32_t e = b + _n_bits_per_key;
-      uint32_t k = 0;
-      bits_extract(b, e, k);
-      if (k == key) {
+        uint32_t v;
+        get_v(i, v);
+        size = v_to_size(v);
         return i;
       }
     }
@@ -139,7 +135,7 @@ namespace cache {
         v = get(e);
         // decrease the clock bit
         if (valid(v)) {
-          clock_decrease(v);
+          clock_dec(v);
           set(e, v);
         } 
         if (valid(v)) {
@@ -153,20 +149,22 @@ namespace cache {
     return b;
   }
   
-  void CABucket::update(uint32_t key, uint32_t value)
+  void CABucket::update(uint32_t ca_hash, uint32_t size)
   {
-    uint32_t v;
-    uint32_t index = find(key, v);
-    uint32_t b, e;
+    uint32_t value;
+    uint32_t index = lookup(ca_hash, value);
     if (index != ~((uint32_t)0)) {
-      if (comp_size(v) != size_to_comp_size(value)) {
+      if (v_to_comp_code(value) != size_to_comp_code(size)) {
         set_v(index, 0);
       } else {
+        clock_inc(v);
+        set_v(index, v);
         return ;
       }
     }
-    value = (value << 3) & 1;
-    set_k(index, key);
+    index = find_non_occupied_position();
+    value = (size_to_comp_size(size) << 2) & 1;
+    set_k(index, ca_hash);
     set_v(index, value);
   }
 }
