@@ -6,10 +6,11 @@
 
 namespace cache {
   class DeduplicationModule {
-    DeduplicationModule(MetadataModule *metadata_module);
+   public:
+    DeduplicationModule(std::shared_ptr<MetadataModule> metadata_module);
     // check whether chunk c is duplicate or not
     // return deduplication flag: duplicate_write, duplicate_content, or not duplicate
-    uint32_t deduplicate(Chunk &c);
+    uint32_t deduplicate(Chunk &c, bool is_write_path);
 
    private:
     std::shared_ptr<MetadataModule> _metadata_module;

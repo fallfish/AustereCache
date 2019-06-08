@@ -64,10 +64,9 @@ namespace cache {
 
   uint32_t MetadataModule::update(const Chunk &c)
   {
-    //uint32_t ssd_loaction;
-    //_ca_index->update(&c._ca_hash, &c._size, &ssd_location);    
-    //_lba_index->update(&lba_hash, &c._ca_hash);
+    _ca_index->update(&c._ca_hash, c._size, c._ssd_location);    
+    _lba_index->update(&lba_hash, c._ca_hash);
 
-    //c._ssd_loaction = ssd_location; 
+    return 0;
   }
 }

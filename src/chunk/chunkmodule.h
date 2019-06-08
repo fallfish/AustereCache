@@ -23,7 +23,8 @@ namespace cache {
     inline bool is_end() { return _len == 0; }
     bool is_partial();
     Chunk construct_read_chunk(uint8_t *buf);
-    void merge(const Chunk &c);
+    void merge_write(const Chunk &c);
+    void merge_read(const Chunk &c);
   };
 
   class Chunker {

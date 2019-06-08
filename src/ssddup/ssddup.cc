@@ -23,7 +23,7 @@ namespace cache {
     }
   }
 
-  void SSDDup::internal_read(const Chunk &c, bool update_metadata)
+  void SSDDup::internal_read(Chunk &c, bool update_metadata)
   {
     //DeduplicationModule deduplication_module(c);
 
@@ -56,8 +56,8 @@ namespace cache {
     }
   }
 
-  void SSDDup::internal_write(const Chunk &c, bool update_metadata)
+  void SSDDup::internal_write(Chunk &c, bool update_metadata)
   {
-    _deduplication_module->dedup(c);
+    _deduplication_module->deduplicate(c, true);
   }
 }

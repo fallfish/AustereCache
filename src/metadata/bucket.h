@@ -3,16 +3,17 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+//#include "index.h"
 namespace cache {
   // Bucket is an abstraction of multiple key-value pairs (mapping)
   // bit level bucket
+  class CAIndex;
   class Bucket {
     public:
-      Bucket(uint32_t n_bits_per_key, n_bits_per_value,
-          uint32_t n_items, uint32_t n_total_bytes);
+      Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       virtual ~Bucket();
-      virtual int find(uint32_t key, uint32_t value) = 0;
-      virtual void update(uint32_t key, uint32_t value) = 0;
+      //virtual int find(uint32_t key, uint32_t value) = 0;
+      //virtual void update(uint32_t key, uint32_t value) = 0;
 
     protected:
       inline void bits_extract(uint32_t b, uint32_t e, uint32_t &v) {
@@ -48,29 +49,29 @@ namespace cache {
           _data[b >> 3] |= v & ((1 << (e - b)) - 1);
         }
       }
-      inline uint32_t init_k(uint32_t index, uint32_t &b, uint32_t &e) {
-        b = index * _n_bits_per_item + _n_bits_per_key;
-           e = b + _n_bits_per_value;
+      inline void init_k(uint32_t index, uint32_t &b, uint32_t &e) {
+        b = index * _n_bits_per_item;
+        e = b + _n_bits_per_key;
       }
       inline uint32_t get_k(uint32_t index) { 
-        uint32_t b, e, v; init_k(b, e);
+        uint32_t b, e, v = 0; init_k(index, b, e);
         bits_extract(b, e, v);
         return v;
       }
-      inline uint32_t set_k(uint32_t index, uint32_t v) {
-        uint32_t b, e; init_k(b, e);
+      inline void set_k(uint32_t index, uint32_t v) {
+        uint32_t b, e; init_k(index, b, e);
         bits_encode(b, e, v);
       }
-      inline uint32_t init_v(uint32_t index, uint32_t &b, uint32_t &e) {
+      inline void init_v(uint32_t index, uint32_t &b, uint32_t &e) {
         b = index * _n_bits_per_item + _n_bits_per_key;
         e = b + _n_bits_per_value;
       }
       inline uint32_t get_v(uint32_t index) { 
-        uint32_t b, e, v; init_v(index, b, e);
+        uint32_t b, e, v = 0; init_v(index, b, e);
         bits_extract(b, e, v);
         return v;
       }
-      inline uint32_t set_v(uint32_t index, uint32_t v) {
+      inline void set_v(uint32_t index, uint32_t v) {
         uint32_t b, e; init_v(index, b, e);
         bits_encode(b, e, v);
       }
@@ -89,14 +90,15 @@ namespace cache {
     public:
       LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~LBABucket();
-      int lookup(uint32_t lba_hash, uint32_t &ca_hash);
+      uint32_t lookup(uint32_t lba_sig, uint32_t &ca_hash);
       // In the eviction procedure, we firstly check whether old
       // entries has been invalid because of evictions in ca_index.
       // LRU evict kicks in only after evicting old obsolete mappings.
-      void update(uint32_t lba_hash, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index);
+      void update(uint32_t lba_sig, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index);
 
     private:
       void advance(uint32_t index);
+      uint32_t find_non_occupied_position(std::shared_ptr<CAIndex> ca_index);
   };
 
   /*
@@ -107,8 +109,8 @@ namespace cache {
       CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items);
       ~CABucket();
 
-      int lookup(uint32_t ca_hash, uint32_t &size);
-      void update(uint32_t ca_hash, uint32_t size);
+      int lookup(uint32_t ca_sig, uint32_t &size);
+      void update(uint32_t ca_sig, uint32_t size);
       //int find(uint32_t key);
       //void set(uint32_t index, uint32_t key, uint32_t value);
     private:
@@ -121,8 +123,8 @@ namespace cache {
       inline uint32_t v_to_size(uint32_t v) { 
         return comp_code_to_size(v_to_comp_code(v));
       }
-      inline uint32_t clock_inc(uint32_t &v) { v = (v == 3) ? v : v + 1; }
-      inline uint32_t clock_dec(uint32_t &v) { v = v - 1; }
+      inline void clock_inc(uint32_t &v) { v = (v == 3) ? v : v + 1; }
+      inline void clock_dec(uint32_t &v) { v = v - 1; }
       inline bool valid(uint32_t v) { return v & 3; }
       uint32_t find_non_occupied_position(uint32_t size);
   };

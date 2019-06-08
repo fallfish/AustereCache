@@ -41,7 +41,7 @@ namespace cache {
   }
 
   void Chunk::merge_read(const Chunk &c) {
-    memcpy(_buf, _buf + _addr % chunk_size, _len);
+    memcpy(_buf, _buf + _addr % Config::chunk_size, _len);
   }
 
   Chunker::Chunker(uint8_t *buf, uint32_t len, uint32_t addr)
