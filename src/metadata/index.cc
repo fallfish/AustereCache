@@ -32,6 +32,11 @@ namespace cache {
 
   void LBAIndex::update(uint32_t lba_hash, uint32_t ca_hash)
   {
+    uint32_t bucket_no = lba_hash >> _n_bits_per_key;
+    uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
+    if (lba_hash == 3458544)
+      std::cout << lba_hash << " " << signature << std::endl;
+    _buckets[bucket_no]->update(signature, ca_hash, _ca_index);
   }
 
   CAIndex::CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
@@ -61,7 +66,6 @@ namespace cache {
     uint32_t value;
     uint32_t index = _buckets[bucket_no]->lookup(signature, value);
     if (index == ~((uint32_t)0)) return false;
-    _buckets[bucket_no]->update(index, value);
     ssd_location = compute_ssd_location(bucket_no, index);
 
     return true;
@@ -72,7 +76,12 @@ namespace cache {
     uint32_t bucket_no = ca_hash >> _n_bits_per_key;
     uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
 
-    // find contiguous spaces size can fit in
+//     find contiguous spaces size can fit in
     _buckets[bucket_no]->update(signature, size);
+    uint32_t index = _buckets[bucket_no]->lookup(signature, size);
+//    std::cout << "CAIndex: " << std::endl;
+//    std::cout << "bucket_no: " << bucket_no << " index: "
+//      << index << " size: " << size << std::endl;
+    ssd_location = compute_ssd_location(bucket_no, index);
   }
 }

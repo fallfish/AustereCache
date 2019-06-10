@@ -22,7 +22,7 @@ add_library(cache
 
   src/device/device.cc
   src/utils/MurmurHash3.cpp)
- 
+
 
 ################################
 # GTest

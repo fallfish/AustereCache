@@ -7,8 +7,10 @@
 #include "metadata/bitmap.h"
 #include "metadata/bucket.h"
 
+class ClockIndex;
 class LRUCache {
  public:
+  LRUCache() {}
   LRUCache(uint32_t size) : _size(size)
   {
     _data.resize(size);
@@ -42,6 +44,9 @@ class LRUCache {
     }
     _data[_size - 1] = std::make_pair(key, value);
   }
+
+  void update(uint32_t key, uint32_t value,
+    std::shared_ptr<ClockIndex> clock_index);
  private:
   std::vector<std::pair<uint32_t, uint32_t>> _data;
   uint32_t _size;
@@ -49,6 +54,7 @@ class LRUCache {
 
 class ClockCache {
  public:
+  ClockCache() {}
   ClockCache(uint32_t size) : _size(size), _clock_ptr(0) {
     _data.resize(_size);
     for (uint32_t i = 0; i < size; i++)
@@ -97,7 +103,8 @@ class ClockCache {
         break;
       }
     }
-    //std::cout << "ClockCache::space: " << space << " index: " << index << " value: " << value << std::endl;
+//    std::cout << "ClockCache::space: " << space << " index: " << index << " value: " << value
+//      << " _size: " << _size << std::endl;
     // eviction needed
     if (space < value) {
       space = 0;
@@ -188,7 +195,7 @@ TEST(Index, LBABucket)
   cache::LBABucket bucket(n_bits_lba_sig, n_bits_ca_hash, 32);
   LRUCache cache(32);
   std::map<uint32_t, uint32_t> map_bucket;
-  for (uint32_t i = 0; i < 100000; i++) {
+  for (uint32_t i = 0; i < 1000000; i++) {
     uint32_t op = rand() % 2;
     if (op == 1) {
       uint32_t lba_sig = rand() & ((1 << n_bits_lba_sig) - 1);
@@ -222,7 +229,7 @@ TEST(Index, CABucket)
     uint32_t op = rand() % 2;
     if (op == 0) {
       uint32_t ca_sig = rand() % ((1 << n_bits_ca_sig) - 1);
-      uint32_t size = rand() % 3 + 1;
+      uint32_t size = (rand() & 3) + 1;
       //std::cout << "update: " << ca_sig << " " << size << std::endl;
       ca_bucket.update(ca_sig, size);
       cache.update(ca_sig, size);
@@ -242,5 +249,173 @@ TEST(Index, CABucket)
       }
     }
   }
+}
+
+class LRUIndex {
+ public:
+  LRUIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
+           uint32_t n_buckets, uint32_t n_items_per_bucket,
+           std::shared_ptr<ClockIndex> clock_index) :
+    _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
+    _n_buckets(n_buckets), _n_items_per_bucket(n_items_per_bucket),
+    _clock_index(clock_index)
+  {
+    for (uint32_t index = 0; index < _n_buckets; ++index) {
+      _buckets[index] = LRUCache(_n_items_per_bucket);
+    }
+  }
+
+  bool lookup(uint32_t lba_hash, uint32_t &ca_hash)
+  {
+    uint32_t bucket_no = lba_hash >> _n_bits_per_key;
+    uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
+    return _buckets[bucket_no].lookup(signature, ca_hash) != ~((uint32_t)0);
+  }
+
+  void update(uint32_t lba_hash, uint32_t ca_hash)
+  {
+    uint32_t bucket_no = lba_hash >> _n_bits_per_key;
+    uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
+    _buckets[bucket_no].update(signature, ca_hash, _clock_index);
+  }
+
+
+ private:
+  LRUCache _buckets[1024];
+  uint32_t _n_bits_per_key, _n_bits_per_value,
+    _n_buckets, _n_items_per_bucket;
+  std::shared_ptr<ClockIndex> _clock_index;
+};
+class ClockIndex {
+ public:
+  // n_bits_per_key = 12, n_bits_per_value = 4
+  ClockIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
+          uint32_t n_buckets, uint32_t n_items_per_bucket) :
+    _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
+    _n_buckets(n_buckets), _n_items_per_bucket(n_items_per_bucket)
+  {
+    for (uint32_t index = 0; index < _n_buckets; ++index) {
+      _buckets[index] = ClockCache(_n_items_per_bucket);
+    }
+  }
+
+  uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index)
+  {
+    // 8192 is chunk size, while 512 is the metadata size
+    return (bucket_no * _n_items_per_bucket + index) * (8192 + 512);
+  }
+
+  bool lookup(uint32_t ca_hash, uint32_t &size, uint32_t &ssd_location)
+  {
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
+    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+    uint32_t value;
+    uint32_t index = _buckets[bucket_no].lookup(signature, value);
+    if (index == ~((uint32_t)0)) return false;
+    ssd_location = compute_ssd_location(bucket_no, index);
+
+    return true;
+  }
+
+  void update(uint32_t ca_hash, uint32_t size, uint32_t &ssd_location)
+  {
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
+    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+
+//     find contiguous spaces size can fit in
+    _buckets[bucket_no].update(signature, size);
+    uint32_t index = _buckets[bucket_no].lookup(signature, size);
+//    std::cout << "ClockIndex: " << std::endl;
+//    std::cout << "bucket_no: " << bucket_no << " index: "
+//      << index << " size: " << size << std::endl;
+    ssd_location = compute_ssd_location(bucket_no, index);
+  }
+
+ private:
+  ClockCache _buckets[1024];
+  uint32_t _n_bits_per_key, _n_bits_per_value,
+    _n_buckets, _n_items_per_bucket;
+};
+
+void LRUCache::update(uint32_t key, uint32_t value,
+                      std::shared_ptr<ClockIndex> clock_index)
+{
+  uint32_t v;
+  uint32_t index = lookup(key, v);
+  if (index != ~(uint32_t)0) {
+  } else {
+    uint32_t pos = 0;
+    index = 0;
+    while (index < _size) {
+      uint32_t v, ssd_location;
+      bool result = clock_index->lookup(_data[index].second, v, ssd_location);
+      if (!result) {
+//        std::cout << "LRUCache::evict: " << _data[index].second << std::endl;
+        _data[index] = std::make_pair(0, 0);
+        pos = index;
+      }
+      ++index;
+    }
+    index = pos;
+  }
+  while (index < _size - 1) {
+    _data[index] = _data[index + 1];
+    ++index;
+  }
+  _data[_size - 1] = std::make_pair(key, value);
+}
+
+TEST(Index, Index) {
+  uint32_t n_buckets = 1024;
+  std::shared_ptr<cache::CAIndex> ca_index =
+    std::make_shared<cache::CAIndex>(12, 4, n_buckets, 32);
+  std::unique_ptr<cache::LBAIndex> lba_index =
+    std::make_unique<cache::LBAIndex>(12, 22, n_buckets, 32, ca_index);
+  std::shared_ptr<ClockIndex> clock_index =
+    std::make_shared<ClockIndex>(12, 4, n_buckets, 32);
+  std::unique_ptr<LRUIndex> lru_index =
+    std::make_unique<LRUIndex>(12, 22, n_buckets, 32, clock_index);
+
+  srand(0);
+  for (uint32_t i = 0; i < 15000; i++) {
+
+    uint32_t op = rand() % 2;
+    if (op == 0) {
+      uint32_t lba_sig = rand() & ((1 << 22) - 1);
+      uint32_t ca_sig = rand() & ((1 << 22) - 1);
+      uint32_t size = (rand() & 3) + 1;
+      uint32_t ssd_location_ca = 0;
+      uint32_t ssd_location_clock = 0;
+      {
+        clock_index->update(ca_sig, size, ssd_location_clock);
+        lru_index->update(lba_sig, ca_sig);
+      }
+      {
+        ca_index->update(ca_sig, size, ssd_location_ca);
+        lba_index->update(lba_sig, ca_sig);
+      }
+      EXPECT_EQ(ssd_location_ca, ssd_location_clock);
+      std::cout << "lba_sig: " << lba_sig << " ca_sig: " << ca_sig << std::endl;
+    } else {
+      uint32_t lba_sig = rand() & ((1 << 22) - 1);
+      std::cout << "lba_sig: " << lba_sig << std::endl;
+      uint32_t ca_sig_clock = 0, ca_sig_ca = 0;
+      uint32_t size_ca = 0, size_clock = 0;
+      uint32_t ssd_location_ca = 0;
+      uint32_t ssd_location_clock = 0;
+      {
+        lru_index->lookup(lba_sig, ca_sig_clock);
+        ca_index->lookup(ca_sig_clock, size_clock, ssd_location_clock);
+      }
+      {
+        lba_index->lookup(lba_sig, ca_sig_ca);
+        ca_index->lookup(ca_sig_ca, size_ca, ssd_location_ca);
+      }
+      EXPECT_EQ(ca_sig_ca, ca_sig_clock);
+      EXPECT_EQ(size_ca, size_clock);
+      EXPECT_EQ(ssd_location_ca, ssd_location_clock);
+    }
+  }
+
 }
 #endif

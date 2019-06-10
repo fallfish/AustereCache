@@ -55,9 +55,14 @@ namespace cache {
     for (uint32_t i = 0; i < _n_items; i++) {
       uint32_t v = get_v(i);
       uint32_t size, ssd_location; // useless variables
+      // note here that v = 0 can result in too many evictions
+      // needs ~15 lookup per update, further optimization needed
+      // but correctness not impacted
       if (ca_index != nullptr)
         valid = ca_index->lookup(v, size, ssd_location);
       if (!valid) {
+//        std::cout << "LBABucket::evict: " << v << std::endl;
+//        if (v == 0) std::cout << "v = 0" << std::endl;
         set_k(i, 0), set_v(i, 0);
         position = i;
       }
@@ -78,7 +83,6 @@ namespace cache {
       set_v(index, ca_hash);
     }
     advance(index);
-
   }
 
   CABucket::CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
