@@ -395,10 +395,10 @@ TEST(Index, Index) {
         lba_index->update(lba_sig, ca_sig);
       }
       EXPECT_EQ(ssd_location_ca, ssd_location_clock);
-      std::cout << "lba_sig: " << lba_sig << " ca_sig: " << ca_sig << std::endl;
+//      std::cout << "lba_sig: " << lba_sig << " ca_sig: " << ca_sig << std::endl;
     } else {
       uint32_t lba_sig = rand() & ((1 << 22) - 1);
-      std::cout << "lba_sig: " << lba_sig << std::endl;
+//      std::cout << "lba_sig: " << lba_sig << std::endl;
       uint32_t ca_sig_clock = 0, ca_sig_ca = 0;
       uint32_t size_ca = 0, size_clock = 0;
       uint32_t ssd_location_ca = 0;

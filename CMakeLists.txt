@@ -11,17 +11,18 @@ include_directories(src)
 add_library(cache
   src/metadata/bucket.cc
   src/metadata/index.cc
+  src/metadata/metaverification.cc
+  src/metadata/metajournal.cc
+  src/metadata/metadatamodule.cc
 
   src/chunk/chunkmodule.cc
-
-  #src/metadata/metadatamodule.cc
 
   src/deduplication/deduplicationmodule.cc
 
   src/ssddup/ssddup.cc
 
   src/device/device.cc
-  src/utils/MurmurHash3.cpp)
+  src/utils/MurmurHash3.cpp )
 
 
 ################################

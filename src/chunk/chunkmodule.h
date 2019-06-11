@@ -1,6 +1,7 @@
 #ifndef __CHUNK_H__
 #define __CHUNK_H__
 #include <cstdint>
+#include "common/config.h"
 
 namespace cache {
 
@@ -13,9 +14,9 @@ namespace cache {
 
     uint32_t _lba_hash;
     uint32_t _ca_hash;
-    uint8_t  _ca[16];
+    uint8_t  _ca[Config::ca_length];
 
-    uint32_t _size;
+    uint32_t _size; // compression level: 1, 2, 3, 4 * 8k
     uint32_t _ssd_location;
 
 

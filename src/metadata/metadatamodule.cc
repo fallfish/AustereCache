@@ -1,12 +1,17 @@
 #include "metadatamodule.h"
+#include "metaverification.h"
+#include "metajournal.h"
 
 namespace cache {
   MetadataModule::MetadataModule() {
     _ca_index = std::make_shared<CAIndex>(12, 4, 1024, 32);
-    _lba_index = std::make_unique<LBAIndex>(12, 12, 1024, 32);
-    _meta_verification = std::make_unique<MetaVerfication>();
+    _lba_index = std::make_unique<LBAIndex>(12, 12, 1024, 32, _ca_index);
+    // _meta_verification and _meta_journal should
+    // hold a shared_ptr to _io_module
+    _meta_verification = std::make_unique<MetaVerification>();
+    _meta_journal = std::make_unique<MetaJournal>();
   }
-  uint32_t MetadataModule::lookup(const Chunk &c, bool write_path)
+  LookupResult MetadataModule::lookup(Chunk &c, bool write_path)
   {
     if (write_path) {
       return lookup_write_path(c);
@@ -15,58 +20,75 @@ namespace cache {
     }
   }
 
-  uint32_t MetadataModule::lookup_write_path(const Chunk &c)
+  LookupResult MetadataModule::lookup_write_path(Chunk &c)
   {
     uint32_t ca_hash;
     bool lba_hit = false, ca_hit = false;
-    uint32_t ssd_location, valid = 0;
-    lba_hit = _lba_index->lookup(&c._lba_hash, &ca_hash);
-    ca_hit = _ca_index->lookup(&c._ca_hash, &ssd_location);
+    uint32_t ssd_location;
+    lba_hit = _lba_index->lookup(c._lba_hash, ca_hash);
+    ca_hit = _ca_index->lookup(c._ca_hash, c._size, c._ssd_location);
 
-    if (ca_hash == c.ca_hash && ca_hit && lba_hit) {
-      // there is three types of validation
-      // 1. lba valid and ca valid, valid = 2
-      // 2. ca valid but lba not valid, valid = 1
-      // 3. ca not valid, valid = 0
-      valid = _meta_verification->verify(c._lba, c._ca, ssd_location);
+    VerificationResult verification_result = VerificationResult::VERIFICATION_UNKNOWN;
+    if (ca_hash == c._ca_hash && ca_hit) {
+      verification_result = _meta_verification->verify(c._addr, c._ca, ssd_location);
     }
 
-    c.ssd_loaction = ssd_loaction;
-    if (ca_hit && lba_hit && valid == 2) {
+    if (ca_hit && lba_hit && verification_result == LBA_AND_CA_VALID) {
       // duplicate write
-      return 2;
-    } else if (ca_hit && valid == 1) {
+      return LookupResult::WRITE_DUP_WRITE;
+    } else if (ca_hit &&
+               (verification_result == ONLY_CA_VALID ||
+                verification_result == LBA_AND_CA_VALID)){
       // duplicate content
-      return 1;
+      return LookupResult::WRITE_DUP_CONTENT;
     } else {
       // not duplicate
-      return 0;
+      return LookupResult::WRITE_NOT_DUP;
     }
   }
 
-  uint32_t MetadataModule::lookup_read_path(const Chunk &c)
+  LookupResult MetadataModule::lookup_read_path(Chunk &c)
   {
     uint32_t ca_hash;
     bool lba_hit = false, ca_hit = false;
-    uint32_t ssd_location, valid = 0;
+    VerificationResult verification_result = VerificationResult::VERIFICATION_UNKNOWN;
 
-    lba_hit = _lba_index->lookup(&c._lba_hash, &ca_hash);
+    lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
     if (lba_hit) {
-      ca_hit = _ca_index->lookup(&ca_hash, &ssd_location);
+      ca_hit = _ca_index->lookup(c._ca_hash, c._size, c._ssd_location);
       if (ca_hit) {
-        valid = _meta_verification->verify(c._lba, ssd_location);
+        verification_result = _meta_verification->verify(c._addr, nullptr, c._ssd_location);
       }
     }
 
-    c._ssd_loaction = ssd_location; 
-    return (lba_hit && ca_hit && valid);
+    if (verification_result == VerificationResult::LBA_AND_CA_VALID) {
+      return LookupResult::READ_HIT;
+    } else {
+      return LookupResult::READ_NOT_HIT;
+    }
   }
 
-  uint32_t MetadataModule::update(const Chunk &c)
+  void MetadataModule::update(Chunk &c, LookupResult lookup_result)
   {
-    _ca_index->update(&c._ca_hash, c._size, c._ssd_location);    
-    _lba_index->update(&lba_hash, c._ca_hash);
+    _ca_index->update(c._ca_hash, c._size, c._ssd_location);
+    _lba_index->update(c._lba_hash, c._ca_hash);
 
-    return 0;
+    _meta_journal->add_update(c);
+
+    // Cases when metadata update is needed
+    // for write path:
+    // 1. Write_Dup_Content
+    // 2. Write_Not_Dup
+    // for read path:
+    // 1. Read_Not_Hit
+    // The thing is "We always need to cache an item when it's
+    // not in the cache".
+    if (lookup_result == WRITE_DUP_CONTENT ||
+        lookup_result == WRITE_NOT_DUP ||
+        lookup_result == READ_NOT_HIT) {
+      _meta_verification->update(c._addr, c._ca, c._ssd_location);
+    }
+
+    return ;
   }
 }

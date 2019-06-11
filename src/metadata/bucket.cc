@@ -23,7 +23,6 @@ namespace cache {
   /*
    * memory is byte addressable
    * alignment issue needs to be dealed for each element
-   *
    */
   uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &ca_hash) {
     for (uint32_t index = 0; index < _n_items; index++) {

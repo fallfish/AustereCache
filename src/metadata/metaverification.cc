@@ -1,28 +1,30 @@
+#include "common/config.h"
+#include "common.h"
 #include "metaverification.h"
-#include "metadatamodule.h"
+#include <cstring>
 
 namespace cache {
-  uint32_t MetaVerification::verify(uint32_t lba, uint8_t *ca, uint32_t ssd_location)
+  VerificationResult MetaVerification::verify(uint32_t lba, uint8_t *ca, uint32_t ssd_location)
   {
     // read metadata from _io_module
-    Metadata metadata;
-    _io_module->read(ssd_location, &metadata);
+//    _io_module->read(_metadata, ssd_location, 512);
 
     // verify the validity and return corresponding flag
     bool lba_valid = false, ca_valid = false;
     for (uint32_t i = 0; i < 64; i++) {
-      if (lba == metadata.lbas[i]) {
+      if (lba == _metadata._lbas[i]) {
         lba_valid = true;
         break;
       }
     }
-    ca_valid = (memcpy(ca, metadata.ca, 16) == 0);
+    if (ca != nullptr)
+      ca_valid = (memcmp(ca, _metadata._ca, Config::ca_length) == 0);
 
     if (ca_valid && lba_valid)
-      return 2;
+      return VerificationResult::LBA_AND_CA_VALID;
     else if (ca_valid)
-      return 1;
+      return VerificationResult::ONLY_CA_VALID;
     else
-      return 0;
+      return VerificationResult::CA_NOT_VALID;
   }
 }
