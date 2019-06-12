@@ -38,4 +38,15 @@ Then modify-write it.
 Now I choose to in-place update the bitmap and organize it not-that-compactedly.
 Specifically, each bucket wraps a bitmap, rather than an index wraps a "huge" bitmap.
 This might create some wastes because bitmaps are aligned for buckets, but not much at all.
-
+2019.06.11
+1. Finish the metadatamodule with verification and journalling needing further amendment when IO module is ready.
+2. Tests to the main Index structure has finished, however, the performance needs optimized.
+3. I also would like to leave the hit ratio to the future.
+4. For the LBA bucket, I currently have no "valid bit" and assume 0 as invalid, which is not right.
+   Luckily, this could be easily fixed given that we have existing framework.
+5. We might also need real world traces to further test the correctness.
+2019.06.12
+Read Intel SPDK documents.
+SPDK already has examples that create block devices out of NVMe, Memdisk, and Ceph RBD.
+One possibility is that we treat SPDK block device the same as the linux one.
+The other possibility is that we integrate SPDK into the application to co-design the indexing structure and io channel management.

@@ -21,8 +21,8 @@ add_library(cache
 
   src/ssddup/ssddup.cc
 
-  src/device/device.cc
-  src/utils/MurmurHash3.cpp )
+        src/io/device/device.cc
+  src/utils/MurmurHash3.cpp src/io/iomodule.h src/io/iomodule.cc)
 
 
 ################################
