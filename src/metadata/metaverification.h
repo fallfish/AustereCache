@@ -1,10 +1,12 @@
 #ifndef __METAVERIFICATION_H__
 #define __METAVERIFICATION_H__
-#include "common.h"
+#include "common/common.h"
 #include <cstdint>
+#include "io/iomodule.h"
 namespace cache {
   class MetaVerification {
    public:
+    MetaVerification(std::shared_ptr<IOModule> io_module);
     VerificationResult verify(uint32_t lba, uint8_t *ca, uint32_t ssd_location);
     uint32_t update(uint32_t lba, uint8_t *ca, uint32_t &ssd_location);
    private:
@@ -15,7 +17,7 @@ namespace cache {
     Metadata _metadata;
     uint32_t _ssd_location;
 
-     //std::shared_ptr<IOModule> _io_module;
+    std::shared_ptr<IOModule> _io_module;
   };
 }
 #endif

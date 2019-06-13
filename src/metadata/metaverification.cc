@@ -1,13 +1,17 @@
 #include "common/config.h"
-#include "common.h"
+#include "common/common.h"
 #include "metaverification.h"
 #include <cstring>
 
 namespace cache {
+  MetaVerification::MetaVerification(std::shared_ptr<cache::IOModule> io_module) :
+    _io_module(io_module)
+  {}
+
   VerificationResult MetaVerification::verify(uint32_t lba, uint8_t *ca, uint32_t ssd_location)
   {
     // read metadata from _io_module
-//    _io_module->read(_metadata, ssd_location, 512);
+    _io_module->read(0, ssd_location, &_metadata, 512);
 
     // verify the validity and return corresponding flag
     bool lba_valid = false, ca_valid = false;

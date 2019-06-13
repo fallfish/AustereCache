@@ -34,8 +34,6 @@ namespace cache {
   {
     uint32_t bucket_no = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
-    if (lba_hash == 3458544)
-      std::cout << lba_hash << " " << signature << std::endl;
     _buckets[bucket_no]->update(signature, ca_hash, _ca_index);
   }
 

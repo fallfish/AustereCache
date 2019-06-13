@@ -3,14 +3,15 @@
 #include "metajournal.h"
 
 namespace cache {
-  MetadataModule::MetadataModule() {
+  MetadataModule::MetadataModule(std::shared_ptr<IOModule> io_module) {
     _ca_index = std::make_shared<CAIndex>(12, 4, 1024, 32);
     _lba_index = std::make_unique<LBAIndex>(12, 12, 1024, 32, _ca_index);
     // _meta_verification and _meta_journal should
     // hold a shared_ptr to _io_module
-    _meta_verification = std::make_unique<MetaVerification>();
-    _meta_journal = std::make_unique<MetaJournal>();
+    _meta_verification = std::make_unique<MetaVerification>(io_module);
+    _meta_journal = std::make_unique<MetaJournal>(io_module);
   }
+
   LookupResult MetadataModule::lookup(Chunk &c, bool write_path)
   {
     if (write_path) {
@@ -26,7 +27,7 @@ namespace cache {
     bool lba_hit = false, ca_hit = false;
     uint32_t ssd_location;
     lba_hit = _lba_index->lookup(c._lba_hash, ca_hash);
-    ca_hit = _ca_index->lookup(c._ca_hash, c._size, c._ssd_location);
+    ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
 
     VerificationResult verification_result = VerificationResult::VERIFICATION_UNKNOWN;
     if (ca_hash == c._ca_hash && ca_hit) {
@@ -55,7 +56,7 @@ namespace cache {
 
     lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
     if (lba_hit) {
-      ca_hit = _ca_index->lookup(c._ca_hash, c._size, c._ssd_location);
+      ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
       if (ca_hit) {
         verification_result = _meta_verification->verify(c._addr, nullptr, c._ssd_location);
       }
@@ -70,7 +71,7 @@ namespace cache {
 
   void MetadataModule::update(Chunk &c, LookupResult lookup_result)
   {
-    _ca_index->update(c._ca_hash, c._size, c._ssd_location);
+    _ca_index->update(c._ca_hash, c._compress_level, c._ssd_location);
     _lba_index->update(c._lba_hash, c._ca_hash);
 
     _meta_journal->add_update(c);

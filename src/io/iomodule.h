@@ -7,14 +7,14 @@ namespace cache {
 class IOModule {
  public:
   IOModule();
-  uint32_t add_cache_device(char *filename, uint32_t type);
+  uint32_t add_cache_device(char *filename);
   uint32_t add_primary_device(char *filename);
-  uint32_t read(uint8_t *buf, uint32_t len, uint32_t addr);
-  uint32_t write(uint8_t *buf, uint32_t len, uint32_t addr);
+  uint32_t read(uint32_t device, uint64_t addr, void *buf, uint32_t len);
+  uint32_t write(uint32_t device, uint64_t addr, void *buf, uint32_t len);
  private:
   // Currently, we assume that only one cache and one primary
-  std::unique_ptr< Device > _cache_device;
-  std::unique_ptr< Device > _primary_device;
+  std::unique_ptr< BlockDevice > _cache_device;
+  std::unique_ptr< BlockDevice > _primary_device;
 };
 
 }

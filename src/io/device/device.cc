@@ -1,11 +1,11 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cstdint>
 #include <cstring>
-#include <>
 
 #include "device.h"
 #include "utils/MurmurHash3.h"
@@ -13,76 +13,109 @@
 namespace cache {
   Device::~Device() {}
 
-  int BlockDevice::open(char *filename, uint32_t size)
+  BlockDevice::BlockDevice() {}
+
+  int BlockDevice::open(char *filename, uint64_t size)
   {
     struct stat stat_buf;
     int handle = ::stat(filename, &stat_buf);
     if (handle == -1) {
       if (errno == ENOENT) {
-        open_new_device(filename, size);
+        return open_new_device(filename, size);
       } else {
         // unexpected error
         return -1;
       }
     } else {
-      open_existing_device(filename);
+      return open_existing_device(filename, size, &stat_buf);
     }
   }
 
-  int BlockDevice::write(uint8_t* buf, uint32_t len, uint32_t offset)
+  int BlockDevice::write(uint64_t addr, uint8_t* buf, uint32_t len)
   {
-    assert(offset % 512 == 0);
+    assert(addr % 512 == 0);
     assert(len % 512 == 0);
-    //::write(_handler, buf, len);
-    memcpy((uint8_t*)_device_buffer + offset, buf, len);
-    //msync(_device_buffer, len, MS_SYNC);
+    if (addr + len > _size) {
+      len -= addr + len - _size;
+    }
+
+    int n_written_bytes = 0;
+    while (1) {
+      int n = ::pwrite(_fd, buf, len, addr);
+      n_written_bytes += n;
+      if (n == len) {
+        break;
+      } else {
+        buf += n;
+        len -= n;
+      }
+    }
+    return n_written_bytes;
   }
 
-  int BlockDevice::read(uint8_t* buf, uint32_t len, uint32_t offset)
+  int BlockDevice::read(uint64_t addr, uint8_t* buf, uint32_t len)
   {
-    assert(offset % 512 == 0);
+    assert(addr % 512 == 0);
     assert(len % 512 == 0);
-    memcpy(buf, (uint8_t*)_device_buffer + offset, len);
-    //msync(_device_buffer, len, MS_SYNC);
+
+    if (addr + len > _size) {
+      len -= addr + len - _size;
+    }
+
+    int n_read_bytes = 0;
+    while (1) {
+      int n = ::pread(_fd, buf, len, addr);
+      n_read_bytes += n;
+      if (n == len) {
+        break;
+      } else {
+        buf += n;
+        len -= n;
+      }
+    }
+    return n_read_bytes;
   }
 
   BlockDevice::~BlockDevice()
   {
-    close(_handler);
+    close(_fd);
   }
 
-  int BlockDevice::open_new_device(char *filename, uint32_t size)
+  int BlockDevice::open_new_device(char *filename, uint64_t size)
   {
-    int fid = 0;
+    std::cout << "BlockDevice::Open new device!" << std::endl;
+    int fd = 0;
     if (size == 0) {
       // error: new file needs to be created, however the size given is 0.
       return -1;
     }
-    fid = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
-    if (fid < 0) {
+    fd = ::open(filename, O_RDWR | 0 | O_CREAT, 0666);
+    if (fd < 0) {
       // cannot create device with O_DIRECT
-      fid = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
-      if (fid < 0) {
+      fd = ::open(filename, O_RDWR | 0 | O_CREAT, 0666);
+      if (fd < 0) {
         // cannot open the file
         return -1;
       }
     }
-    if (::ftruncate64(fid, size) < 0) {
-      // cannot truncate the fid into the given size
+    if (::ftruncate(fd, size) < 0) {
+      // cannot truncate the file into the given size
       return -1;
     }
-    _handler = fid;
+    _fd = fd;
     _size = size;
+    return 0;
   }
 
-  int BlockDevice::open_existing_device(char *filename, uint32_t size, struct statbuf *statbuf)
+  int BlockDevice::open_existing_device(char *filename, uint64_t size, struct stat *statbuf)
   {
-    int fid = 0;
-    fid = ::open(filename, O_RDWR | O_DIRECT);
-    if (fid < 0) {
+    int fd = 0;
+    std::cout << "BlockDevice::Open existing device!" << std::endl;
+    fd = ::open(filename, O_RDWR | 0);
+    if (fd < 0) {
       // cannot open device with O_DIRECT;
-      fid = ::open(filename, O_RDWR);
-      if (fid < 0) {
+      fd = ::open(filename, O_RDWR);
+      if (fd < 0) {
         // cannot open file
         return -1;
       }
@@ -92,26 +125,27 @@ namespace cache {
       if (S_ISREG(statbuf->st_mode))
         size = statbuf->st_size;
       else
-        size = get_size(fid);
+        size = get_size(fd);
     }
     _size = size;
-    _handler = fid;
+    _fd = fd;
+    return 0;
   }
 
-  uint32_t BlockDevice::get_size(int fid)
+  int BlockDevice::get_size(int fd)
   {
     uint32_t offset = 1024;
     uint32_t prev_offset = 0;
     char buffer[1024];
-    char *read_buffer = (char*)((long)buffer + 511) & ~511;
+    char *read_buffer = (char*)(((long)buffer + 511) & ~511);
 
     while (1) {
-      if (lseek(fid, offset, SEEK_SET) == -1) {
+      if (::lseek(fd, offset, SEEK_SET) == -1) {
         offset -= (offset - prev_offset) / 2;
         continue;
       }
       int nr = 0;
-      if ( (nr = read(fid, buffer, 512)) != 512 ) {
+      if ( (nr = ::read(fd, read_buffer, 512)) != 512 ) {
         if (nr >= 0) {
           offset += nr;
           return offset;
@@ -126,6 +160,7 @@ namespace cache {
         offset *= 2;
       }
     }
-    return 0;
   }
+
+//  MemoryBlockDevice::MemoryBlockDevice() {}
 }

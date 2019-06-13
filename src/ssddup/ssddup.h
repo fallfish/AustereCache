@@ -4,18 +4,23 @@
 #include <memory>
 #include "chunk/chunkmodule.h"
 #include "deduplication/deduplicationmodule.h"
+#include "compression/compressionmodule.h"
+#include "manage/managemodule.h"
 
 namespace cache {
-  class SSDDup {
-   public:
-    void read(uint32_t addr, uint32_t length, uint8_t *buf);
-    void internal_read(Chunk &c, bool update_metadata);
-    void write(uint32_t addr, uint32_t length, uint8_t *buf);
-    void internal_write(Chunk &c, bool update_metadata);
-   private:
-    std::unique_ptr<ChunkModule> _chunk_module;
-    std::unique_ptr<DeduplicationModule> _deduplication_module;
-  };
+class SSDDup {
+ public:
+  SSDDup();
+  void read(uint64_t addr, void *buf, uint32_t len);
+  void write(uint64_t addr, void *buf, uint32_t len);
+ private:
+  void internal_read(Chunk &c, bool update_metadata);
+  void internal_write(Chunk &c, bool update_metadata);
+  std::unique_ptr<ChunkModule> _chunk_module;
+  std::unique_ptr<DeduplicationModule> _deduplication_module;
+  std::unique_ptr<CompressionModule> _compression_module;
+  std::unique_ptr<ManageModule> _manage_module;
+};
 }
 
 

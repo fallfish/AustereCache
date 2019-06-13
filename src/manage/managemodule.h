@@ -1,0 +1,23 @@
+#ifndef __MANAGEMODULE_H__
+#define __MANAGEMODULE_H__
+
+#include "common/common.h"
+#include "managemodule.h"
+#include "io/iomodule.h"
+#include "chunk/chunkmodule.h"
+#include "metadata/metadatamodule.h"
+
+namespace cache {
+
+class ManageModule {
+ public:
+  ManageModule(std::shared_ptr<IOModule> io_module, std::shared_ptr<MetadataModule> metadata_module);
+  int read(Chunk &c, LookupResult lookup_result, bool update_metadata);
+  int write(Chunk &c, LookupResult lookup_result);
+ private:
+  std::shared_ptr<IOModule> _io_module;
+  std::shared_ptr<MetadataModule> _metadata_module;
+};
+
+}
+#endif //__MANAGEMODULE_H__

@@ -38,20 +38,17 @@ namespace cache {
     _len = chunk_size;
     _addr -= _addr % chunk_size;
     _buf = c._buf;
+    fingerprinting();
   }
 
   void Chunk::merge_read(const Chunk &c) {
     memcpy(_buf, _buf + _addr % Config::chunk_size, _len);
   }
 
-  Chunker::Chunker(uint8_t *buf, uint32_t len, uint32_t addr)
-  {
-    _chunk_size = Config::chunk_size;
-    _addr = addr;
-    _len = len;
-    _buf = buf;
-    //_mode = mode;
-  }
+  Chunker::Chunker(uint64_t addr, void *buf, uint32_t len) :
+    _chunk_size(Config::chunk_size),
+    _addr(addr), _len(len), _buf((uint8_t*)buf)
+  {}
 
   bool Chunker::next(Chunk &c)
   {
@@ -73,9 +70,9 @@ namespace cache {
   }
 
   ChunkModule::ChunkModule() {}
-  Chunker create_chunker(uint32_t addr, uint32_t len, uint8_t *buf)
+  Chunker create_chunker(uint64_t addr, void *buf, uint32_t len)
   {
-    Chunker chunker(buf, len, addr);
+    Chunker chunker(addr, buf, len);
     return chunker;
   }
 }

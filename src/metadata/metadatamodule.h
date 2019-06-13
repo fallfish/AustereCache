@@ -1,6 +1,6 @@
 #ifndef __METADATAMODULE_H__
 #define __METADATAMODULE_H__
-#include "common.h"
+#include "common/common.h"
 #include "chunk/chunkmodule.h"
 #include "index.h"
 #include "metaverification.h"
@@ -11,7 +11,7 @@ namespace cache {
 class MetadataModule {
  public:
   // initialize all submodules and start the journalling thread
-  MetadataModule();
+  MetadataModule(std::shared_ptr<IOModule> io_module);
   LookupResult lookup(Chunk &c, bool write_path);
   void update(Chunk &c, LookupResult lookup_result);
 
