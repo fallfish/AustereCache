@@ -195,7 +195,7 @@ TEST(Index, LBABucket)
   cache::LBABucket bucket(n_bits_lba_sig, n_bits_ca_hash, 32);
   LRUCache cache(32);
   std::map<uint32_t, uint32_t> map_bucket;
-  for (uint32_t i = 0; i < 1000000; i++) {
+  for (uint32_t i = 0; i < 100; i++) {
     uint32_t op = rand() % 2;
     if (op == 1) {
       uint32_t lba_sig = rand() & ((1 << n_bits_lba_sig) - 1);
@@ -225,7 +225,7 @@ TEST(Index, CABucket)
   cache::CABucket ca_bucket(n_bits_ca_sig, 4, 32);
   ClockCache cache(32);
   std::map<uint32_t, uint32_t> map_bucket;
-  for (uint32_t i = 0; i < 100000; i++) {
+  for (uint32_t i = 0; i < 100; i++) {
     uint32_t op = rand() % 2;
     if (op == 0) {
       uint32_t ca_sig = rand() % ((1 << n_bits_ca_sig) - 1);
@@ -377,7 +377,7 @@ TEST(Index, Index) {
     std::make_unique<LRUIndex>(12, 22, n_buckets, 32, clock_index);
 
   srand(0);
-  for (uint32_t i = 0; i < 15000; i++) {
+  for (uint32_t i = 0; i < 100; i++) {
 
     uint32_t op = rand() % 2;
     if (op == 0) {

@@ -42,8 +42,15 @@ void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
 void SSDDup::internal_read(Chunk &c, bool update_metadata)
 {
   LookupResult lookup_result = _deduplication_module->deduplicate(c, false);
-  _manage_module->read(c, lookup_result, update_metadata);
-  _compression_module->decompress(c, lookup_result);
+  _manage_module->read(c, lookup_result);
+  if (lookup_result == READ_HIT) {
+    _compression_module->decompress(c);
+  }
+  if (update_metadata && lookup_result == READ_NOT_HIT) {
+    _compression_module->compress(c);
+    c.fingerprinting();
+    _manage_module->write(c, lookup_result);
+  }
 }
 
 void SSDDup::write(uint64_t addr, void *buf, uint32_t len)
@@ -75,8 +82,10 @@ void SSDDup::write(uint64_t addr, void *buf, uint32_t len)
 
 void SSDDup::internal_write(Chunk &c, bool update_metadata)
 {
-   LookupResult lookup_result = _deduplication_module->deduplicate(c, true);
-   _compression_module->compress(c, lookup_result);
-   _manage_module->write(c, lookup_result);
+  c.fingerprinting();
+  LookupResult lookup_result = _deduplication_module->deduplicate(c, true);
+  if (lookup_result == WRITE_NOT_DUP)
+    _compression_module->compress(c);
+  _manage_module->write(c, lookup_result);
 }
 }

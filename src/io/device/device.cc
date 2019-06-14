@@ -83,7 +83,7 @@ namespace cache {
 
   int BlockDevice::open_new_device(char *filename, uint64_t size)
   {
-    std::cout << "BlockDevice::Open new device!" << std::endl;
+//    std::cout << "BlockDevice::Open new device!" << std::endl;
     int fd = 0;
     if (size == 0) {
       // error: new file needs to be created, however the size given is 0.
@@ -110,7 +110,7 @@ namespace cache {
   int BlockDevice::open_existing_device(char *filename, uint64_t size, struct stat *statbuf)
   {
     int fd = 0;
-    std::cout << "BlockDevice::Open existing device!" << std::endl;
+//    std::cout << "BlockDevice::Open existing device!" << std::endl;
     fd = ::open(filename, O_RDWR | 0);
     if (fd < 0) {
       // cannot open device with O_DIRECT;

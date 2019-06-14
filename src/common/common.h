@@ -9,7 +9,7 @@ namespace cache {
 // 512 bytes
 struct Metadata {
   uint8_t _ca[128];
-  uint32_t _reference_count;
+  uint32_t _num_lbas;
   uint64_t _lbas[37]; // 4 * 32
 };
 
@@ -19,7 +19,7 @@ enum LookupResult {
 };
 
 enum VerificationResult {
-  LBA_AND_CA_VALID, ONLY_CA_VALID, CA_NOT_VALID, VERIFICATION_UNKNOWN
+  LBA_AND_CA_VALID, ONLY_CA_VALID, ONLY_LBA_VALID, BOTH_LBA_AND_CA_NOT_VALID, VERIFICATION_UNKNOWN
 };
 
 struct Chunk {
@@ -42,6 +42,7 @@ struct Chunk {
     Chunk construct_read_chunk(uint8_t *buf);
     void merge_write(const Chunk &c);
     void merge_read(const Chunk &c);
+    void compute_lba_hash();
 };
 
 

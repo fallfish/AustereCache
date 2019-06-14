@@ -7,8 +7,8 @@ namespace cache {
   class MetaVerification {
    public:
     MetaVerification(std::shared_ptr<IOModule> io_module);
-    VerificationResult verify(uint32_t lba, uint8_t *ca, uint32_t ssd_location);
-    uint32_t update(uint32_t lba, uint8_t *ca, uint32_t &ssd_location);
+    VerificationResult verify(uint64_t lba, uint8_t *ca, uint64_t ssd_location);
+    void update(uint64_t lba, uint8_t *ca, uint64_t ssd_location);
    private:
     // In single threaded where verify and update is strictly sequential,
     // we can read the corresponding metadata during verify

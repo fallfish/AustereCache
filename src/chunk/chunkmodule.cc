@@ -9,8 +9,14 @@ namespace cache {
     assert(_len == Config::chunk_size);
     assert(_addr % Config::chunk_size == 0);
     MurmurHash3_x64_128(_buf, _len, 0, _ca);
-    MurmurHash3_x86_32(&_addr, 4, 1, &_lba_hash);
     MurmurHash3_x86_32(_ca, 16, 2, &_ca_hash);
+    _ca_hash >>= 14;
+  }
+
+  void Chunk::compute_lba_hash()
+  {
+    MurmurHash3_x86_32(&_addr, 4, 1, &_lba_hash);
+    _lba_hash >>= 14;
   }
 
   bool Chunk::is_partial() {
@@ -23,6 +29,7 @@ namespace cache {
     c._len = Config::chunk_size;
     c._buf = buf;
     memset(buf, 0, Config::chunk_size);
+    c.compute_lba_hash();
 
     return c;
   }
@@ -38,11 +45,11 @@ namespace cache {
     _len = chunk_size;
     _addr -= _addr % chunk_size;
     _buf = c._buf;
-    fingerprinting();
+    compute_lba_hash();
   }
 
   void Chunk::merge_read(const Chunk &c) {
-    memcpy(_buf, _buf + _addr % Config::chunk_size, _len);
+    memcpy(_buf, c._buf + _addr % Config::chunk_size, _len);
   }
 
   Chunker::Chunker(uint64_t addr, void *buf, uint32_t len) :
@@ -55,12 +62,13 @@ namespace cache {
     if (_len == 0) return false;
 
     uint32_t next_addr = 
-      (_addr - _addr % _chunk_size + _chunk_size) - (_addr + _len) < 0 ?
-      (_addr - _addr % _chunk_size + _chunk_size) : (_addr + _len);
+      ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?
+      ((_addr & ~(_chunk_size - 1)) + _chunk_size) : (_addr + _len);
 
     c._addr = _addr;
     c._len = next_addr - _addr;
     c._buf = _buf;
+    c.compute_lba_hash();
 
     _addr += c._len;
     _buf += c._len;
@@ -70,7 +78,7 @@ namespace cache {
   }
 
   ChunkModule::ChunkModule() {}
-  Chunker create_chunker(uint64_t addr, void *buf, uint32_t len)
+  Chunker ChunkModule::create_chunker(uint64_t addr, void *buf, uint32_t len)
   {
     Chunker chunker(addr, buf, len);
     return chunker;

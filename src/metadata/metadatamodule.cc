@@ -4,8 +4,8 @@
 
 namespace cache {
   MetadataModule::MetadataModule(std::shared_ptr<IOModule> io_module) {
-    _ca_index = std::make_shared<CAIndex>(12, 4, 1024, 32);
-    _lba_index = std::make_unique<LBAIndex>(12, 12, 1024, 32, _ca_index);
+    _ca_index = std::make_shared<CAIndex>(12, 4, 64, 32);
+    _lba_index = std::make_unique<LBAIndex>(12, 18, 64, 32, _ca_index);
     // _meta_verification and _meta_journal should
     // hold a shared_ptr to _io_module
     _meta_verification = std::make_unique<MetaVerification>(io_module);
@@ -57,12 +57,15 @@ namespace cache {
     lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
     if (lba_hit) {
       ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
+      if (c._compress_level != 4) {
+        uint32_t o = ca_hash;
+      }
       if (ca_hit) {
         verification_result = _meta_verification->verify(c._addr, nullptr, c._ssd_location);
       }
     }
 
-    if (verification_result == VerificationResult::LBA_AND_CA_VALID) {
+    if (verification_result == VerificationResult::ONLY_LBA_VALID) {
       return LookupResult::READ_HIT;
     } else {
       return LookupResult::READ_NOT_HIT;
