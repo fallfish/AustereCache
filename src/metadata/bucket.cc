@@ -1,3 +1,5 @@
+#include <utility>
+
 #include <cstring>
 #include "bitmap.h"
 #include "bucket.h"
@@ -14,7 +16,8 @@ namespace cache {
   Bucket::~Bucket() {}
 
   LBABucket::LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
-    Bucket(n_bits_per_key, n_bits_per_value, n_items)
+    Bucket(n_bits_per_key, n_bits_per_value, n_items),
+    _valid_bitmap(std::make_unique<Bitmap>(n_items))
   {
   }
 
@@ -42,9 +45,13 @@ namespace cache {
     for (uint32_t i = index; i < _n_items - 1; i++) {
       set_k(i, get_k(i + 1));
       set_v(i, get_v(i + 1));
+      _valid_bitmap->clear(i);
+      if (_valid_bitmap->get(i + 1))
+        _valid_bitmap->set(i);
     }
     set_k(_n_items - 1, k);
     set_v(_n_items - 1, v);
+    _valid_bitmap->set(_n_items - 1);
   }
 
   uint32_t LBABucket::find_non_occupied_position(std::shared_ptr<CAIndex> ca_index)
@@ -53,7 +60,8 @@ namespace cache {
     bool valid = true;
     for (uint32_t i = 0; i < _n_items; i++) {
       uint32_t v = get_v(i);
-      uint32_t size, ssd_location; // useless variables
+      if (!_valid_bitmap->get(i)) continue;
+      uint32_t size; uint64_t ssd_location; // useless variables
       // note here that v = 0 can result in too many evictions
       // needs ~15 lookup per update, further optimization needed
       // but correctness not impacted
@@ -63,6 +71,7 @@ namespace cache {
 //        std::cout << "LBABucket::evict: " << v << std::endl;
 //        if (v == 0) std::cout << "v = 0" << std::endl;
         set_k(i, 0), set_v(i, 0);
+        _valid_bitmap->clear(i);
         position = i;
       }
     }
@@ -77,11 +86,15 @@ namespace cache {
         set_v(index, ca_hash);
       }
     } else {
-      index = find_non_occupied_position(ca_index);
+      index = find_non_occupied_position(std::move(ca_index));
       set_k(index, lba_sig);
       set_v(index, ca_hash);
+      _valid_bitmap->set(index);
     }
     advance(index);
+    if (_valid_bitmap->get(0)) {
+      uint32_t v = 1;
+    }
   }
 
   CABucket::CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
@@ -129,8 +142,8 @@ namespace cache {
       }
       if (space == size) break;
     }
-    //std::cout << "CABucket::space: " << space << " index: " << index << " size: " << size << std::endl;
     if (space < size) {
+//      std::cout << "Need to evict previous one" << std::endl;
       space = 0;
       index = _clock_ptr;
       while (1) {
@@ -201,5 +214,12 @@ namespace cache {
     ////set_k(5, 7);
     //set_v(5, (1 << 2) | 1);
     //std::cout << "233333333: " << get_k(6) << std::endl;
+  }
+  void CABucket::erase()
+  {
+    for (uint32_t i = 0; i < _n_items; i++) {
+      set_k(i, 0);
+      set_v(i, 0);
+    }
   }
 }

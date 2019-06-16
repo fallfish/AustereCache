@@ -62,6 +62,7 @@ namespace cache {
     private:
       void advance(uint32_t index);
       uint32_t find_non_occupied_position(std::shared_ptr<CAIndex> ca_index);
+      std::unique_ptr<Bitmap> _valid_bitmap;
   };
 
   /*
@@ -74,6 +75,7 @@ namespace cache {
 
       int lookup(uint32_t ca_sig, uint32_t &size);
       void update(uint32_t ca_sig, uint32_t size);
+      void erase();
     private:
       inline uint32_t size_to_comp_code(uint32_t size) { return size - 1; }
       inline uint32_t comp_code_to_size(uint32_t comp_code) { return comp_code + 1; }

@@ -11,7 +11,7 @@ namespace cache {
     DeduplicationModule(std::shared_ptr<MetadataModule> metadata_module);
     // check whether chunk c is duplicate or not
     // return deduplication flag: duplicate_write, duplicate_content, or not duplicate
-    LookupResult deduplicate(Chunk &c, bool is_write_path);
+    void deduplicate(Chunk &c, bool is_write_path);
 
    private:
     std::shared_ptr<MetadataModule> _metadata_module;

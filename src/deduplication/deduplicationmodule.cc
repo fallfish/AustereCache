@@ -6,9 +6,9 @@ namespace cache {
     _metadata_module(metadata_module)
     {}
 
-  LookupResult DeduplicationModule::deduplicate(Chunk &c, bool is_write_path)
+  void DeduplicationModule::deduplicate(Chunk &c, bool is_write_path)
   {
-    return _metadata_module->lookup(c, is_write_path);
+    c._lookup_result = _metadata_module->lookup(c, is_write_path);
   }
 
 }

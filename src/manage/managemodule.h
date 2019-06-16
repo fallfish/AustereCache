@@ -13,8 +13,8 @@ namespace cache {
 class ManageModule {
  public:
   ManageModule(std::shared_ptr<IOModule> io_module, std::shared_ptr<MetadataModule> metadata_module);
-  int read(Chunk &c, LookupResult lookup_result);
-  int write(Chunk &c, LookupResult lookup_result);
+  int read(Chunk &c);
+  int write(Chunk &c);
 //  void update_metadata(Chunk &c, LookupResult lookup_result);
  private:
   std::shared_ptr<IOModule> _io_module;

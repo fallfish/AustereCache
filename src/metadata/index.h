@@ -47,8 +47,9 @@ namespace cache {
       // n_bits_per_key = 12, n_bits_per_value = 4
       CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_items_per_bucket);
-      bool lookup(uint32_t ca_hash, uint32_t &size, uint32_t &ssd_location);
-      void update(uint32_t ca_hash, uint32_t size, uint32_t &ssd_location);
+      bool lookup(uint32_t ca_hash, uint32_t &size, uint64_t &ssd_location);
+      void update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location);
+      void erase(uint32_t ca_hash);
     private:
       uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index);
       std::vector< std::unique_ptr<CABucket> > _buckets;

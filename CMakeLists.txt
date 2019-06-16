@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 project (SSDDup)
  
 set (CMAKE_CXX_STANDARD 14)
- 
+
 # add the binary tree to the search path for include files
 # so that we will find TutorialConfig.h
 include_directories(include)
@@ -26,8 +26,13 @@ add_library(cache
 
   src/manage/managemodule.cc
 
-  src/utils/MurmurHash3.cpp)
-
+  src/utils/MurmurHash3.cpp
+  )
+set (OPENSSL_ROOT_DIR ${CMAKE_SOURCE_DIR}/third_party/openssl)
+set (OPENSSL_USE_STATIC_LIBS TRUE)
+find_package(OpenSSL REQUIRED)
+include_directories(${CMAKE_SOURCE_DIR}/thirdparty/openssl/include)
+target_link_libraries(cache OpenSSL::SSL)
 
 ################################
 # GTest

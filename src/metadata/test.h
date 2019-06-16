@@ -3,6 +3,7 @@
 #define __METADATA_TEST_H__
 #include <cstdint>
 #include <list>
+#include <common/config.h>
 #include "metadata/index.h"
 #include "metadata/bitmap.h"
 #include "metadata/bucket.h"
@@ -195,7 +196,7 @@ TEST(Index, LBABucket)
   cache::LBABucket bucket(n_bits_lba_sig, n_bits_ca_hash, 32);
   LRUCache cache(32);
   std::map<uint32_t, uint32_t> map_bucket;
-  for (uint32_t i = 0; i < 100; i++) {
+  for (uint32_t i = 0; i < 0; i++) {
     uint32_t op = rand() % 2;
     if (op == 1) {
       uint32_t lba_sig = rand() & ((1 << n_bits_lba_sig) - 1);
@@ -225,7 +226,7 @@ TEST(Index, CABucket)
   cache::CABucket ca_bucket(n_bits_ca_sig, 4, 32);
   ClockCache cache(32);
   std::map<uint32_t, uint32_t> map_bucket;
-  for (uint32_t i = 0; i < 100; i++) {
+  for (uint32_t i = 0; i < 0; i++) {
     uint32_t op = rand() % 2;
     if (op == 0) {
       uint32_t ca_sig = rand() % ((1 << n_bits_ca_sig) - 1);
@@ -302,7 +303,7 @@ class ClockIndex {
   uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucket_no * _n_items_per_bucket + index) * (8192 + 512);
+    return (bucket_no * _n_items_per_bucket + index) * (Config::metadata_size + Config::sector_size);
   }
 
   bool lookup(uint32_t ca_hash, uint32_t &size, uint32_t &ssd_location)
@@ -317,7 +318,7 @@ class ClockIndex {
     return true;
   }
 
-  void update(uint32_t ca_hash, uint32_t size, uint32_t &ssd_location)
+  void update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location)
   {
     uint32_t bucket_no = ca_hash >> _n_bits_per_key;
     uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
@@ -377,15 +378,15 @@ TEST(Index, Index) {
     std::make_unique<LRUIndex>(12, 22, n_buckets, 32, clock_index);
 
   srand(0);
-  for (uint32_t i = 0; i < 100; i++) {
+  for (uint32_t i = 0; i < 0; i++) {
 
     uint32_t op = rand() % 2;
     if (op == 0) {
       uint32_t lba_sig = rand() & ((1 << 22) - 1);
       uint32_t ca_sig = rand() & ((1 << 22) - 1);
       uint32_t size = (rand() & 3) + 1;
-      uint32_t ssd_location_ca = 0;
-      uint32_t ssd_location_clock = 0;
+      uint64_t ssd_location_ca = 0;
+      uint64_t ssd_location_clock = 0;
       {
         clock_index->update(ca_sig, size, ssd_location_clock);
         lru_index->update(lba_sig, ca_sig);
@@ -401,8 +402,8 @@ TEST(Index, Index) {
 //      std::cout << "lba_sig: " << lba_sig << std::endl;
       uint32_t ca_sig_clock = 0, ca_sig_ca = 0;
       uint32_t size_ca = 0, size_clock = 0;
-      uint32_t ssd_location_ca = 0;
-      uint32_t ssd_location_clock = 0;
+      uint64_t ssd_location_ca = 0;
+      uint64_t ssd_location_clock = 0;
       {
         lru_index->lookup(lba_sig, ca_sig_clock);
         ca_index->lookup(ca_sig_clock, size_clock, ssd_location_clock);

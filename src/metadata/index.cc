@@ -57,7 +57,7 @@ namespace cache {
       (Config::sector_size + Config::metadata_size);
   }
 
-  bool CAIndex::lookup(uint32_t ca_hash, uint32_t &size, uint32_t &ssd_location)
+  bool CAIndex::lookup(uint32_t ca_hash, uint32_t &size, uint64_t &ssd_location)
   {
     uint32_t bucket_no = ca_hash >> _n_bits_per_key;
     uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
@@ -69,7 +69,7 @@ namespace cache {
     return true;
   }
 
-  void CAIndex::update(uint32_t ca_hash, uint32_t size, uint32_t &ssd_location)
+  void CAIndex::update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location)
   {
     uint32_t bucket_no = ca_hash >> _n_bits_per_key;
     uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
@@ -77,9 +77,12 @@ namespace cache {
 //     find contiguous spaces size can fit in
     _buckets[bucket_no]->update(signature, size);
     uint32_t index = _buckets[bucket_no]->lookup(signature, size);
-//    std::cout << "CAIndex: " << std::endl;
-//    std::cout << "bucket_no: " << bucket_no << " index: "
-//      << index << " size: " << size << std::endl;
     ssd_location = compute_ssd_location(bucket_no, index);
+  }
+
+  void CAIndex::erase(uint32_t ca_hash)
+  {
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
+    _buckets[bucket_no]->erase();
   }
 }

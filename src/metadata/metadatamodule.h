@@ -13,7 +13,7 @@ class MetadataModule {
   // initialize all submodules and start the journalling thread
   MetadataModule(std::shared_ptr<IOModule> io_module);
   LookupResult lookup(Chunk &c, bool write_path);
-  void update(Chunk &c, LookupResult lookup_result);
+  void update(Chunk &c);
 
   std::unique_ptr<LBAIndex> _lba_index;
   std::shared_ptr<CAIndex> _ca_index;

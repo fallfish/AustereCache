@@ -1,6 +1,8 @@
 #include "chunkmodule.h"
 #include "common/config.h"
 #include "utils/MurmurHash3.h"
+#include <openssl/sha.h>
+#include <openssl/md5.h>
 #include <cstring>
 #include <cassert>
 namespace cache {
@@ -8,15 +10,20 @@ namespace cache {
   void Chunk::fingerprinting() {
     assert(_len == Config::chunk_size);
     assert(_addr % Config::chunk_size == 0);
+//    SHA1(_buf, _len, _ca);
+//    MurmurHash3_x86_32(_ca, 20, 2, &_ca_hash);
     MurmurHash3_x64_128(_buf, _len, 0, _ca);
     MurmurHash3_x86_32(_ca, 16, 2, &_ca_hash);
-    _ca_hash >>= 14;
+//    MD5(_buf, _len, _ca);
+//    MurmurHash3_x86_32(_ca, 6, 2, &_ca_hash);
+    _has_ca = true;
+    _ca_hash >>= 32 - (Config::ca_signature_len + Config::ca_bucket_no_len);
   }
 
   void Chunk::compute_lba_hash()
   {
     MurmurHash3_x86_32(&_addr, 4, 1, &_lba_hash);
-    _lba_hash >>= 14;
+    _lba_hash >>= 32 - (Config::lba_signature_len + Config::lba_bucket_no_len);
   }
 
   bool Chunk::is_partial() {
@@ -28,6 +35,7 @@ namespace cache {
     c._addr = _addr - _addr % Config::chunk_size;
     c._len = Config::chunk_size;
     c._buf = buf;
+    c._has_ca = false;
     memset(buf, 0, Config::chunk_size);
     c.compute_lba_hash();
 
@@ -68,6 +76,7 @@ namespace cache {
     c._addr = _addr;
     c._len = next_addr - _addr;
     c._buf = _buf;
+    c._has_ca = false;
     c.compute_lba_hash();
 
     _addr += c._len;

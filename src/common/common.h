@@ -9,8 +9,9 @@ namespace cache {
 // 512 bytes
 struct Metadata {
   uint8_t _ca[128];
-  uint32_t _num_lbas;
   uint64_t _lbas[37]; // 4 * 32
+  uint32_t _num_lbas;
+  uint8_t _[84];
 };
 
 enum LookupResult {
@@ -19,7 +20,7 @@ enum LookupResult {
 };
 
 enum VerificationResult {
-  LBA_AND_CA_VALID, ONLY_CA_VALID, ONLY_LBA_VALID, BOTH_LBA_AND_CA_NOT_VALID, VERIFICATION_UNKNOWN
+  BOTH_LBA_AND_CA_VALID, ONLY_CA_VALID, ONLY_LBA_VALID, BOTH_LBA_AND_CA_NOT_VALID, VERIFICATION_UNKNOWN
 };
 
 struct Chunk {
@@ -31,9 +32,12 @@ struct Chunk {
     uint32_t _lba_hash;
     uint32_t _ca_hash;
     uint8_t  _ca[Config::ca_length];
+    bool     _has_ca;
 
     uint32_t _compress_level; // compression level: 1, 2, 3, 4 * 8k
-    uint32_t _ssd_location;
+    uint64_t _ssd_location;
+    Metadata _metadata;
+    LookupResult _lookup_result;
 
 
     void fingerprinting();
