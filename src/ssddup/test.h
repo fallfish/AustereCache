@@ -9,8 +9,8 @@ TEST(SSDDup, SSDDup)
   srand(0);
   cache::SSDDup ssddup;
   uint64_t size = 1024 * 1024 * 512;
-  char *test = (char *)malloc(size);
-  char *_test = (char *)malloc(size);
+  char *test = (char *)aligned_alloc(512, size);
+  char *_test = (char *)aligned_alloc(512, size);
 
   std::ifstream file("input", std::ios::binary | std::ios::ate);
   size = file.tellg();
@@ -24,12 +24,14 @@ TEST(SSDDup, SSDDup)
   std::cout << size << std::endl;
   ssddup.write(0, test, size);
   uint64_t total_bytes = 0;
-  for (uint32_t i = 0; i < 10000; i++) {
+  for (uint32_t i = 0; i < 5000; i++) {
+    std::cout << "read: " << i << std::endl;
 
     uint64_t begin = rand() % size;
     uint64_t end = begin + rand() % (1024 * 128);
     if (end >= size) end = size - 1;
     if (begin == end) continue;
+//    uint32_t op = rand() % 2;
     uint32_t op = 1;
 
     if (op == 0) {
@@ -38,9 +40,9 @@ TEST(SSDDup, SSDDup)
       }
       ssddup.write(begin, test + begin, end - begin);
     } else {
-      ssddup.read(begin, _test, end - begin);
+      ssddup.read(begin, _test + begin, end - begin);
       total_bytes += end - begin;
-      EXPECT_EQ(compare_array(test + begin, _test, end - begin), true);
+      EXPECT_EQ(compare_array(test + begin, _test + begin, end - begin), true);
     }
 
 //    std::cout << "begin: " << begin << " end: " << end << " total: " << end - begin << std::endl;

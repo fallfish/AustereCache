@@ -9,18 +9,13 @@ namespace cache {
 class CompressionModule {
  public:
   CompressionModule() {}
-  void compress(Chunk &c) {
-    c._compressed_buf = c._buf;
-    c._compress_level = 4;
-    return ;
-  }
-  void decompress(Chunk &c) {
-//    c._buf = c._compressed_buf;
-    c._compress_level = 4;
-    return ;
-  }
+  void compress(Chunk &c);
+  void decompress(Chunk &c);
+  void compress_TEST(const char *src, char *dest, int len);
+
  private:
   bool compressability_check(Chunk &c) { return true; }
+  char _compressed_buf[Config::chunk_size];
 };
 }
 

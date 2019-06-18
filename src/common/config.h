@@ -10,7 +10,7 @@ class Config
   static const uint32_t metadata_size = 512; // 512 byte size chunk
   static const uint32_t ca_length = 16; // content address length, 256 bytes if using sha256, else differs for different hash function
   static const uint64_t primary_device_size = 1024 * 1024 * 512;
-  static const uint64_t cache_device_size = 1024 * 1024 * 40;
+  static const uint64_t cache_device_size = 1024 * 1024 * 80;
 
   // Each bucket has 32 slots. Each index has _n_buckets buckets,
   // Each slot represents one chunk 32K.
@@ -19,7 +19,7 @@ class Config
   static const uint32_t lba_signature_len = 12;
   static const uint32_t lba_bucket_no_len = 9;
   static const uint32_t ca_signature_len = 12;
-  static const uint32_t ca_bucket_no_len = 7;
+  static const uint32_t ca_bucket_no_len = 8;
 
 };
 

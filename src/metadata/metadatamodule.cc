@@ -17,16 +17,16 @@ namespace cache {
     _meta_journal = std::make_unique<MetaJournal>(io_module);
   }
 
-  LookupResult MetadataModule::lookup(Chunk &c, bool write_path)
+  void MetadataModule::lookup(Chunk &c, bool write_path)
   {
     if (write_path) {
-      return lookup_write_path(c);
+      lookup_write_path(c);
     } else {
-      return lookup_read_path(c);
+      lookup_read_path(c);
     }
   }
 
-  LookupResult MetadataModule::lookup_write_path(Chunk &c)
+  void MetadataModule::lookup_write_path(Chunk &c)
   {
     uint32_t ca_hash;
     bool lba_hit = false, ca_hit = false;
@@ -34,52 +34,50 @@ namespace cache {
     lba_hit = _lba_index->lookup(c._lba_hash, ca_hash);
     ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
 
-    VerificationResult verification_result = VerificationResult::VERIFICATION_UNKNOWN;
     if (ca_hit) {
-      verification_result = _meta_verification->verify(c);
-      if (verification_result != BOTH_LBA_AND_CA_VALID &&
-          verification_result != ONLY_CA_VALID) {
-        _ca_index->erase(c._ca_hash);
-      }
+      c._verification_result = _meta_verification->verify(c);
     }
 
-    if (ca_hit && lba_hit && verification_result == BOTH_LBA_AND_CA_VALID) {
+    if (ca_hit && lba_hit && c._verification_result == BOTH_LBA_AND_CA_VALID) {
       // duplicate write
-      return LookupResult::WRITE_DUP_WRITE;
+      c._lookup_result = LookupResult::WRITE_DUP_WRITE;
     } else if (ca_hit &&
-               (verification_result == ONLY_CA_VALID ||
-                verification_result == BOTH_LBA_AND_CA_VALID)){
+               (c._verification_result == ONLY_CA_VALID ||
+                c._verification_result == BOTH_LBA_AND_CA_VALID)){
       // duplicate content
-      return LookupResult::WRITE_DUP_CONTENT;
+      c._lookup_result = LookupResult::WRITE_DUP_CONTENT;
     } else {
       // not duplicate
-      return LookupResult::WRITE_NOT_DUP;
+      c._lookup_result = LookupResult::WRITE_NOT_DUP;
     }
   }
 
-  LookupResult MetadataModule::lookup_read_path(Chunk &c)
+  void MetadataModule::lookup_read_path(Chunk &c)
   {
-    uint32_t ca_hash;
     bool lba_hit = false, ca_hit = false;
-    VerificationResult verification_result = VerificationResult::VERIFICATION_UNKNOWN;
 
     lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
     if (lba_hit) {
       ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
       if (ca_hit) {
-        verification_result = _meta_verification->verify(c);
+        c._verification_result = _meta_verification->verify(c);
       }
     }
 
-    if (verification_result == VerificationResult::ONLY_LBA_VALID) {
-      return LookupResult::READ_HIT;
+    if (c._verification_result == VerificationResult::ONLY_LBA_VALID) {
+      c._lookup_result = LookupResult::READ_HIT;
     } else {
-      return LookupResult::READ_NOT_HIT;
+      c._lookup_result = LookupResult::READ_NOT_HIT;
     }
   }
 
   void MetadataModule::update(Chunk &c)
   {
+    if (c._lookup_result == WRITE_DUP_CONTENT &&
+        (c._verification_result == BOTH_LBA_AND_CA_NOT_VALID ||
+         c._verification_result == ONLY_LBA_VALID)) {
+      _ca_index->erase(c._ca_hash);
+    }
     _ca_index->update(c._ca_hash, c._compress_level, c._ssd_location);
     _lba_index->update(c._lba_hash, c._ca_hash);
 

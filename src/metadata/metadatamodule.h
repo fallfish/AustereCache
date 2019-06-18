@@ -12,7 +12,7 @@ class MetadataModule {
  public:
   // initialize all submodules and start the journalling thread
   MetadataModule(std::shared_ptr<IOModule> io_module);
-  LookupResult lookup(Chunk &c, bool write_path);
+  void lookup(Chunk &c, bool write_path);
   void update(Chunk &c);
 
   std::unique_ptr<LBAIndex> _lba_index;
@@ -20,8 +20,8 @@ class MetadataModule {
   std::unique_ptr<MetaVerification> _meta_verification;
   std::unique_ptr<MetaJournal> _meta_journal;
  private:
-  LookupResult lookup_write_path(Chunk &c);
-  LookupResult lookup_read_path(Chunk &c);
+  void lookup_write_path(Chunk &c);
+  void lookup_read_path(Chunk &c);
 };
 
 }

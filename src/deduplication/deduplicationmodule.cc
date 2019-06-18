@@ -8,7 +8,7 @@ namespace cache {
 
   void DeduplicationModule::deduplicate(Chunk &c, bool is_write_path)
   {
-    c._lookup_result = _metadata_module->lookup(c, is_write_path);
+    _metadata_module->lookup(c, is_write_path);
   }
 
 }

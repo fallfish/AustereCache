@@ -36,6 +36,8 @@ namespace cache {
     c._len = Config::chunk_size;
     c._buf = buf;
     c._has_ca = false;
+    c._verification_result = VERIFICATION_UNKNOWN;
+    c._lookup_result = LOOKUP_UNKNOWN;
     memset(buf, 0, Config::chunk_size);
     c.compute_lba_hash();
 
@@ -77,6 +79,8 @@ namespace cache {
     c._len = next_addr - _addr;
     c._buf = _buf;
     c._has_ca = false;
+    c._verification_result = VERIFICATION_UNKNOWN;
+    c._lookup_result = LOOKUP_UNKNOWN;
     c.compute_lba_hash();
 
     _addr += c._len;

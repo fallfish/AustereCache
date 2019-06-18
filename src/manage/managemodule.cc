@@ -12,20 +12,16 @@ int ManageModule::read(Chunk &c)
   if (c._lookup_result == READ_HIT) {
     _io_module->read(1,
       c._ssd_location + Config::metadata_size,
-      c._buf,
+      c._compressed_buf,
       c._compress_level * Config::sector_size
       );
-    c.fingerprinting();
+    c._compressed_len = c._metadata._compressed_len;
   } else {
+    //std::cout << "Not Hit " << 
+      //c._addr << " " << c._len << std::endl;
     _io_module->read(0, c._addr,
       c._buf,
       c._len);
-  }
-  if (c._lookup_result == READ_NOT_HIT) {
-    _io_module->read(0, c._addr,
-                     c._buf,
-                     c._len);
-    c.fingerprinting();
   }
   return 0;
 }

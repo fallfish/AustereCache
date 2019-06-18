@@ -45,7 +45,6 @@ namespace cache {
       return ONLY_CA_VALID;
     else
       return BOTH_LBA_AND_CA_NOT_VALID;
-
   }
 
   void MetaVerification::update(Chunk &c)
@@ -75,9 +74,7 @@ namespace cache {
       memcpy(metadata._ca, c._ca, Config::ca_length);
       metadata._lbas[0] = c._addr;
       metadata._num_lbas = 1;
-    }
-    if (ssd_location == 12847104) {
-
+      metadata._compressed_len = c._compressed_len;
     }
     _io_module->write(1, ssd_location, &metadata, 512);
   }

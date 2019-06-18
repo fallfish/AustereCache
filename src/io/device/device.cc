@@ -42,6 +42,10 @@ namespace cache {
     int n_written_bytes = 0;
     while (1) {
       int n = ::pwrite(_fd, buf, len, addr);
+      if (n < 0) {
+        std::cout << "BlockDevice::write " << std::strerror(errno) << std::endl;
+        exit(-1);
+      }
       n_written_bytes += n;
       if (n == len) {
         break;
@@ -65,6 +69,11 @@ namespace cache {
     int n_read_bytes = 0;
     while (1) {
       int n = ::pread(_fd, buf, len, addr);
+      if (n < 0) {
+        std::cout << addr << " " << len << std::endl;
+        std::cout << "BlockDevice::read " << std::strerror(errno) << std::endl;
+        exit(-1);
+      }
       n_read_bytes += n;
       if (n == len) {
         break;
@@ -83,16 +92,16 @@ namespace cache {
 
   int BlockDevice::open_new_device(char *filename, uint64_t size)
   {
-//    std::cout << "BlockDevice::Open new device!" << std::endl;
+    std::cout << "BlockDevice::Open new device!" << std::endl;
     int fd = 0;
     if (size == 0) {
       // error: new file needs to be created, however the size given is 0.
       return -1;
     }
-    fd = ::open(filename, O_RDWR | 0 | O_CREAT, 0666);
+    fd = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
     if (fd < 0) {
       // cannot create device with O_DIRECT
-      fd = ::open(filename, O_RDWR | 0 | O_CREAT, 0666);
+      fd = ::open(filename, O_RDWR | O_CREAT, 0666);
       if (fd < 0) {
         // cannot open the file
         return -1;
@@ -110,9 +119,10 @@ namespace cache {
   int BlockDevice::open_existing_device(char *filename, uint64_t size, struct stat *statbuf)
   {
     int fd = 0;
-//    std::cout << "BlockDevice::Open existing device!" << std::endl;
-    fd = ::open(filename, O_RDWR | 0);
+    std::cout << "BlockDevice::Open existing device!" << std::endl;
+    fd = ::open(filename, O_RDWR | O_DIRECT);
     if (fd < 0) {
+      std::cout << "No O_DIRECT!" << std::endl;
       // cannot open device with O_DIRECT;
       fd = ::open(filename, O_RDWR);
       if (fd < 0) {

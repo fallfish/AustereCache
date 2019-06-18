@@ -50,3 +50,19 @@ Read Intel SPDK documents.
 SPDK already has examples that create block devices out of NVMe, Memdisk, and Ceph RBD.
 One possibility is that we treat SPDK block device the same as the linux one.
 The other possibility is that we integrate SPDK into the application to co-design the indexing structure and io channel management.
+2019.06.16
+1. New verification failed (CA not match) write chunk should invalidate the corresponding CA Bucket.
+2. Import openssl library
+3. Generate 512MiB trace by randomly generating a chunk-aligned file and cat it. (32MiB (1024 chunks) * 16 files)
+4. A concern regarding Hash+memcmp strategy is that when we do compression?
+5. Extract all parameters out in common/config.h
+2019.06.17
+Meeting with Patrick
+1. Micro benchmarks for each module to find out performance bottleneck
+2. Summarize traces used by other papers (EPLog, Nitro) to find out how to do experiment
+Meeting with Wen Xia
+1. We tend to implement it as a block device, which needs further investigation and learning
+2. For compression module, try LZ4 first.
+3. To deal with the fingerprint computation, since nowadays SHA-1 hash computation is fast enough, we may have no need to do memcmp
+2019.06.18
+1. Compression Module, use LZ4.

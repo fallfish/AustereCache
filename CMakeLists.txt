@@ -19,6 +19,8 @@ add_library(cache
 
   src/deduplication/deduplicationmodule.cc
 
+  src/compression/compressionmodule.cc
+
   src/ssddup/ssddup.cc
 
   src/io/device/device.cc
@@ -28,11 +30,22 @@ add_library(cache
 
   src/utils/MurmurHash3.cpp
   )
+
 set (OPENSSL_ROOT_DIR ${CMAKE_SOURCE_DIR}/third_party/openssl)
 set (OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED)
-include_directories(${CMAKE_SOURCE_DIR}/thirdparty/openssl/include)
+include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
+include_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
+link_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
 target_link_libraries(cache OpenSSL::SSL)
+target_link_libraries(cache lz4)
+
+################################
+# Micro Benchmarks
+################################
+add_executable(MicroBenchmark src/compression/micro_benchmark.cc)
+set_target_properties(MicroBenchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(MicroBenchmark cache)
 
 ################################
 # GTest

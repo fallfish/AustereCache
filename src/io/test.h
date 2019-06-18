@@ -17,17 +17,18 @@ TEST(IOModule, BlockDevice)
 {
   srand(0);
   cache::BlockDevice block_device;
-  uint64_t size = 1024 * 1024;
+  uint64_t size = 1024;
   uint64_t block_size = 512;
-  char buf[size];
+  alignas(512) char buf[size];
 
-  block_device.open("test", size);
+  std::cout << block_device.open("./test", size) << std::endl;
   for (uint32_t i = 0; i < size; i++)
     buf[i] = rand() & 255;
   for (uint64_t addr = 0; addr < size; addr += block_size) {
+  //std::cout << addr << std::endl;
     block_device.write(addr, (uint8_t*)buf + addr, block_size);
   }
-  char read_buf[size];
+  alignas(512) char read_buf[size];
   for (uint64_t addr = 0; addr < size; addr += block_size) {
     block_device.read(addr, (uint8_t*)read_buf + addr, block_size);
 

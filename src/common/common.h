@@ -11,7 +11,8 @@ struct Metadata {
   uint8_t _ca[128];
   uint64_t _lbas[37]; // 4 * 32
   uint32_t _num_lbas;
-  uint8_t _[84];
+  uint32_t _compressed_len; // if the data is compressed, the compressed_len is valid, otherwise, it is 0.
+  uint8_t _[80];
 };
 
 enum LookupResult {
@@ -24,10 +25,13 @@ enum VerificationResult {
 };
 
 struct Chunk {
+    Metadata _metadata;
     uint64_t _addr;
     uint32_t _len;
     uint8_t *_buf;
+
     uint8_t *_compressed_buf;
+    uint32_t _compressed_len;
 
     uint32_t _lba_hash;
     uint32_t _ca_hash;
@@ -36,8 +40,8 @@ struct Chunk {
 
     uint32_t _compress_level; // compression level: 1, 2, 3, 4 * 8k
     uint64_t _ssd_location;
-    Metadata _metadata;
     LookupResult _lookup_result;
+    VerificationResult _verification_result;
 
 
     void fingerprinting();
