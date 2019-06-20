@@ -24,14 +24,14 @@ TEST(SSDDup, SSDDup)
   std::cout << size << std::endl;
   ssddup.write(0, test, size);
   uint64_t total_bytes = 0;
-  for (uint32_t i = 0; i < 5000; i++) {
+  for (uint32_t i = 0; i < 50000; i++) {
     std::cout << "read: " << i << std::endl;
 
     uint64_t begin = rand() % size;
     uint64_t end = begin + rand() % (1024 * 128);
     if (end >= size) end = size - 1;
     if (begin == end) continue;
-//    uint32_t op = rand() % 2;
+    //uint32_t op = rand() % 2;
     uint32_t op = 1;
 
     if (op == 0) {

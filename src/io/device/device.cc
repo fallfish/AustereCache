@@ -98,7 +98,11 @@ namespace cache {
       // error: new file needs to be created, however the size given is 0.
       return -1;
     }
+#ifdef __APPLE__
+    fd = ::open(filename, O_RDWR | 0 | O_CREAT, 0666); // MacOS has no O_DIRECT support
+#else
     fd = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
+#endif
     if (fd < 0) {
       // cannot create device with O_DIRECT
       fd = ::open(filename, O_RDWR | O_CREAT, 0666);
@@ -120,7 +124,12 @@ namespace cache {
   {
     int fd = 0;
     std::cout << "BlockDevice::Open existing device!" << std::endl;
-    fd = ::open(filename, O_RDWR | O_DIRECT);
+#ifdef __APPLE__
+    fd = ::open(filename, O_RDWR | O_DIRECT); // MacOS has no O_DIRECT support
+#else
+    fd = ::open(filename, O_RDWR | 0);
+#endif
+
     if (fd < 0) {
       std::cout << "No O_DIRECT!" << std::endl;
       // cannot open device with O_DIRECT;

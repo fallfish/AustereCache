@@ -50,7 +50,7 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
   // construct compressed buffer for chunk c
   // When the cache is hit, this is used to store the data
   // retrieved from ssd 
-  uint8_t compressed_buf[Config::chunk_size];
+  alignas(512) uint8_t compressed_buf[Config::chunk_size];
   c._compressed_buf = compressed_buf;
 
   // look up index and find deduplication
@@ -59,9 +59,9 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
   // read from ssd or hdd according to lookup result
   _manage_module->read(c);
 
-  if (c._lookup_result == READ_HIT) {
+  if (c._lookup_result == READ_HIT && c._compressed_len != 0) {
     _compression_module->decompress(c);
-    //n_hits ++;
+    n_hits ++;
   } else if (update_metadata && c._lookup_result == READ_NOT_HIT) {
     _compression_module->compress(c);
     c.fingerprinting();
@@ -69,7 +69,7 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
   }
 
   if (c._lookup_result == READ_HIT) {
-    //std::cout << "n_hits: " << n_hits << " n_access: " << n_access << std::endl;
+    std::cout << "n_hits: " << n_hits << " n_access: " << n_access << std::endl;
   }
 }
 
@@ -119,7 +119,7 @@ void SSDDup::write_TEST(uint64_t addr, void *buf, uint32_t len)
     // and will be wrapped by read_chunk
     // to avoid memory allocation overhead
     // it is small 8K/32K memory overhead
-    uint8_t read_buffer[Config::chunk_size];
+    alignas(512) uint8_t read_buffer[Config::chunk_size];
     if (c.is_partial()) {
       // read-modify-write is introduced
       Chunk read_chunk = c.construct_read_chunk(read_buffer);

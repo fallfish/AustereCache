@@ -7,11 +7,11 @@
 namespace cache {
   class Bitmap {
     public:
-      Bitmap(uint32_t num) :
-        _num(num),
-        _data(std::make_unique<uint8_t[]>((_num + 7) / 8))
+      Bitmap(uint32_t n_bits) :
+        _n_bits(n_bits),
+        _data(std::make_unique<uint8_t[]>((_n_bits + 7) / 8))
       {
-        memset(_data.get(), 0, (_num + 7) / 8);
+        memset(_data.get(), 0, (_n_bits + 7) / 8);
       }
 
       bool get(uint32_t index)
@@ -84,7 +84,7 @@ namespace cache {
         return v;
       }
     private:
-      uint32_t _num;
+      uint32_t _n_bits;
       std::unique_ptr< uint8_t[] > _data;
   };
 }

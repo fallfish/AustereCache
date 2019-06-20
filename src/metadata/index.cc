@@ -83,6 +83,7 @@ namespace cache {
   void CAIndex::erase(uint32_t ca_hash)
   {
     uint32_t bucket_no = ca_hash >> _n_bits_per_key;
-    _buckets[bucket_no]->erase();
+    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+    _buckets[bucket_no]->erase(signature);
   }
 }

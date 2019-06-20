@@ -6,29 +6,25 @@
 #include "index.h"
 
 namespace cache {
-  Bucket::Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
+  Bucket::Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
     _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
-    _n_bits_per_item(n_bits_per_key + n_bits_per_value), _n_items(n_items),
-    _n_total_bytes(((n_bits_per_key + n_bits_per_value) * n_items + 7) / 8),
-    _bits(std::make_unique<Bitmap>((n_bits_per_key + n_bits_per_value) * n_items))
+    _n_bits_per_slot(n_bits_per_key + n_bits_per_value), _n_slots(n_slots),
+    _n_total_bytes(((n_bits_per_key + n_bits_per_value) * n_slots + 7) / 8),
+    _data(std::make_unique<Bitmap>((n_bits_per_key + n_bits_per_value) * n_slots))
   {} 
 
   Bucket::~Bucket() {}
 
-  LBABucket::LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
-    Bucket(n_bits_per_key, n_bits_per_value, n_items),
-    _valid_bitmap(std::make_unique<Bitmap>(n_items))
+  LBABucket::LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
+    Bucket(n_bits_per_key, n_bits_per_value, n_slots),
+    _valid(std::make_unique<Bitmap>(n_slots))
   {
   }
 
   LBABucket::~LBABucket() {}
 
-  /*
-   * memory is byte addressable
-   * alignment issue needs to be dealed for each element
-   */
   uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &ca_hash) {
-    for (uint32_t index = 0; index < _n_items; index++) {
+    for (uint32_t index = 0; index < _n_slots; index++) {
       uint32_t k = get_k(index);
       if (k == lba_sig) {
         ca_hash = get_v(index);
@@ -42,25 +38,25 @@ namespace cache {
   {
     uint32_t k = get_k(index);
     uint32_t v = get_v(index);
-    for (uint32_t i = index; i < _n_items - 1; i++) {
+    for (uint32_t i = index; i < _n_slots - 1; i++) {
       set_k(i, get_k(i + 1));
       set_v(i, get_v(i + 1));
-      _valid_bitmap->clear(i);
-      if (_valid_bitmap->get(i + 1))
-        _valid_bitmap->set(i);
+      _valid->clear(i);
+      if (_valid->get(i + 1))
+        _valid->set(i);
     }
-    set_k(_n_items - 1, k);
-    set_v(_n_items - 1, v);
-    _valid_bitmap->set(_n_items - 1);
+    set_k(_n_slots - 1, k);
+    set_v(_n_slots - 1, v);
+    _valid->set(_n_slots - 1);
   }
 
   uint32_t LBABucket::find_non_occupied_position(std::shared_ptr<CAIndex> ca_index)
   {
     uint32_t position = 0;
     bool valid = true;
-    for (uint32_t i = 0; i < _n_items; i++) {
+    for (uint32_t i = 0; i < _n_slots; i++) {
       uint32_t v = get_v(i);
-      if (!_valid_bitmap->get(i)) continue;
+      if (!_valid->get(i)) continue;
       uint32_t size; uint64_t ssd_location; // useless variables
       // note here that v = 0 can result in too many evictions
       // needs ~15 lookup per update, further optimization needed
@@ -71,7 +67,7 @@ namespace cache {
 //        std::cout << "LBABucket::evict: " << v << std::endl;
 //        if (v == 0) std::cout << "v = 0" << std::endl;
         set_k(i, 0), set_v(i, 0);
-        _valid_bitmap->clear(i);
+        _valid->clear(i);
         position = i;
       }
     }
@@ -89,17 +85,20 @@ namespace cache {
       index = find_non_occupied_position(std::move(ca_index));
       set_k(index, lba_sig);
       set_v(index, ca_hash);
-      _valid_bitmap->set(index);
+      _valid->set(index);
     }
     advance(index);
-    if (_valid_bitmap->get(0)) {
+    if (_valid->get(0)) {
       uint32_t v = 1;
     }
   }
 
-  CABucket::CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_items) :
-    Bucket(n_bits_per_key, n_bits_per_value, n_items)
+  CABucket::CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
+    Bucket(n_bits_per_key, n_bits_per_value, n_slots)
   {
+    _valid = std::make_unique< Bitmap >(1 * n_slots);
+    _space = std::make_unique< Bucket >(0, 2, n_slots);
+    _clock = std::make_unique< Bucket >(0, 2, n_slots);
     _clock_ptr = 0;
   }
 
@@ -113,12 +112,10 @@ namespace cache {
   int CABucket::lookup(uint32_t ca_sig, uint32_t &size)
   {
     uint32_t index = 0;
-    while (index < _n_items) {
-      uint32_t k = get_k(index);
-      uint32_t v = get_v(index);
-      if (valid(v)) {
-        if (k == ca_sig) {
-          size = v_to_size(v);
+    while (index < _n_slots) {
+      if (is_valid(index)) {
+        if (get_k(index) == ca_sig) {
+          size = get_space(index);
           return index;
         }
       }
@@ -131,11 +128,10 @@ namespace cache {
   {
     uint32_t index = 0, v, space = 0;
     // check whether there is a contiguous space
-    while (index < _n_items) {
-      v = get_v(index);
-      if (valid(v)) {
+    while (index < _n_slots) {
+      if (is_valid(index)) {
         space = 0;
-        index += v_to_size(v);
+        index += get_space(v);
       } else {
         ++space;
         ++index;
@@ -143,28 +139,22 @@ namespace cache {
       if (space == size) break;
     }
     if (space < size) {
-//      std::cout << "Need to evict previous one" << std::endl;
+      // No contiguous space, need to evict previous slot
       space = 0;
       index = _clock_ptr;
       while (1) {
-        if (index == _n_items) {
+        if (index == _n_slots) {
           space = 0;
           index = 0;
         }
-        v = get_v(index);
-        if (valid(v)) {
-          //std::cout << "CABucket::clock_dec:"
-            //<< " index: " << index
-            //<< " value prev: " << (v & 3);
-          clock_dec(v);
-          set_v(index, v);
-          //std::cout 
-            //<< " value after: " << (v & 3) << std::endl;
-        }
-        if (valid(v)) {
+        if (is_valid(index) && get_clock(v) != 0) {
+          // the slot is valid and clock bits is not zero
+          // cannot accommodate new item
+          dec_clock(index);
           space = 0;
-          index += v_to_size(v);
+          index += get_space(index);
         } else {
+          set_invalid(index);
           ++space;
           ++index;
         }
@@ -182,44 +172,26 @@ namespace cache {
     uint32_t size_ = 0, value = 0;
     uint32_t index = lookup(ca_sig, size_);
     if (index != ~((uint32_t)0)) {
-      //std::cout << "collide in cabucket: " << index << 
-        //" size_: " << size_ << " size: " << size << std::endl;
       if (size_ == size) {
-        value = get_v(index);
-        clock_inc(value);
-        set_v(index, value);
+        inc_clock(index);
         return ;
       } else {
-        set_k(index, 0);
-        set_v(index, 0);
+        set_invalid(index);
       }
     }
     index = find_non_occupied_position(size);
     //std::cout << "return index in cabucket: " << index << std::endl;
-    value = size_to_v(size);
     set_k(index, ca_sig);
-    set_v(index, value);
-    //std::cout << "CABucket::update" << std::endl;
-    //for (uint32_t i = 0; i < _n_items; i++) {
-      //uint32_t k = get_k(i), v = get_v(i);
-      //if (valid(v)) {
-        //std::cout << "index: " << i << " ca_sig: " << k
-          //<< " size: " << v_to_size(v) << " clock: " << (v & 3)
-          //<< std::endl;
-      //}
-    //}
-    //set_k(6, 3);
-    //set_v(6, (2 << 2) | 1);
-    //std::cout << "233333333: " << get_k(6) << std::endl;
-    ////set_k(5, 7);
-    //set_v(5, (1 << 2) | 1);
-    //std::cout << "233333333: " << get_k(6) << std::endl;
+    init_clock(index);
+    set_space(index, size);
+    set_valid(index);
   }
-  void CABucket::erase()
+  void CABucket::erase(uint32_t ca_sig)
   {
-    for (uint32_t i = 0; i < _n_items; i++) {
-      set_k(i, 0);
-      set_v(i, 0);
+    for (uint32_t index = 0; index < _n_slots; index++) {
+      if (get_k(index) == ca_sig) {
+        set_invalid(index);
+      }
     }
   }
 }

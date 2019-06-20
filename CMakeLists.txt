@@ -1,7 +1,8 @@
 cmake_minimum_required (VERSION 2.6)
 project (SSDDup)
  
-set (CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 # add the binary tree to the search path for include files
 # so that we will find TutorialConfig.h

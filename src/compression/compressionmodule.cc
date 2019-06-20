@@ -31,9 +31,9 @@ void CompressionModule::compress(Chunk &c)
 
 void CompressionModule::decompress(Chunk &c)
 {
-    LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
-        c._compressed_len, c._len);
-    return ;
+  LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
+      c._compressed_len, c._len);
+  return ;
 }
 
 void CompressionModule::compress_TEST(const char *src, char *dest, int len)

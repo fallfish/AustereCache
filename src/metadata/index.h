@@ -20,6 +20,10 @@ namespace cache {
 
   class CAIndex;
   class LBAIndex : Index {
+    /*
+     *
+     *
+     */
     public:
       LBAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_items_per_bucket, std::shared_ptr<CAIndex> ca_index);
@@ -31,18 +35,6 @@ namespace cache {
   };
 
   class CAIndex : Index {
-    /*
-     * layout:
-     * key: 12 bit ca hash value prefix
-     * value: 4 bit
-     *   2 bit compression_code (0, 1, 2, 3 representing space occupation)
-     *   (metadata and compression flag could take several bits of space)
-     *   2 bit representing the clock bits
-     *   (with 0 as invalid state, 1 - 3 as valid)
-     * --------------------------------------------------------
-     * | 12 bit signature | 2 bit space code | 2 bit validity |
-     * --------------------------------------------------------
-     */
     public:
       // n_bits_per_key = 12, n_bits_per_value = 4
       CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
