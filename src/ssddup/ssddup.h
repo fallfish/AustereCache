@@ -26,6 +26,9 @@ class SSDDup {
 
   // For TEST
   std::set<std::string> _fingerprints;
+
+  // Statistics
+  std::unique_ptr<Stats> _stats;
 };
 }
 

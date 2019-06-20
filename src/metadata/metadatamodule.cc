@@ -29,19 +29,18 @@ namespace cache {
   void MetadataModule::lookup_write_path(Chunk &c)
   {
     uint32_t ca_hash;
-    bool lba_hit = false, ca_hit = false;
-//    uint32_t ssd_location;
-    lba_hit = _lba_index->lookup(c._lba_hash, ca_hash);
-    ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
+    c._lba_hit = _lba_index->lookup(c._lba_hash, ca_hash);
+    c._ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
 
-    if (ca_hit) {
+    if (c._ca_hit) {
       c._verification_result = _meta_verification->verify(c);
     }
 
-    if (ca_hit && lba_hit && c._verification_result == BOTH_LBA_AND_CA_VALID) {
+    if (c._ca_hit && c._lba_hit && c._ca_hash == ca_hash
+        && c._verification_result == BOTH_LBA_AND_CA_VALID) {
       // duplicate write
       c._lookup_result = LookupResult::WRITE_DUP_WRITE;
-    } else if (ca_hit &&
+    } else if (c._ca_hit &&
                (c._verification_result == ONLY_CA_VALID ||
                 c._verification_result == BOTH_LBA_AND_CA_VALID)){
       // duplicate content
@@ -56,10 +55,10 @@ namespace cache {
   {
     bool lba_hit = false, ca_hit = false;
 
-    lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
-    if (lba_hit) {
-      ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
-      if (ca_hit) {
+    c._lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
+    if (c._lba_hit) {
+      c._ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
+      if (c._ca_hit) {
         c._verification_result = _meta_verification->verify(c);
       }
     }
@@ -73,7 +72,7 @@ namespace cache {
 
   void MetadataModule::update(Chunk &c)
   {
-    if (c._lookup_result == WRITE_DUP_CONTENT &&
+    if (
         (c._verification_result == BOTH_LBA_AND_CA_NOT_VALID ||
          c._verification_result == ONLY_LBA_VALID)) {
       _ca_index->erase(c._ca_hash);

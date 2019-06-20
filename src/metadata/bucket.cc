@@ -111,13 +111,14 @@ namespace cache {
    */
   int CABucket::lookup(uint32_t ca_sig, uint32_t &size)
   {
-    uint32_t index = 0;
+    uint32_t index = 0, space = 0;
     while (index < _n_slots) {
       if (is_valid(index)) {
         if (get_k(index) == ca_sig) {
           size = get_space(index);
           return index;
         }
+        index += space;
       }
       ++index;
     }
@@ -126,12 +127,12 @@ namespace cache {
 
   uint32_t CABucket::find_non_occupied_position(uint32_t size)
   {
-    uint32_t index = 0, v, space = 0;
+    uint32_t index = 0, space = 0;
     // check whether there is a contiguous space
     while (index < _n_slots) {
       if (is_valid(index)) {
         space = 0;
-        index += get_space(v);
+        index += get_space(index);
       } else {
         ++space;
         ++index;
@@ -147,7 +148,7 @@ namespace cache {
           space = 0;
           index = 0;
         }
-        if (is_valid(index) && get_clock(v) != 0) {
+        if (is_valid(index) && get_clock(index) != 0) {
           // the slot is valid and clock bits is not zero
           // cannot accommodate new item
           dec_clock(index);
@@ -186,6 +187,7 @@ namespace cache {
     set_space(index, size);
     set_valid(index);
   }
+
   void CABucket::erase(uint32_t ca_sig)
   {
     for (uint32_t index = 0; index < _n_slots; index++) {

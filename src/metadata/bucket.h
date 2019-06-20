@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include "bitmap.h"
-//#include "index.h"
 namespace cache {
   // Bucket is an abstraction of multiple key-value pairs (mapping)
   // bit level bucket
@@ -160,8 +160,8 @@ namespace cache {
       }
 
       inline bool is_valid(uint32_t index) { return _valid->get(index); }
-      inline bool set_valid(uint32_t index) { _valid->set(index); }
-      inline bool set_invalid(uint32_t index) { _valid->clear(index); }
+      inline void set_valid(uint32_t index) { _valid->set(index); }
+      inline void set_invalid(uint32_t index) { _valid->clear(index); }
 
       uint32_t find_non_occupied_position(uint32_t size);
 
@@ -169,6 +169,7 @@ namespace cache {
       std::unique_ptr<Bitmap> _valid;
       std::unique_ptr<Bucket> _clock;
       std::unique_ptr<Bucket> _space;
+      std::mutex _mutex;
   };
 }
 #endif

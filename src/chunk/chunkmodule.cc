@@ -26,40 +26,38 @@ namespace cache {
     _lba_hash >>= 32 - (Config::lba_signature_len + Config::lba_bucket_no_len);
   }
 
-  bool Chunk::is_partial() {
-    return _len != Config::chunk_size;
-  }
+  void Chunk::preprocess_unaligned(uint8_t *buf) {
+    _original_addr = _addr;
+    _original_len = _len;
+    _original_buf = _buf;
 
-  Chunk Chunk::construct_read_chunk(uint8_t *buf) {
-    Chunk c;
-    c._addr = _addr - _addr % Config::chunk_size;
-    c._len = Config::chunk_size;
-    c._buf = buf;
-    c._has_ca = false;
-    c._verification_result = VERIFICATION_UNKNOWN;
-    c._lookup_result = LOOKUP_UNKNOWN;
+    _addr = _addr - _addr % Config::chunk_size;
+    _len = Config::chunk_size;
+    _buf = buf;
+
     memset(buf, 0, Config::chunk_size);
-    c.compute_lba_hash();
-
-    return c;
+    compute_lba_hash();
   }
 
   // used for read-modify-write case
   // the base chunk is an unaligned write chunk
   // the delta chunk is a read chunk
-  void Chunk::merge_write(const Chunk &c) {
+  void Chunk::merge_write() {
     uint32_t chunk_size = Config::chunk_size;
-    assert(_addr - _addr % chunk_size == c._addr - c._addr % chunk_size);
+    assert(_addr - _addr % chunk_size == _original_addr - _original_addr % chunk_size);
 
-    memcpy(c._buf + _addr % chunk_size, _buf, _len);
+    memcpy(_buf + _addr % chunk_size, _original_buf, _original_len);
     _len = chunk_size;
     _addr -= _addr % chunk_size;
-    _buf = c._buf;
+
+    _has_ca = false;
+    _verification_result = VERIFICATION_UNKNOWN;
+    _lookup_result = LOOKUP_UNKNOWN;
     compute_lba_hash();
   }
 
-  void Chunk::merge_read(const Chunk &c) {
-    memcpy(_buf, c._buf + _addr % Config::chunk_size, _len);
+  void Chunk::merge_read() {
+    memcpy(_original_buf, _buf + _original_addr % Config::chunk_size, _original_len);
   }
 
   Chunker::Chunker(uint64_t addr, void *buf, uint32_t len) :
@@ -79,6 +77,9 @@ namespace cache {
     c._len = next_addr - _addr;
     c._buf = _buf;
     c._has_ca = false;
+
+    c._lba_hit = false;
+    c._ca_hit = false;
     c._verification_result = VERIFICATION_UNKNOWN;
     c._lookup_result = LOOKUP_UNKNOWN;
     c.compute_lba_hash();

@@ -59,11 +59,4 @@ int ManageModule::write(Chunk &c)
   return 0;
 }
 
-//void ManageModule::update_metadata(cache::Chunk &c, LookupResult lookup_result)
-//{
-//  // update indexing
-//  c.fingerprinting();
-//  _metadata_module->update(c, lookup_result);
-//}
-
 }

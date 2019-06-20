@@ -61,7 +61,6 @@ namespace cache {
   {
     uint32_t bucket_no = ca_hash >> _n_bits_per_key;
     uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
-    uint32_t value;
     uint32_t index = _buckets[bucket_no]->lookup(signature, size);
     if (index == ~((uint32_t)0)) return false;
     ssd_location = compute_ssd_location(bucket_no, index);
@@ -85,5 +84,21 @@ namespace cache {
     uint32_t bucket_no = ca_hash >> _n_bits_per_key;
     uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
     _buckets[bucket_no]->erase(signature);
+  }
+
+  std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint32_t lba_hash)
+  {
+  }
+
+  void LBAIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)
+  {
+  }
+
+  std::unique_ptr<std::lock_guard<std::mutex>> CAIndex::lock(uint32_t ca_hash)
+  {
+  }
+
+  void CAIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)
+  {
   }
 }

@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <cstdint>
 #include <cstring>
+#include <csignal>
 
 #include "device.h"
 #include "utils/MurmurHash3.h"
@@ -70,8 +71,9 @@ namespace cache {
     while (1) {
       int n = ::pread(_fd, buf, len, addr);
       if (n < 0) {
-        std::cout << addr << " " << len << std::endl;
+        std::cout << (long)buf << " " << addr << " " << len << std::endl;
         std::cout << "BlockDevice::read " << std::strerror(errno) << std::endl;
+        std::raise(SIGINT);
         exit(-1);
       }
       n_read_bytes += n;
@@ -125,9 +127,9 @@ namespace cache {
     int fd = 0;
     std::cout << "BlockDevice::Open existing device!" << std::endl;
 #ifdef __APPLE__
-    fd = ::open(filename, O_RDWR | O_DIRECT); // MacOS has no O_DIRECT support
+    fd = ::open(filename, O_RDWR); // MacOS has no O_DIRECT support
 #else
-    fd = ::open(filename, O_RDWR | 0);
+    fd = ::open(filename, O_RDWR | O_DIRECT);
 #endif
 
     if (fd < 0) {

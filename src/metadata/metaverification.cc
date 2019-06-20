@@ -76,6 +76,9 @@ namespace cache {
       metadata._num_lbas = 1;
       metadata._compressed_len = c._compressed_len;
     }
-    _io_module->write(1, ssd_location, &metadata, 512);
+    //std::cout << "addr: " << (long long)&c << std::endl;
+    //std::cout << "ssd_location: " << (long long)&ssd_location << std::endl;
+    //std::cout << "metadata: " << (long long)&c._metadata << std::endl;
+    _io_module->write(1, ssd_location, &c._metadata, 512);
   }
 }
