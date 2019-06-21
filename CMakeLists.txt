@@ -44,9 +44,13 @@ target_link_libraries(cache lz4)
 ################################
 # Micro Benchmarks
 ################################
-add_executable(MicroBenchmark src/compression/micro_benchmark.cc)
-set_target_properties(MicroBenchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(MicroBenchmark cache)
+add_executable(compression_benchmark src/benchmark/compression.cc)
+set_target_properties(compression_benchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(compression_benchmark cache)
+
+add_executable(trace_gen src/benchmark/trace_gen.cc)
+set_target_properties(trace_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(trace_gen cache)
 
 ################################
 # GTest

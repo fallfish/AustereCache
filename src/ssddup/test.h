@@ -10,8 +10,9 @@ TEST(SSDDup, SSDDup)
   cache::SSDDup ssddup;
   uint64_t size = 1024 * 1024 * 512;
 #ifdef __APPLE__
-  char *test = (char *)malloc(size);
-  char *_test = (char *)malloc(size);
+  char *test, _test;
+  posix_memalign((void**)&test, 512, size);
+  posix_memalign((void**)&_test, 512, size);
 #else
   char *test = (char *)aligned_alloc(512, size);
   char *_test = (char *)aligned_alloc(512, size);
