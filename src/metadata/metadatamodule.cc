@@ -5,12 +5,18 @@
 
 namespace cache {
   MetadataModule::MetadataModule(std::shared_ptr<IOModule> io_module) {
-    uint32_t a = Config::ca_signature_len, b = Config::ca_bucket_no_len,
-      c = Config::lba_signature_len, d = Config::lba_bucket_no_len;
+    Config &config = Config::get_configuration();
+    uint32_t ca_signature_len = config.get_ca_signature_len(), 
+             ca_bucket_no_len = config.get_ca_bucket_no_len(),
+             lba_signature_len = config.get_lba_signature_len(),
+             lba_bucket_no_len = config.get_lba_bucket_no_len();
+    uint32_t ca_slots_per_bucket = config.get_ca_slots_per_bucket(),
+             lba_slots_per_bucket = config.get_lba_slots_per_bucket();
     _ca_index = std::make_shared<CAIndex>(
-      a, 4, (1 << b), 32);
+      ca_signature_len, 4, (1 << ca_bucket_no_len), ca_slots_per_bucket);
     _lba_index = std::make_unique<LBAIndex>(
-      c, (a + b), (1 << d), 32, _ca_index);
+      lba_signature_len, (ca_signature_len + ca_bucket_no_len),
+      (1 << lba_bucket_no_len), lba_slots_per_bucket, _ca_index);
     // _meta_verification and _meta_journal should
     // hold a shared_ptr to _io_module
     _meta_verification = std::make_unique<MetaVerification>(io_module);

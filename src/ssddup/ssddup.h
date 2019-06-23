@@ -13,9 +13,11 @@ namespace cache {
 class SSDDup {
  public:
   SSDDup();
+  ~SSDDup();
   void read(uint64_t addr, void *buf, uint32_t len);
   void write(uint64_t addr, void *buf, uint32_t len);
-  void write_TEST(uint64_t addr, void *buf, uint32_t len);
+  void TEST_write(int device, uint64_t addr, void *buf, uint32_t len);
+  void TEST_read(int device, uint64_t addr, void *buf, uint32_t len);
  private:
   void internal_read(Chunk &c, bool update_metadata);
   void internal_write(Chunk &c);

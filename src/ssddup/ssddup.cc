@@ -6,6 +6,7 @@
 #include "metadata/metadatamodule.h"
 #include "manage/managemodule.h"
 
+
 namespace cache {
 SSDDup::SSDDup()
 {
@@ -24,6 +25,20 @@ SSDDup::SSDDup()
   _stats = std::make_unique<Stats>();
 }
 
+SSDDup::~SSDDup() {
+  std::cout
+    << "Number of write request: " << _stats->_n_requests[0] << std::endl
+    << "Number of write bytes: " <<   _stats->_total_bytes[0] << std::endl
+    << "Number of read request: " <<  _stats->_n_requests[1] << std::endl
+    << "Number of read bytes: " <<    _stats->_total_bytes[1] << std::endl
+    << "Number of internal write request: " << _stats->_n_requests[2] << std::endl
+    << "Number of internal write bytes: " <<   _stats->_total_bytes[2] << std::endl
+    << "Number of internal read request: " <<  _stats->_n_requests[3] << std::endl
+    << "Number of internal read bytes : " <<   _stats->_total_bytes[3] << std::endl
+    << "Number of read hit: " << _stats->_n_lookup_results[3] << std::endl
+    << "Number of read miss: " << _stats->_n_lookup_results[4] << std::endl;
+}
+
 void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
 {
   Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
@@ -32,7 +47,7 @@ void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
   while ( chunker.next(c) ) {
     _stats->add_read_request();
     _stats->add_read_bytes(c._len);
-    alignas(512) uint8_t temp_buffer[Config::chunk_size];
+    alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
     if (!c.is_aligned()) {
       c.preprocess_unaligned(temp_buffer);
       internal_read(c, true);
@@ -52,7 +67,7 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
     // construct compressed buffer for chunk c
     // When the cache is hit, this is used to store the data
     // retrieved from ssd 
-    alignas(512) uint8_t compressed_buf[Config::chunk_size];
+    alignas(512) uint8_t compressed_buf[Config::get_configuration().get_chunk_size()];
     c._compressed_buf = compressed_buf;
 
     // look up index and find deduplication
@@ -88,7 +103,7 @@ void SSDDup::write(uint64_t addr, void *buf, uint32_t len)
     // and will be wrapped by read_chunk
     // to avoid memory allocation overhead
     // it is small 8K/32K memory overhead
-    alignas(512) uint8_t temp_buffer[Config::chunk_size];
+    alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
     if (!c.is_aligned()) {
       // read-modify-write is introduced
       c.preprocess_unaligned(temp_buffer);
@@ -119,6 +134,16 @@ void SSDDup::internal_write(Chunk &c)
   _stats->add_lookup_result(c._lookup_result);
   _stats->add_lba_hit(c._lba_hit);
   _stats->add_ca_hit(c._ca_hit);
+}
+
+void SSDDup::TEST_write(int device, uint64_t addr, void *buf, uint32_t len)
+{
+
+}
+
+void SSDDup::TEST_read(int device, uint64_t addr, void *buf, uint32_t len)
+{
+
 }
 
 }

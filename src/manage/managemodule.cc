@@ -13,15 +13,15 @@ int ManageModule::read(Chunk &c)
     c._compressed_len = c._metadata._compressed_len;
     if (c._compressed_len != 0) {
       _io_module->read(1,
-        c._ssd_location + Config::metadata_size,
+        c._ssd_location + Config::get_configuration().get_metadata_size(),
         c._compressed_buf,
-        c._compress_level * Config::sector_size
+        c._compress_level * Config::get_configuration().get_sector_size()
         );
     } else {
       _io_module->read(1,
-        c._ssd_location + Config::metadata_size,
+        c._ssd_location + Config::get_configuration().get_metadata_size(),
         c._buf,
-        c._compress_level * Config::sector_size
+        c._compress_level * Config::get_configuration().get_sector_size()
         );
     }
   } else {
@@ -51,9 +51,9 @@ int ManageModule::write(Chunk &c)
   if (c._lookup_result == WRITE_NOT_DUP
       || c._lookup_result == READ_NOT_HIT) {
     _io_module->write(1,
-      c._ssd_location + Config::metadata_size,
+      c._ssd_location + Config::get_configuration().get_metadata_size(),
       c._compressed_buf,
-      c._compress_level * Config::sector_size
+      c._compress_level * Config::get_configuration().get_sector_size()
     );
   }
   return 0;

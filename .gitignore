@@ -3,3 +3,4 @@ third_party
 tags
 .idea
 cmake-build-debug
+trace

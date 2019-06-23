@@ -303,7 +303,7 @@ class ClockIndex {
   uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucket_no * _n_items_per_bucket + index) * (Config::metadata_size + Config::sector_size);
+    return (bucket_no * _n_items_per_bucket + index) * (8192 + 512);
   }
 
   bool lookup(uint32_t ca_hash, uint32_t &size, uint32_t &ssd_location)

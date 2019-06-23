@@ -10,11 +10,12 @@ TEST(CompressionModule, Compression)
   cache::CompressionModule compression_module;
 
   int test = 100;
+  int a;
   while (test--) {
     for (int i = 0; i < 32768; i++) {
       src[i] = 'A';
     }
-    compression_module.compress_TEST(src, dst, 32768);
+    compression_module.compress_TEST(src, dst, 32768, a);
   }
  
 }

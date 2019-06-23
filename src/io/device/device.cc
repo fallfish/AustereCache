@@ -44,6 +44,7 @@ namespace cache {
     while (1) {
       int n = ::pwrite(_fd, buf, len, addr);
       if (n < 0) {
+        std::cout << "addr: " << addr << " len: " << len << std::endl;
         std::cout << "BlockDevice::write " << std::strerror(errno) << std::endl;
         exit(-1);
       }

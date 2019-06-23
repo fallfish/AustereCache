@@ -34,7 +34,9 @@ namespace cache {
     // ca is valid only ca is valid and also
     // the content is the same by memcmp
     bool ca_valid = false;
-    if (c._has_ca && memcmp(metadata._ca, c._ca, Config::ca_length) == 0)
+    if (c._has_ca && memcmp(
+          metadata._ca, c._ca,
+          Config::get_configuration().get_ca_length()) == 0)
       ca_valid = true;
 
     if (lba_valid && ca_valid)
@@ -71,7 +73,7 @@ namespace cache {
       }
     } else {
       memset(&metadata, 0, sizeof(metadata));
-      memcpy(metadata._ca, c._ca, Config::ca_length);
+      memcpy(metadata._ca, c._ca, Config::get_configuration().get_ca_length());
       metadata._lbas[0] = c._addr;
       metadata._num_lbas = 1;
       metadata._compressed_len = c._compressed_len;

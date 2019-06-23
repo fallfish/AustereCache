@@ -27,6 +27,30 @@ enum VerificationResult {
   BOTH_LBA_AND_CA_VALID, ONLY_CA_VALID, ONLY_LBA_VALID, BOTH_LBA_AND_CA_NOT_VALID, VERIFICATION_UNKNOWN
 };
 
+/*
+ * The basic read/write unit.
+ * Members:
+ *   1. address, buffer, length of data to be read/write
+ *   2. (original) address, buffer, length of the requested data
+ *     Here the buffer refers to the one passed in the corresponding request.
+ *     Note: The write data or read buffer of the original request is managed
+ *           by the caller. It would be efficient if we can manage to pass
+ *           the original buffer to the underlying I/O request. However,
+ *           in cases where the request is not well aligned, we need to firstly
+ *           do the aligned I/O request and read or write data with a newly
+ *           created temporary buffer.
+ *   3. content address and its hash, logical block address hash
+ *      ssd location (data pointer)
+ *      These members are Deduplication and index related
+ *   4. lookup_result (write dup, read hit, etc.), verification_result (lba valid, ca valid, etc.)
+ *   5. lba_hit, ca_hit, for performance statistics
+ *   6. compressed_buf, compressed_len, compress_level
+ *      Compression related.
+ *      Compress_level varies from [1, 2, 3, 4]
+ *      which specifies 25%, 50%, 75%, 100% compression ratio, respectively.
+ *
+ **/
+
 struct Chunk {
     Metadata _metadata;
     uint64_t _addr;
@@ -44,7 +68,7 @@ struct Chunk {
     uint32_t _original_len;
     uint8_t *_original_buf;
 
-    uint8_t  _ca[Config::ca_length];
+    uint8_t  _ca[128]; // the largest possible content address length for ca
     uint32_t _lba_hash;
     uint32_t _ca_hash;
     bool     _has_ca;
@@ -56,14 +80,31 @@ struct Chunk {
     LookupResult _lookup_result;
     VerificationResult _verification_result;
 
+    // For multithreading, indexing update must be serialized
+    // Bucket-level locks are used to guarantee the consistency of index
     std::unique_ptr<std::lock_guard<std::mutex>> _lba_bucket_lock;
     std::unique_ptr<std::lock_guard<std::mutex>> _ca_bucket_lock;
 
+    // compute finger print of current chunk.
+    // Require: a write chunk, address is aligned
     void fingerprinting();
     inline bool is_end() { return _len == 0; }
-    inline bool is_aligned() { return _len == Config::chunk_size; }
+    inline bool is_aligned() { return _len == Config::get_configuration().get_chunk_size(); }
+    // If the chunk is unaligned, we must pre-read the corresponding
+    // aligned area.
+    // Buf is provided here as the _buf, while the previous _buf, _addr, _length
+    // given from the caller is moved to _original_buf
+    // A well-aligned chunk for read is created after preprocess_unaligned.
     void preprocess_unaligned(uint8_t *buf);
+
+    // In the write path, if the original chunk is not aligned, after read
+    // the corresponding aligned area, we need to merge the content with
+    // the requested content, and continue the write process.
     void merge_write();
+
+    // In the read path, if the original chunk is not aligned, after read
+    // the corresponding aligned area, we need to copy the needed content
+    // for the temporary buffer to the buffer of the caller.
     void merge_read();
     void compute_lba_hash();
 };
@@ -86,7 +127,7 @@ struct Stats {
   int _index_hit[2];
 
   Stats() {
-    memset(this, 0, sizeof(this));
+    memset(this, 0, sizeof(Stats));
   }
 
   inline void add_write_request() { _n_requests[0]++; }

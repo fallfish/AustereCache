@@ -54,7 +54,8 @@ namespace cache {
   {
     // 8192 is chunk size, while 512 is the metadata size
     return (bucket_no * _n_items_per_bucket + index) *
-      (Config::sector_size + Config::metadata_size);
+      (Config::get_configuration().get_sector_size() + 
+       Config::get_configuration().get_metadata_size());
   }
 
   bool CAIndex::lookup(uint32_t ca_hash, uint32_t &size, uint64_t &ssd_location)

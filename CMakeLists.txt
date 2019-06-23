@@ -52,6 +52,11 @@ add_executable(trace_gen src/benchmark/trace_gen.cc)
 set_target_properties(trace_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(trace_gen cache)
 
+add_executable(run_ssddup src/benchmark/run_ssddup.cc)
+set_target_properties(run_ssddup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(run_ssddup cache)
+
+
 ################################
 # GTest
 ################################
