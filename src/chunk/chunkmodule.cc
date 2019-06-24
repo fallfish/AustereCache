@@ -26,7 +26,7 @@ namespace cache {
   void Chunk::compute_lba_hash()
   {
     Config &conf = Config::get_configuration();
-    MurmurHash3_x86_32(&_addr, 4, 1, &_lba_hash);
+    MurmurHash3_x86_32(&_addr, 8, 1, &_lba_hash);
     _lba_hash >>= 32 - (conf.get_lba_signature_len() + conf.get_lba_bucket_no_len());
   }
 
