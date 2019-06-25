@@ -9,6 +9,20 @@ namespace cache {
 
   //Chunk::Chunk() {}
 
+  void Chunk::TEST_fingerprinting() {
+    Config &conf = Config::get_configuration();
+    assert(_len == conf.get_chunk_size());
+    assert(_addr % conf.get_chunk_size() == 0);
+    MurmurHash3_x64_128(_buf, _len, 0, _ca);
+    MurmurHash3_x86_32(_ca, conf.get_ca_length(), 2, &_ca_hash);
+    _has_ca = true;
+  }
+  void Chunk::TEST_compute_lba_hash()
+  {
+    Config &conf = Config::get_configuration();
+    MurmurHash3_x86_32(&_addr, 8, 1, &_lba_hash);
+  }
+
   void Chunk::fingerprinting() {
     Config &conf = Config::get_configuration();
     assert(_len == conf.get_chunk_size());

@@ -23,6 +23,7 @@ int ManageModule::read(Chunk &c)
         c._buf,
         c._compress_level * Config::get_configuration().get_sector_size()
         );
+      c._compressed_buf = c._buf;
     }
   } else {
     //std::cout << "Not Hit " << 
@@ -38,15 +39,10 @@ int ManageModule::write(Chunk &c)
 {
   if (c._lookup_result == WRITE_DUP_WRITE) {
     // do nothing
+    return 0;
   } else if (c._lookup_result == WRITE_DUP_CONTENT || c._lookup_result == WRITE_NOT_DUP) {
     // write through to the primary storage
     _io_module->write(0, c._addr, c._buf, c._len);
-  }
-  if (c._lookup_result == WRITE_DUP_CONTENT
-      || c._lookup_result == WRITE_NOT_DUP
-      || c._lookup_result == READ_NOT_HIT ) {
-    // and update metadata structure in metadata module
-    _metadata_module->update(c);
   }
   if (c._lookup_result == WRITE_NOT_DUP
       || c._lookup_result == READ_NOT_HIT) {
@@ -57,6 +53,11 @@ int ManageModule::write(Chunk &c)
     );
   }
   return 0;
+}
+
+void ManageModule::update_metadata(Chunk &c)
+{
+  _metadata_module->update(c);
 }
 
 }

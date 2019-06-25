@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 project (SSDDup)
  
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 
 # add the binary tree to the search path for include files
 # so that we will find TutorialConfig.h
@@ -56,6 +56,14 @@ target_link_libraries(trace_gen OpenSSL::SSL)
 add_executable(run_ssddup src/benchmark/run_ssddup.cc)
 set_target_properties(run_ssddup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_ssddup cache)
+
+add_executable(run_dedup src/benchmark/run_dedup.cc)
+set_target_properties(run_dedup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(run_dedup cache)
+
+add_executable(run_compression src/benchmark/run_compression.cc)
+set_target_properties(run_compression PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(run_compression cache)
 
 
 ################################

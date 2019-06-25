@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <cstring>
 namespace cache {
-  struct alignas(512) WorkloadConfiguration {
+  struct WorkloadConfiguration {
     char _buf[4][32768];
     uint32_t _chunk_size;
     double _wr_ratio;

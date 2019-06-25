@@ -1,5 +1,9 @@
 #include <sys/time.h>
 
+#define DEBUG(str) \
+  std::cout << str << std::endl;
+
+//#define DEBUG(str) 
 #define PERF_FUNCTION(elapsed, func, ...) \
   {\
     struct timeval t1, t2;\

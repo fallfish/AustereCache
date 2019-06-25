@@ -4,6 +4,7 @@
 #include <cstring>
 #include <memory>
 #include <iostream>
+#include "utils/utils.h"
 namespace cache {
   class Bitmap {
     public:

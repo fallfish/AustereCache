@@ -65,7 +65,7 @@ class RunSystem {
     _workload_conf.print_current_parameters();
   }
 
-  void warmup_system()
+  void warm_up()
   {
     _ssddup.write(0, _original_data, _workload_conf._working_set_size);
   }
@@ -73,10 +73,20 @@ class RunSystem {
   void work(int n_requests, uint64_t &total_bytes)
   {
     for (uint32_t i = 0; i < n_requests; i++) {
-      uint64_t begin = rand() % _workload_conf._working_set_size;
-      uint64_t end = begin + rand() % (_workload_conf._chunk_size * 3);
-      if (end >= _workload_conf._working_set_size) end = _workload_conf._working_set_size - 1;
-      if (begin == end) continue;
+      int _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
+      uint64_t begin = rand() % _n_chunks;
+      uint64_t end = begin + rand() % 3;
+      if (end >= _n_chunks) end = _n_chunks - 1;
+
+
+      begin = begin * _workload_conf._chunk_size;
+      end = end * _workload_conf._chunk_size;
+
+
+      //uint64_t begin = rand() % _workload_conf._working_set_size;
+      //uint64_t end = begin + rand() % (_workload_conf._chunk_size * 3);
+      //if (end >= _workload_conf._working_set_size) end = _workload_conf._working_set_size - 1;
+      //if (begin == end) continue;
 
       int op = 1;
       if (op == 0) {
@@ -156,7 +166,7 @@ int main(int argc, char **argv)
   srand(0);
   cache::RunSystem run_system;
   run_system.parse_argument(argc, argv);
-  run_system.warmup_system();
+  run_system.warm_up();
 
   uint64_t total_bytes = 0;
   int elapsed = 0;

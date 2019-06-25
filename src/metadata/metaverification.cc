@@ -1,4 +1,3 @@
-#include "common/config.h"
 #include "common/common.h"
 #include "metaverification.h"
 #include <cstring>

@@ -59,7 +59,7 @@ class Config
     _lba_bucket_no_len = 9;
     _lba_slots_per_bucket = 32;
     _ca_signature_len = 12;
-    _ca_bucket_no_len = 8;
+    _ca_bucket_no_len = 10;
     _ca_slots_per_bucket = 32;
   }
   uint32_t _chunk_size; // 8k size chunk

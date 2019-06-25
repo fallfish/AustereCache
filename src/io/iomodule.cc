@@ -1,6 +1,7 @@
 #include "iomodule.h"
 #include "device/device.h"
 #include "common/config.h"
+#include "utils/utils.h"
 #include <memory>
 
 namespace cache {

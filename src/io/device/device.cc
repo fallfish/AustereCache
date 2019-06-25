@@ -8,6 +8,7 @@
 #include <cstring>
 #include <csignal>
 
+#include "utils/utils.h"
 #include "device.h"
 #include "utils/MurmurHash3.h"
 

@@ -37,6 +37,7 @@ SSDDup::~SSDDup() {
     << "Number of internal read bytes : " <<   _stats->_total_bytes[3] << std::endl
     << "Number of read hit: " << _stats->_n_lookup_results[3] << std::endl
     << "Number of read miss: " << _stats->_n_lookup_results[4] << std::endl;
+  std::cout << "hit ratio: " << _stats->_n_lookup_results[3] * 1.0 / (_stats->_n_lookup_results[3] + _stats->_n_lookup_results[4]) * 100 << "%" << std::endl;
 }
 
 void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
@@ -73,15 +74,36 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
     // look up index and find deduplication
     _deduplication_module->deduplicate(c, false);
 
-    // read from ssd or hdd according to lookup result
+    // read from ssd or hdd according to the lookup result
     _manage_module->read(c);
 
-    if (c._lookup_result == READ_HIT && c._compressed_len != 0) {
-      _compression_module->decompress(c);
-    } else if (update_metadata && c._lookup_result == READ_NOT_HIT) {
-      _compression_module->compress(c);
-      c.fingerprinting();
-      _manage_module->write(c);
+
+    if (c._lookup_result == READ_HIT) {
+      // hit the cache
+      if (c._compressed_len != 0) {
+        // if data is compressed
+        _compression_module->decompress(c);
+      } else {
+        // if data is not compressed, assign
+        // the original buffer to compressed buffer
+        // to update metadata
+        c._compressed_buf = c._buf;
+      }
+    }
+    
+    // In the read-modify-write path, we don't
+    // update metadata, because the content will
+    // be modified later.
+    if (update_metadata) {
+      if (c._lookup_result == READ_NOT_HIT) {
+        _compression_module->compress(c);
+        c.fingerprinting();
+      }
+      _manage_module->update_metadata(c);
+      if (c._lookup_result == READ_NOT_HIT) {
+        // write compressed data into cache device
+        _manage_module->write(c);
+      }
     }
   }
 
@@ -128,6 +150,7 @@ void SSDDup::internal_write(Chunk &c)
     _deduplication_module->deduplicate(c, true);
     if (c._lookup_result == WRITE_NOT_DUP)
       _compression_module->compress(c);
+    _manage_module->update_metadata(c);
     _manage_module->write(c);
   }
 

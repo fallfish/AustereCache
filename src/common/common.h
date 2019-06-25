@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include "common/config.h"
+#include "utils/utils.h"
 
 namespace cache {
 
@@ -88,6 +89,9 @@ struct Chunk {
     // compute finger print of current chunk.
     // Require: a write chunk, address is aligned
     void fingerprinting();
+    void compute_lba_hash();
+    void TEST_fingerprinting();
+    void TEST_compute_lba_hash();
     inline bool is_end() { return _len == 0; }
     inline bool is_aligned() { return _len == Config::get_configuration().get_chunk_size(); }
     // If the chunk is unaligned, we must pre-read the corresponding
@@ -106,7 +110,6 @@ struct Chunk {
     // the corresponding aligned area, we need to copy the needed content
     // for the temporary buffer to the buffer of the caller.
     void merge_read();
-    void compute_lba_hash();
 };
 
 struct Stats {

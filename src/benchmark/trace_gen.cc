@@ -6,6 +6,9 @@
 #include "common/common.h" // Chunk for generating fingerprints
 #include "workload_conf.h"
 #include "utils/MurmurHash3.h"
+#include "chunk/chunkmodule.h"
+#include "compression/compressionmodule.h"
+
 //#include <openssl/sha.h>
 namespace cache {
 //namespace benchmark {
@@ -74,24 +77,28 @@ class TraceGenerator {
 
   void generate_chunk()
   {
+    CompressionModule compression_module;
+    ChunkModule chunk_module;
+    Chunker chunker = chunk_module.create_chunker(0, _workload_data, _working_set_size);
+    uint8_t tmp_buf[_chunk_size];
+
     char _fingerprint_file[100];
     strcpy(_fingerprint_file, _output_file);
-    strcat(_fingerprint_file, "_chunk");
+    strcat(_fingerprint_file, "-chunk");
+
     int fd = open(_fingerprint_file, O_CREAT | O_RDWR, 0666);
     _chunks = reinterpret_cast<Chunk *>(malloc(sizeof(Chunk) * _working_set_size / _chunk_size));
-    // compute lba_hash, ca_hash, and ca (fingerprint) for each chunk
-    for (uint64_t addr = 0; addr < _working_set_size; addr += _chunk_size) {
-      int index = addr / _chunk_size;
-      if (_fp_alg == 0) {
-        MurmurHash3_x64_128(_workload_data + addr, _chunk_size, 0, _chunks[index]._ca);
-        MurmurHash3_x86_32(&addr, 8, 1, &_chunks[index]._lba_hash);
-        MurmurHash3_x86_32(_chunks[index]._ca, 16, 2, &_chunks[index]._ca_hash);
-      } else {
-        //SHA1(reinterpret_cast<const unsigned char*>(_workload_data + addr), _chunk_size, _chunks[index]._ca);
-        //MurmurHash3_x86_32(&addr, 8, 1, &_chunks[index]._lba_hash);
-        //MurmurHash3_x86_32(_chunks[index]._ca, 20, 2, &_chunks[index]._ca_hash);
-      }
+
+    // compute lba_hash, ca_hash, compressiblity, and ca (fingerprint) for each chunk
+    int index = 0;
+    while (chunker.next(_chunks[index])) {
+      _chunks[index].TEST_fingerprinting();
+      _chunks[index].TEST_compute_lba_hash();
+      _chunks[index]._compressed_buf = tmp_buf;
+      compression_module.compress(_chunks[index]);
+      ++ index;
     }
+
     int n = write(fd, &_workload_conf, sizeof(WorkloadConfiguration));
     n = write(fd, _chunks, sizeof(Chunk) * _working_set_size / _chunk_size);
   }
