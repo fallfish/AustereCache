@@ -38,8 +38,7 @@ find_package(OpenSSL REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
 include_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
 link_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
-target_link_libraries(cache OpenSSL::SSL)
-target_link_libraries(cache lz4)
+target_link_libraries(cache OpenSSL::SSL lz4 pthread)
 
 ################################
 # Micro Benchmarks
@@ -59,7 +58,7 @@ target_link_libraries(run_ssddup cache)
 
 add_executable(run_dedup src/benchmark/run_dedup.cc)
 set_target_properties(run_dedup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(run_dedup cache)
+target_link_libraries(run_dedup cache pthread)
 
 add_executable(run_compression src/benchmark/run_compression.cc)
 set_target_properties(run_compression PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")

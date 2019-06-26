@@ -13,6 +13,8 @@ namespace cache {
     public:
       Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots);
       virtual ~Bucket();
+      std::mutex &get_mutex() { return _mutex; }
+
       inline void init_k(uint32_t index, uint32_t &b, uint32_t &e) {
         b = index * _n_bits_per_slot;
         e = b + _n_bits_per_key;
@@ -41,6 +43,7 @@ namespace cache {
       uint32_t _n_bits_per_slot, _n_slots, _n_total_bytes,
                _n_bits_per_key, _n_bits_per_value;
       std::unique_ptr< Bitmap > _data;
+      std::mutex _mutex;
   };
 
   /*
@@ -169,7 +172,6 @@ namespace cache {
       std::unique_ptr<Bitmap> _valid;
       std::unique_ptr<Bucket> _clock;
       std::unique_ptr<Bucket> _space;
-      std::mutex _mutex;
   };
 }
 #endif

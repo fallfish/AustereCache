@@ -89,6 +89,10 @@ namespace cache {
 
   std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint32_t lba_hash)
   {
+    uint32_t bucket_no = lba_hash >> _n_bits_per_key;
+    return std::move(
+        std::make_unique<std::lock_guard<std::mutex>>(
+          _buckets[bucket_no]->get_mutex()));
   }
 
   void LBAIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)
@@ -97,6 +101,10 @@ namespace cache {
 
   std::unique_ptr<std::lock_guard<std::mutex>> CAIndex::lock(uint32_t ca_hash)
   {
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
+    return std::move(
+        std::make_unique<std::lock_guard<std::mutex>>(
+          _buckets[bucket_no]->get_mutex()));
   }
 
   void CAIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)

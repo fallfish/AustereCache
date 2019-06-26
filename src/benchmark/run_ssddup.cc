@@ -7,11 +7,17 @@
 #include "ssddup/ssddup.h"
 #include "workload_conf.h"
 
+#include <vector>
+#include <thread>
+
 namespace cache {
 
 class RunSystem {
  public:
-  RunSystem() {}
+  RunSystem() {
+    _multi_thread = 0;
+    _num_workers = 1;
+  }
   ~RunSystem() {
     free(_original_data);
     free(_read_data);
@@ -41,10 +47,8 @@ class RunSystem {
         // read working set
 #ifdef __APPLE__
         posix_memalign((void**)&_original_data, 512, _workload_conf._working_set_size);
-        posix_memalign((void**)&_read_data, 512, _workload_conf._working_set_size);
 #else
         _original_data = (char *)aligned_alloc(512, _workload_conf._working_set_size);
-        _read_data = (char *)aligned_alloc(512, _workload_conf._working_set_size);
 #endif
         n = read(fd, _original_data, _workload_conf._working_set_size);
         if (n != _workload_conf._working_set_size) {
@@ -53,6 +57,12 @@ class RunSystem {
         }
       } else if (strcmp(param, "--wr-ratio") == 0) {
         wr_ratio = atof(value);
+      } else if (strcmp(param, "--ca-bits") == 0) {
+        Config::get_configuration().set_ca_bucket_no_len(atoi(value));
+      } else if (strcmp(param, "--multi-thread") == 0) {
+        _multi_thread = atoi(value);
+      } else if (strcmp(param, "--num-workers") == 0) {
+        _num_workers = atoi(value);
       }
     }
 
@@ -61,46 +71,66 @@ class RunSystem {
       print_help();
       exit(1);
     }
+    {
+      _read_data = (char**)malloc(sizeof(char*) * _num_workers);
+      for (int i = 0; i < _num_workers; i++)
+        _read_data[i] = (char *)aligned_alloc(512, _workload_conf._working_set_size);
+    }
     _workload_conf._wr_ratio = wr_ratio;
     _workload_conf.print_current_parameters();
+    _ssddup = std::make_unique<SSDDup>();
   }
 
   void warm_up()
   {
-    _ssddup.write(0, _original_data, _workload_conf._working_set_size);
+    _ssddup->write(0, _original_data, _workload_conf._working_set_size);
   }
 
   void work(int n_requests, uint64_t &total_bytes)
   {
-    for (uint32_t i = 0; i < n_requests; i++) {
-      int _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
-      uint64_t begin = rand() % _n_chunks;
-      uint64_t end = begin + rand() % 3;
-      if (end >= _n_chunks) end = _n_chunks - 1;
+    std::vector<std::thread> workers;
+    for (int thread_id = 0; thread_id < _num_workers; thread_id++) {
+      workers.push_back(std::thread( [&, thread_id]()
+        {
+          srand(thread_id);
+          for (uint32_t i = 0; i < n_requests / _num_workers; i++) {
+            int _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
+            uint64_t begin = rand() % _n_chunks;
+            uint64_t end = begin + rand() % 4;
+            if (end >= _n_chunks) end = _n_chunks - 1;
+
+            begin = begin * _workload_conf._chunk_size;
+            end = end * _workload_conf._chunk_size;
 
 
-      begin = begin * _workload_conf._chunk_size;
-      end = end * _workload_conf._chunk_size;
+            //uint64_t begin = rand() % _workload_conf._working_set_size;
+            //uint64_t end = begin + rand() % (_workload_conf._chunk_size * 3);
+            //if (end >= _workload_conf._working_set_size) end = _workload_conf._working_set_size - 1;
+            //if (begin == end) continue;
 
-
-      //uint64_t begin = rand() % _workload_conf._working_set_size;
-      //uint64_t end = begin + rand() % (_workload_conf._chunk_size * 3);
-      //if (end >= _workload_conf._working_set_size) end = _workload_conf._working_set_size - 1;
-      //if (begin == end) continue;
-
-      int op = 1;
-      if (op == 0) {
-        modify_chunk(begin, end);
-        _ssddup.write(begin, _original_data + begin, end - begin);
-      } else {
-        total_bytes += end - begin;
-        _ssddup.read(begin, _read_data + begin, end - begin);
-        if (compare_array(_original_data + begin, _read_data + begin, end - begin) == false) {
-          std::cout << "RunSystem:work content not match for address: "
-            << begin << ", length: "
-            << end - begin << std::endl;
+            int op = 1;
+            if (op == 0) {
+            modify_chunk(begin, end);
+            _ssddup->write(begin, _original_data + begin, end - begin);
+            } else {
+              total_bytes += end - begin;
+              if (_multi_thread) {
+                _ssddup->read_mt(begin, _read_data[thread_id] + begin, end - begin);
+              } else {
+                _ssddup->read(begin, _read_data[thread_id] + begin, end - begin);
+              }
+              if (compare_array(_original_data + begin, _read_data[thread_id] + begin, end - begin) == false) {
+                std::cout << "RunSystem:work content not match for address: "
+                  << begin << ", length: "
+                  << end - begin << std::endl;
+              }
+            }
+          }
         }
-      }
+      ));
+    }
+    for (auto &worker : workers) {
+      worker.join();
     }
   }
 
@@ -155,9 +185,11 @@ class RunSystem {
     }
   }
 
-  char *_original_data, *_read_data;
+  char *_original_data, **_read_data;
   WorkloadConfiguration _workload_conf; 
-  SSDDup _ssddup;
+  int _multi_thread;
+  int _num_workers;
+  std::unique_ptr<SSDDup> _ssddup;
 };
 
 }
@@ -170,7 +202,7 @@ int main(int argc, char **argv)
 
   uint64_t total_bytes = 0;
   int elapsed = 0;
-  PERF_FUNCTION(elapsed, run_system.work, 5000, total_bytes);
+  PERF_FUNCTION(elapsed, run_system.work, 16384 * 8, total_bytes);
   std::cout << (double)total_bytes / (1024 * 1024) << std::endl;
   std::cout << elapsed << " ms" << std::endl;
   std::cout << (double)total_bytes / elapsed << " MBytes/s" << std::endl;

@@ -86,29 +86,55 @@ struct Chunk {
     std::unique_ptr<std::lock_guard<std::mutex>> _lba_bucket_lock;
     std::unique_ptr<std::lock_guard<std::mutex>> _ca_bucket_lock;
 
-    // compute finger print of current chunk.
-    // Require: a write chunk, address is aligned
+
+    Chunk() {}
+    Chunk(const Chunk &c) {
+      _addr = c._addr;
+      _len = c._len;
+      _buf = c._buf;
+
+      _has_ca = false;
+      _lba_hit = false;
+      _ca_hit = false;
+      _verification_result = VERIFICATION_UNKNOWN;
+      _lookup_result = LOOKUP_UNKNOWN;
+      compute_lba_hash();
+    }
+    /**
+     * @brief compute finger print of current chunk.
+     *        Require: a write chunk, address is aligned
+     */
     void fingerprinting();
     void compute_lba_hash();
     void TEST_fingerprinting();
     void TEST_compute_lba_hash();
     inline bool is_end() { return _len == 0; }
     inline bool is_aligned() { return _len == Config::get_configuration().get_chunk_size(); }
-    // If the chunk is unaligned, we must pre-read the corresponding
-    // aligned area.
-    // Buf is provided here as the _buf, while the previous _buf, _addr, _length
-    // given from the caller is moved to _original_buf
-    // A well-aligned chunk for read is created after preprocess_unaligned.
+    
+    /**
+     * @brief If the chunk is unaligned, we must pre-read the corresponding
+     *        aligned area.
+     *        Buf is provided here as the _buf, while the previous _buf, _addr, _length
+     *        given from the caller is moved to _original_buf
+     *        A well-aligned chunk for read is created after preprocess_unaligned.
+     *
+     * @param buf
+     */
     void preprocess_unaligned(uint8_t *buf);
 
-    // In the write path, if the original chunk is not aligned, after read
-    // the corresponding aligned area, we need to merge the content with
-    // the requested content, and continue the write process.
+    /**
+     * @brief In the write path, if the original chunk is not aligned, after read
+     *        the corresponding aligned area, we need to merge the content with
+     *        the requested content, and continue the write process.
+     *
+     */
     void merge_write();
 
-    // In the read path, if the original chunk is not aligned, after read
-    // the corresponding aligned area, we need to copy the needed content
-    // for the temporary buffer to the buffer of the caller.
+    /**
+     * @brief In the read path, if the original chunk is not aligned, after read
+     *        the corresponding aligned area, we need to copy the needed content
+     *        for the temporary buffer to the buffer of the caller.
+     */
     void merge_read();
 };
 

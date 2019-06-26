@@ -49,14 +49,14 @@ class Config
     _metadata_size = 512;
     _ca_length = 16;
     _primary_device_size = 1024 * 1024 * 512;
-    _cache_device_size = 1024 * 1024 * 300;
+    _cache_device_size = 1024 * 1024 * 600;
 
     // Each bucket has 32 slots. Each index has _n_buckets buckets,
     // Each slot represents one chunk 32K.
     // To store all lbas without eviction
     // _n_buckets = primary_storage_size / 32K / 32 = 512
     _lba_signature_len = 12;
-    _lba_bucket_no_len = 9;
+    _lba_bucket_no_len = 10;
     _lba_slots_per_bucket = 32;
     _ca_signature_len = 12;
     _ca_bucket_no_len = 10;

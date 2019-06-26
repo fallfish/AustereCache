@@ -5,6 +5,7 @@
 #include "utils/utils.h"
 #include "deduplication/deduplicationmodule.h"
 #include "workload_conf.h"
+#include <thread>
 
 namespace cache {
 
@@ -12,11 +13,6 @@ class RunDeduplicationModule {
  public:
   RunDeduplicationModule()
   {
-    _io_module = std::make_shared<IOModule>();
-    //_io_module->add_cache_device("./ramdisk/cache_device");
-    _io_module->add_cache_device("/dev/sda");
-    _metadata_module = std::make_shared<MetadataModule>(_io_module);
-    _deduplication_module = std::make_unique<DeduplicationModule>(_metadata_module);
   }
 
   void parse_argument(int argc, char **argv)
@@ -53,15 +49,22 @@ class RunDeduplicationModule {
           std::cout << "RunDeduplicationModule: read working set failed!" << std::endl; 
           exit(1);
         }
+      } else if (strcmp(param, "--ca-bits") == 0) {
+        Config::get_configuration().set_ca_bucket_no_len(atoi(value));
       }
     }
+    _io_module = std::make_shared<IOModule>();
+    //_io_module->add_cache_device("./ramdisk/cache_device");
+    _io_module->add_cache_device("/dev/sda");
+    _metadata_module = std::make_shared<MetadataModule>(_io_module);
+    _deduplication_module = std::make_unique<DeduplicationModule>(_metadata_module);
   }
 
   void warm_up()
   {
     Config &conf = Config::get_configuration();
-    alignas(512) Chunk c;
     for (int i = 0; i < _n_chunks; i++) {
+    alignas(512) Chunk c;
       // the lba hash and ca hash should be adapted to the metadata configuration
       // in the trace, the hash value is all full 32 bit hash
       // while in the metadata module, we will have (signature + bucket_no) format
@@ -77,30 +80,38 @@ class RunDeduplicationModule {
 
   void work(int n_requests, int &n_hits, uint64_t &n_total)
   {
-    alignas(512) Chunk c;
     for (int i = 0; i < n_requests; i++) {
       int begin = rand() % _n_chunks;
       int end = begin + rand() % 4;
       if (end >= _n_chunks) end = _n_chunks - 1;
+      std::vector<std::thread> threads;
       for (int j = begin; j < end; j++) {
         ++ n_total;
-        {
-          c._addr = _chunks[j]._addr;
-          c._lba_hash = _chunks[j]._lba_hash;
-          c._len = _chunks[j]._len;
-          c._has_ca = false;
-          c._verification_result = cache::VERIFICATION_UNKNOWN;
-        }
-        _deduplication_module->deduplicate(c, false);
-        if (c._lookup_result == READ_NOT_HIT) {
-          memcpy(c._ca, _chunks[j]._ca, 16);
-          c._ca_hash = _chunks[j]._ca_hash;
-          c._compress_level = _chunks[j]._compress_level;
-          c._has_ca = true;
-        } else if (c._lookup_result == READ_HIT) {
-          ++n_hits;
-        }
-        _metadata_module->update(c);
+        threads.push_back(std::thread([&]()
+          {
+            alignas(512) Chunk c;
+            {
+              c._addr = _chunks[j]._addr;
+              c._lba_hash = _chunks[j]._lba_hash;
+              c._len = _chunks[j]._len;
+              c._has_ca = false;
+              c._verification_result = cache::VERIFICATION_UNKNOWN;
+            }
+            _deduplication_module->deduplicate(c, false);
+            if (c._lookup_result == READ_NOT_HIT) {
+              memcpy(c._ca, _chunks[j]._ca, 16);
+              c._ca_hash = _chunks[j]._ca_hash;
+              c._compress_level = _chunks[j]._compress_level;
+              c._has_ca = true;
+            } else if (c._lookup_result == READ_HIT) {
+              //++n_hits;
+            }
+            _metadata_module->update(c);
+          }
+        ));
+      }
+      for (auto &t : threads) {
+        t.join();
       }
     }
   }

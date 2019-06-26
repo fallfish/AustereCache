@@ -6,14 +6,16 @@
 #include "metadata/metadatamodule.h"
 #include "manage/managemodule.h"
 
+#include <vector>
+#include <thread>
 
 namespace cache {
 SSDDup::SSDDup()
 {
   _chunk_module = std::make_unique<ChunkModule>();
   std::shared_ptr<IOModule> io_module = std::make_shared<IOModule>();
-  //io_module->add_cache_device("./ramdisk/cache_device");
-  io_module->add_cache_device("/dev/sda");
+  io_module->add_cache_device("./ramdisk/cache_device");
+  //io_module->add_cache_device("/dev/sda");
   io_module->add_primary_device("/dev/sdb");
   //io_module->add_cache_device("./cache_device");
   //io_module->add_primary_device("./primary_device");
@@ -36,19 +38,50 @@ SSDDup::~SSDDup() {
     << "Number of internal read request: " <<  _stats->_n_requests[3] << std::endl
     << "Number of internal read bytes : " <<   _stats->_total_bytes[3] << std::endl
     << "Number of read hit: " << _stats->_n_lookup_results[3] << std::endl
-    << "Number of read miss: " << _stats->_n_lookup_results[4] << std::endl;
+    << "Number of read miss: " << _stats->_n_lookup_results[4] << std::endl
+    << "Number of lba hit: " << _stats->_index_hit[0] << std::endl
+    << "Number of ca hit: " << _stats->_index_hit[1] << std::endl;
   std::cout << "hit ratio: " << _stats->_n_lookup_results[3] * 1.0 / (_stats->_n_lookup_results[3] + _stats->_n_lookup_results[4]) * 100 << "%" << std::endl;
 }
+
+void SSDDup::read_mt(uint64_t addr, void *buf, uint32_t len)
+{
+  Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
+
+  std::vector<std::thread> threads;
+  alignas(512) Chunk chunk;
+  while (chunker.next(chunk)) {
+    threads.push_back( std::thread([&, chunk]()
+      {
+        alignas(512) Chunk c = chunk;
+        alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
+        _stats->add_read_request();
+        _stats->add_read_bytes(c._len);
+        if (!c.is_aligned()) {
+          c.preprocess_unaligned(temp_buffer);
+          internal_read(c, true);
+          c.merge_read();
+        } else {
+          internal_read(c, true);
+        }
+      }
+    ));
+  }
+  for (auto &t : threads) {
+    t.join();
+  }
+}
+
 
 void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
 {
   Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
-  alignas(512) Chunk c;
 
-  while ( chunker.next(c) ) {
+  alignas(512) Chunk c;
+  while (chunker.next(c)) {
+    alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
     _stats->add_read_request();
     _stats->add_read_bytes(c._len);
-    alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
     if (!c.is_aligned()) {
       c.preprocess_unaligned(temp_buffer);
       internal_read(c, true);
@@ -56,6 +89,8 @@ void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
     } else {
       internal_read(c, true);
     }
+    c._ca_bucket_lock.reset();
+    c._lba_bucket_lock.reset();
   }
 }
 
@@ -137,6 +172,8 @@ void SSDDup::write(uint64_t addr, void *buf, uint32_t len)
     }
     c._compressed_buf = temp_buffer;
     internal_write(c);
+    c._ca_bucket_lock.reset();
+    c._lba_bucket_lock.reset();
   }
 }
 
@@ -148,15 +185,16 @@ void SSDDup::internal_write(Chunk &c)
   {
     c.fingerprinting();
     _deduplication_module->deduplicate(c, true);
-    if (c._lookup_result == WRITE_NOT_DUP)
+    if (c._lookup_result == WRITE_NOT_DUP) {
       _compression_module->compress(c);
+    }
     _manage_module->update_metadata(c);
     _manage_module->write(c);
   }
 
   _stats->add_lookup_result(c._lookup_result);
-  _stats->add_lba_hit(c._lba_hit);
-  _stats->add_ca_hit(c._ca_hit);
+  //_stats->add_lba_hit(c._lba_hit);
+  //_stats->add_ca_hit(c._ca_hit);
 }
 
 void SSDDup::TEST_write(int device, uint64_t addr, void *buf, uint32_t len)

@@ -16,6 +16,7 @@ class SSDDup {
   ~SSDDup();
   void read(uint64_t addr, void *buf, uint32_t len);
   void write(uint64_t addr, void *buf, uint32_t len);
+  void read_mt(uint64_t addr, void *buf, uint32_t len);
   void TEST_write(int device, uint64_t addr, void *buf, uint32_t len);
   void TEST_read(int device, uint64_t addr, void *buf, uint32_t len);
  private:
