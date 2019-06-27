@@ -22,6 +22,7 @@ class MetadataModule {
  private:
   void lookup_write_path(Chunk &c);
   void lookup_read_path(Chunk &c);
+  std::mutex _mutex;
 };
 
 }

@@ -1,21 +1,17 @@
 #include "ssddup.h"
 #include "common/config.h"
-#include "chunk/chunkmodule.h"
-#include "deduplication/deduplicationmodule.h"
-#include "compression/compressionmodule.h"
-#include "metadata/metadatamodule.h"
-#include "manage/managemodule.h"
 
 #include <vector>
 #include <thread>
+#include <cassert>
 
 namespace cache {
 SSDDup::SSDDup()
 {
   _chunk_module = std::make_unique<ChunkModule>();
   std::shared_ptr<IOModule> io_module = std::make_shared<IOModule>();
-  io_module->add_cache_device("./ramdisk/cache_device");
-  //io_module->add_cache_device("/dev/sda");
+  //io_module->add_cache_device("./ramdisk/cache_device");
+  io_module->add_cache_device("/dev/sda");
   io_module->add_primary_device("/dev/sdb");
   //io_module->add_cache_device("./cache_device");
   //io_module->add_primary_device("./primary_device");
@@ -25,6 +21,7 @@ SSDDup::SSDDup()
   _compression_module = std::make_unique<CompressionModule>();
   _manage_module = std::make_unique<ManageModule>(io_module, metadata_module);
   _stats = std::make_unique<Stats>();
+  _thread_pool = std::make_unique<ThreadPool>(Config::get_configuration().get_max_num_global_threads());
 }
 
 SSDDup::~SSDDup() {
@@ -48,28 +45,26 @@ void SSDDup::read_mt(uint64_t addr, void *buf, uint32_t len)
 {
   Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
 
-  std::vector<std::thread> threads;
-  alignas(512) Chunk chunk;
-  while (chunker.next(chunk)) {
-    threads.push_back( std::thread([&, chunk]()
-      {
-        alignas(512) Chunk c = chunk;
-        alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
-        _stats->add_read_request();
-        _stats->add_read_bytes(c._len);
-        if (!c.is_aligned()) {
-          c.preprocess_unaligned(temp_buffer);
-          internal_read(c, true);
-          c.merge_read();
-        } else {
-          internal_read(c, true);
-        }
-      }
-    ));
+  std::vector<int> threads;
+  uint64_t tmp_addr;
+  uint8_t *tmp_buf;
+  uint32_t tmp_len;
+  int thread_id;
+
+  while (chunker.next(tmp_addr, tmp_buf, tmp_len)) {
+    if (threads.size() == Config::get_configuration().get_max_num_local_threads()) {
+      _thread_pool->wait_and_return_threads(threads);
+    }
+    while ( (thread_id = _thread_pool->allocate_thread()) == -1) {
+      _thread_pool->wait_and_return_threads(threads);
+    }
+    _thread_pool->get_thread(thread_id) = std::make_shared<std::thread>(
+        [this, tmp_addr, tmp_buf, tmp_len]() {
+          read(tmp_addr, tmp_buf, tmp_len);
+          });
+    threads.push_back(thread_id);
   }
-  for (auto &t : threads) {
-    t.join();
-  }
+  _thread_pool->wait_and_return_threads(threads);
 }
 
 
@@ -96,6 +91,7 @@ void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
 
 void SSDDup::internal_read(Chunk &c, bool update_metadata)
 {
+  //std::lock_guard<std::mutex> lock(_mutex);
   _stats->add_internal_read_request();
   _stats->add_internal_read_bytes(c._len);
 
@@ -125,10 +121,11 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
         c._compressed_buf = c._buf;
       }
     }
-    
+
     // In the read-modify-write path, we don't
     // update metadata, because the content will
     // be modified later.
+    //update_metadata = false;
     if (update_metadata) {
       if (c._lookup_result == READ_NOT_HIT) {
         _compression_module->compress(c);

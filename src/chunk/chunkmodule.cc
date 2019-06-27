@@ -90,7 +90,7 @@ namespace cache {
   {
     if (_len == 0) return false;
 
-    uint32_t next_addr = 
+    uint64_t next_addr = 
       ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?
       ((_addr & ~(_chunk_size - 1)) + _chunk_size) : (_addr + _len);
 
@@ -108,6 +108,25 @@ namespace cache {
     _addr += c._len;
     _buf += c._len;
     _len -= c._len;
+
+    return true;
+  }
+
+  bool Chunker::next(uint64_t &addr, uint8_t *&buf, uint32_t &len)
+  {
+    if (_len == 0) return false;
+
+    uint32_t next_addr = 
+      ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?
+      ((_addr & ~(_chunk_size - 1)) + _chunk_size) : (_addr + _len);
+
+    addr = _addr;
+    len = next_addr - _addr;
+    buf = _buf;
+
+    _addr += len;
+    _buf += len;
+    _len -= len;
 
     return true;
   }

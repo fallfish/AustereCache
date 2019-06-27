@@ -2,6 +2,7 @@
 #include "metaverification.h"
 #include "metajournal.h"
 #include "common/config.h"
+#include <cassert>
 
 namespace cache {
   MetadataModule::MetadataModule(std::shared_ptr<IOModule> io_module) {
@@ -66,9 +67,9 @@ namespace cache {
     c._lba_bucket_lock = std::move(_lba_index->lock(c._lba_hash));
     c._lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
     if (c._lba_hit) {
+      c._ca_bucket_lock = std::move(_ca_index->lock(c._ca_hash));
       c._ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
       if (c._ca_hit) {
-        c._ca_bucket_lock = std::move(_ca_index->lock(c._ca_hash));
         c._verification_result = _meta_verification->verify(c);
       }
     }
@@ -76,22 +77,21 @@ namespace cache {
     if (c._verification_result == VerificationResult::ONLY_LBA_VALID) {
       c._lookup_result = LookupResult::READ_HIT;
     } else {
-      if (c._ca_bucket_lock.get() != nullptr) {
-        c._ca_bucket_lock.reset();
-      }
+      c._ca_bucket_lock.reset();
+      assert(c._ca_bucket_lock.get() == nullptr);
       c._lookup_result = LookupResult::READ_NOT_HIT;
     }
   }
 
   void MetadataModule::update(Chunk &c)
   {
-    if (
-        (c._verification_result == BOTH_LBA_AND_CA_NOT_VALID ||
-         c._verification_result == ONLY_LBA_VALID)) {
-      _ca_index->erase(c._ca_hash);
-    }
-    if (c._ca_bucket_lock.get() == nullptr)
-      c._ca_bucket_lock = std::move(_ca_index->lock(c._ca_hash));
+    //if (c._ca_bucket_lock.get() == nullptr) {
+      //c._ca_bucket_lock = std::move(_ca_index->lock(c._ca_hash));
+    //}
+
+    // If chunk hits lba and ca, it would check validity in the metadata
+    // If the ca is not valid, it means a new chunk and the previous one
+    // should be evicted.
 
     _ca_index->update(c._ca_hash, c._compress_level, c._ssd_location);
     _lba_index->update(c._lba_hash, c._ca_hash);

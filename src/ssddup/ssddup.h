@@ -6,8 +6,10 @@
 #include "deduplication/deduplicationmodule.h"
 #include "compression/compressionmodule.h"
 #include "manage/managemodule.h"
+#include "utils/thread_pool.h"
 #include <set>
 #include <string>
+#include <mutex>
 
 namespace cache {
 class SSDDup {
@@ -27,11 +29,11 @@ class SSDDup {
   std::unique_ptr<CompressionModule> _compression_module;
   std::unique_ptr<ManageModule> _manage_module;
 
-  // For TEST
-  std::set<std::string> _fingerprints;
-
   // Statistics
   std::unique_ptr<Stats> _stats;
+
+  std::unique_ptr<ThreadPool> _thread_pool;
+  std::mutex _mutex;
 };
 }
 

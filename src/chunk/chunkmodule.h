@@ -13,6 +13,7 @@ namespace cache {
     Chunker(uint64_t addr, void *buf, uint32_t len);
     // obtain next chunk, addr, len, and buf
     bool next(Chunk &c);
+    bool next(uint64_t &addr, uint8_t *&buf, uint32_t &len);
    protected:
     uint32_t _addr;
     uint8_t *_buf;

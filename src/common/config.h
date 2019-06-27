@@ -25,6 +25,9 @@ class Config
   uint32_t get_ca_bucket_no_len() { return _ca_bucket_no_len; }
   uint32_t get_ca_slots_per_bucket() { return _ca_slots_per_bucket; }
 
+  uint32_t get_max_num_global_threads() { return _max_num_global_threads; }
+  uint32_t get_max_num_local_threads() { return _max_num_local_threads; }
+
   void set_chunk_size(uint32_t chunk_size) { _chunk_size = chunk_size; }
   void set_sector_size(uint32_t sector_size) { _sector_size = sector_size; }
   void set_metadata_size(uint32_t metadata_size) { _metadata_size = metadata_size; }
@@ -38,6 +41,9 @@ class Config
   void set_ca_signature_len(uint32_t ca_signature_len) { _ca_signature_len = ca_signature_len; }
   void set_ca_bucket_no_len(uint32_t ca_bucket_no_len) { _ca_bucket_no_len = ca_bucket_no_len; }
   void set_ca_slots_per_bucket(uint32_t ca_slots_per_bucket) { _ca_slots_per_bucket = ca_slots_per_bucket; }
+
+  void set_max_num_global_threads(uint32_t max_num_global_threads) { _max_num_global_threads = max_num_global_threads; }
+  void set_max_num_local_threads(uint32_t max_num_local_threads) { _max_num_local_threads = max_num_local_threads; }
 
 
  private:
@@ -56,11 +62,14 @@ class Config
     // To store all lbas without eviction
     // _n_buckets = primary_storage_size / 32K / 32 = 512
     _lba_signature_len = 12;
-    _lba_bucket_no_len = 10;
+    _lba_bucket_no_len = 11;
     _lba_slots_per_bucket = 32;
     _ca_signature_len = 12;
     _ca_bucket_no_len = 10;
     _ca_slots_per_bucket = 32;
+
+    _max_num_global_threads = 32;
+    _max_num_local_threads = 8;
   }
   uint32_t _chunk_size; // 8k size chunk
   uint32_t _sector_size; // 8k size sector
@@ -79,6 +88,10 @@ class Config
   uint32_t _ca_signature_len;
   uint32_t _ca_bucket_no_len;
   uint32_t _ca_slots_per_bucket;
+
+  // Multi threading related
+  uint32_t _max_num_global_threads;
+  uint32_t _max_num_local_threads;
 
 };
 

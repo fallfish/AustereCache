@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <thread>
+#include <atomic>
 
 namespace cache {
 
@@ -73,8 +74,9 @@ class RunSystem {
     }
     {
       _read_data = (char**)malloc(sizeof(char*) * _num_workers);
-      for (int i = 0; i < _num_workers; i++)
+      for (int i = 0; i < _num_workers; i++) {
         _read_data[i] = (char *)aligned_alloc(512, _workload_conf._working_set_size);
+      }
     }
     _workload_conf._wr_ratio = wr_ratio;
     _workload_conf.print_current_parameters();
@@ -84,19 +86,23 @@ class RunSystem {
   void warm_up()
   {
     _ssddup->write(0, _original_data, _workload_conf._working_set_size);
+    DEBUG("finish warm up");
   }
 
-  void work(int n_requests, uint64_t &total_bytes)
+  void work(int n_requests, std::atomic<uint64_t> &total_bytes)
   {
     std::vector<std::thread> workers;
     for (int thread_id = 0; thread_id < _num_workers; thread_id++) {
       workers.push_back(std::thread( [&, thread_id]()
         {
+        std::cout << thread_id << std::endl;
           srand(thread_id);
           for (uint32_t i = 0; i < n_requests / _num_workers; i++) {
             int _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
             uint64_t begin = rand() % _n_chunks;
-            uint64_t end = begin + rand() % 4;
+            uint64_t end = begin + 8;
+            //uint64_t begin = 0;
+            //uint64_t end = begin + 64;
             if (end >= _n_chunks) end = _n_chunks - 1;
 
             begin = begin * _workload_conf._chunk_size;
@@ -110,19 +116,21 @@ class RunSystem {
 
             int op = 1;
             if (op == 0) {
-            modify_chunk(begin, end);
-            _ssddup->write(begin, _original_data + begin, end - begin);
+              modify_chunk(begin, end);
+              _ssddup->write(begin, _original_data + begin, end - begin);
             } else {
-              total_bytes += end - begin;
+              total_bytes.fetch_add(end - begin, std::memory_order_relaxed);
               if (_multi_thread) {
                 _ssddup->read_mt(begin, _read_data[thread_id] + begin, end - begin);
               } else {
                 _ssddup->read(begin, _read_data[thread_id] + begin, end - begin);
               }
-              if (compare_array(_original_data + begin, _read_data[thread_id] + begin, end - begin) == false) {
+              int result = -1;
+              result = compare_array(_original_data + begin, _read_data[thread_id] + begin, end - begin);
+              if (result != end - begin) {
                 std::cout << "RunSystem:work content not match for address: "
-                  << begin << ", length: "
-                  << end - begin << std::endl;
+                  << begin << ", length: " << end - begin
+                  << " matched length: " << result << std::endl;
               }
             }
           }
@@ -135,12 +143,13 @@ class RunSystem {
   }
 
  private: 
-  bool compare_array(void *a, void *b, uint32_t length)
+  int compare_array(void *a, void *b, uint32_t length)
   {
+    int count = 0;
     for (uint32_t i = 0; i < length; i++) {
-     if (((char*)a)[i] != ((char*)b)[i]) return false;
+     if (((char*)a)[i] == ((char*)b)[i]) count++;
     }
-    return true;
+    return count;
   }
 
   void print_help()
@@ -188,8 +197,10 @@ class RunSystem {
   char *_original_data, **_read_data;
   WorkloadConfiguration _workload_conf; 
   int _multi_thread;
-  int _num_workers;
   std::unique_ptr<SSDDup> _ssddup;
+
+ public:
+  int _num_workers;
 };
 
 }
@@ -200,9 +211,9 @@ int main(int argc, char **argv)
   run_system.parse_argument(argc, argv);
   run_system.warm_up();
 
-  uint64_t total_bytes = 0;
+  std::atomic<uint64_t> total_bytes(0);
   int elapsed = 0;
-  PERF_FUNCTION(elapsed, run_system.work, 16384 * 8, total_bytes);
+  PERF_FUNCTION(elapsed, run_system.work, run_system._num_workers * 2048, total_bytes);
   std::cout << (double)total_bytes / (1024 * 1024) << std::endl;
   std::cout << elapsed << " ms" << std::endl;
   std::cout << (double)total_bytes / elapsed << " MBytes/s" << std::endl;

@@ -5,6 +5,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <iostream>
 #include "common/config.h"
 #include "utils/utils.h"
 
@@ -151,7 +152,7 @@ struct Stats {
   // store number of bytes of write and read
   // aligned write bytes, aligned read bytes
   // requested write bytes, requested read bytes
-  int _total_bytes[4];
+  uint64_t _total_bytes[4];
   // lba hit, ca hit
   int _index_hit[2];
 
