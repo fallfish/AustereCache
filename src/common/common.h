@@ -8,16 +8,18 @@
 #include <iostream>
 #include "common/config.h"
 #include "utils/utils.h"
+#include <atomic>
 
 namespace cache {
 
 // 512 bytes
 struct Metadata {
   uint8_t _ca[128];
+  uint32_t _reference_count;
   uint64_t _lbas[37]; // 4 * 32
   uint32_t _num_lbas;
   uint32_t _compressed_len; // if the data is compressed, the compressed_len is valid, otherwise, it is 0.
-  uint8_t _[80];
+  uint8_t _[76];
 };
 
 enum LookupResult {
@@ -143,44 +145,118 @@ struct Stats {
   // store number of each lookup results
   // write_dup_write, write_dup_content, write_not_dup,
   // read_hit, read_not_hit
-  int _n_lookup_results[6];
+  std::atomic<int> _n_lookup_results[6];
   // store number of writes and reads
   // aligned write, aligned read,
   // write request, read request
   // Note: unaligned write requests would trigger read-modify-write
-  int _n_requests[4];
+  std::atomic<int> _n_requests[4];
   // store number of bytes of write and read
   // aligned write bytes, aligned read bytes
   // requested write bytes, requested read bytes
-  uint64_t _total_bytes[4];
+  std::atomic<uint64_t> _total_bytes[4];
   // lba hit, ca hit
-  int _index_hit[2];
+  std::atomic<int> _index_hit[2];
+  // compression level
+  std::atomic<int> _compress_level[4];
+  // number of metadata write, number of data write
+  // number of metadata read, number of data read
+  std::atomic<int> _n_data_write_read[6];
 
   Stats() {
-    memset(this, 0, sizeof(Stats));
+    reset();
   }
 
-  inline void add_write_request() { _n_requests[0]++; }
-  inline void add_write_bytes(uint32_t bytes) { _total_bytes[0] += bytes; }
-  inline void add_read_request() { _n_requests[1]++; }
-  inline void add_read_bytes(uint32_t bytes) { _total_bytes[1] += bytes; }
-  inline void add_internal_write_request() { _n_requests[2]++; }
-  inline void add_internal_write_bytes(uint32_t bytes) { _total_bytes[2] += bytes; }
-  inline void add_internal_read_request() { _n_requests[3]++; }
-  inline void add_internal_read_bytes(uint32_t bytes) { _total_bytes[3] += bytes; }
+  inline void add_write_request() { _n_requests[0].fetch_add(1, std::memory_order_relaxed); }
+  inline void add_write_bytes(uint32_t bytes) { _total_bytes[0].fetch_add(bytes, std::memory_order_relaxed); }
+  inline void add_read_request() { _n_requests[1].fetch_add(1, std::memory_order_relaxed); }
+  inline void add_read_bytes(uint32_t bytes) { _total_bytes[1].fetch_add(bytes, std::memory_order_relaxed); }
+  inline void add_internal_write_request() { _n_requests[2].fetch_add(1, std::memory_order_relaxed); }
+  inline void add_internal_write_bytes(uint32_t bytes) { _total_bytes[2].fetch_add(1, std::memory_order_relaxed); }
+  inline void add_internal_read_request() { _n_requests[3].fetch_add(1, std::memory_order_relaxed); }
+  inline void add_internal_read_bytes(uint32_t bytes) { _total_bytes[3].fetch_add(bytes, std::memory_order_relaxed); }
 
   inline void add_lookup_result(LookupResult lookup_result)
   {
-    _n_lookup_results[lookup_result]++;
+    _n_lookup_results[lookup_result].fetch_add(1, std::memory_order_relaxed);
   }
+
+  inline void add_compress_level(int compress_level) 
+  {
+    _compress_level[compress_level].fetch_add(1, std::memory_order_relaxed);
+  }
+
+  inline void add_metadata_write()
+  {
+    _n_data_write_read[0].fetch_add(1, std::memory_order_relaxed);
+  }
+  inline void add_metadata_read()
+  {
+    _n_data_write_read[1].fetch_add(1, std::memory_order_relaxed);
+  }
+  inline void add_cache_data_read()
+  {
+    _n_data_write_read[2].fetch_add(1, std::memory_order_relaxed);
+  }
+  inline void add_cache_data_write()
+  {
+    _n_data_write_read[3].fetch_add(1, std::memory_order_relaxed);
+  }
+  inline void add_primary_data_read()
+  {
+    _n_data_write_read[4].fetch_add(1, std::memory_order_relaxed);
+  }
+  inline void add_primary_data_write()
+  {
+    _n_data_write_read[5].fetch_add(1, std::memory_order_relaxed);
+  }
+
 
   inline void add_lba_hit(bool lba_hit) {
-    _index_hit[0] += lba_hit;
+    _index_hit[0].fetch_add(lba_hit, std::memory_order_relaxed);
   }
   inline void add_ca_hit(bool ca_hit) {
-    _index_hit[1] += ca_hit;
+    _index_hit[1].fetch_add(ca_hit, std::memory_order_relaxed);
   }
 
+  void reset()
+  {
+    for (int i = 0; i < 6; i++) _n_lookup_results[i].store(0, std::memory_order_relaxed);
+    for (int i = 0; i < 4; i++) _n_requests[i].store(0, std::memory_order_relaxed);
+    for (int i = 0; i < 4; i++) _total_bytes[i].store(0, std::memory_order_relaxed);
+    for (int i = 0; i < 2; i++) _index_hit[i].store(0, std::memory_order_relaxed);
+    for (int i = 0; i < 4; i++) _compress_level[i].store(0, std::memory_order_relaxed);
+    for (int i = 0; i < 6; i++) _n_data_write_read[i].store(0, std::memory_order_relaxed);
+  }
+
+  void dump()
+  {
+  std::cout
+    << "Number of write request: " << _n_requests[0] << std::endl
+    << "Number of write bytes: " <<   _total_bytes[0] << std::endl
+    << "Number of read request: " <<  _n_requests[1] << std::endl
+    << "Number of read bytes: " <<    _total_bytes[1] << std::endl
+    << "Number of internal write request: " << _n_requests[2] << std::endl
+    << "Number of internal write bytes: " <<   _total_bytes[2] << std::endl
+    << "Number of internal read request: " <<  _n_requests[3] << std::endl
+    << "Number of internal read bytes : " <<   _total_bytes[3] << std::endl
+    << "Number of read hit: " << _n_lookup_results[3] << std::endl
+    << "Number of read miss: " << _n_lookup_results[4] << std::endl
+    << "Number of lba hit: " << _index_hit[0] << std::endl
+    << "Number of ca hit: " << _index_hit[1] << std::endl
+    << "Number of compressiblity levels: 1: " << _compress_level[0] 
+    << ", 2: " << _compress_level[1] 
+    << ", 3: " << _compress_level[2] 
+    << ", 4: " << _compress_level[3] << std::endl
+    << "Number of metadata read/write, cache data read/write, primary data read/write: " << _n_data_write_read[0]
+    << ", " << _n_data_write_read[1]
+    << ", " << _n_data_write_read[2]
+    << ", " << _n_data_write_read[3]
+    << ", " << _n_data_write_read[4]
+    << ", " << _n_data_write_read[5] << std::endl;
+
+  std::cout << "hit ratio: " << _n_lookup_results[3] * 1.0 / (_n_lookup_results[3] + _n_lookup_results[4]) * 100 << "%" << std::endl;
+  }
 };
 
 }

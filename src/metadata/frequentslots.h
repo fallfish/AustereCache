@@ -2,59 +2,65 @@
 #define __FREQUENT_SLOTS_H__
 
 #include "common/common.h"
+#include <memory>
 
 namespace cache {
 
 class FrequentSlots {
  public:
-  FrequentSlots() {
-    memset(_lbas, 0, sizeof(_lbas));
-    memset(_meta, 0, sizeof(_meta));
-  }
+  FrequentSlots() {}
 
-  void allocate_slot(uint32_t ca_hash)
+  void allocate(uint32_t ca_hash)
   {
-    int i;
-    for (i = 0; i < 32; i++) {
-      if (_meta[i]._ca_hash == ca_hash) {
-        if (_lbas[i] == nullptr)
-          _lbas[i] = new uint64_t[1024];
-        break;
+    for (auto &reverse_mapping : _slots) {
+      if (reverse_mapping == nullptr) {
+        reverse_mapping = std::make_unique<ReverseMapping>();
+        reverse_mapping->_ca_hash = ca_hash;
+        return ;
       }
     }
-    if (i == 32) {
-      _meta[31]._ca_hash = ca_hash;
-      if (_lbas[31] == nullptr) {
-        _lbas[31] = new uint64_t[1024];
+    std::unique_ptr<ReverseMapping> reverse_mapping =
+      std::make_unique<ReverseMapping>();
+    reverse_mapping->_ca_hash = ca_hash;
+    _slots.push_back(std::move(reverse_mapping));
+  }
+
+  bool query(uint32_t ca_hash, uint32_t lba)
+  {
+    for (auto &reverse_mapping : _slots) {
+      if (reverse_mapping->_ca_hash == ca_hash) {
+        for (auto l : reverse_mapping->_lbas) {
+          if (l == lba)
+            return true;
+        }
+        return false;
       }
     }
-    advance(i);
   }
 
-  void lookup() {
-
+  void add(uint32_t ca_hash, uint32_t lba) {
+    for (auto &reverse_mapping : _slots) {
+      if (reverse_mapping->_ca_hash == ca_hash) {
+        reverse_mapping->_lbas.push_back(lba);
+      }
+    }
   }
+
+  void remove(uint32_t ca_hash) {
+    for (auto &reverse_mapping : _slots) {
+      if (reverse_mapping->_ca_hash == ca_hash) {
+        reverse_mapping.reset();
+      }
+    }
+  }
+
  private:
-  void advance(int index) {
-    uint32_t  tmp_ca_hash  = _meta[index]._ca_hash,
-              tmp_n_lbas   = _meta[index]._n_lbas,
-    uint64_t *tmp_lba_ptr  = _lbas[index];
-    for (int i = index; i < 31; i++) {
-      _meta[index]._ca_hash = _meta[index + 1]._ca_hash;
-      _meta[index]._n_lbas  = _meta[index + 1]._n_lbas;
-      _lbas[index]          = _lbas[index + 1];
-    }
-    _meta[31]._ca_hash = tmp_ca_hash;
-    _meta[31]._n_lbas  = tmp_n_lbas;
-    _lbas[31]          = tmp_lba_ptr;
-  }
-
-  struct {
+  struct ReverseMapping {
     uint32_t _ca_hash;
-    uint32_t _n_lbas;
-  } _meta[32];
-  uint64_t* _lbas[32];
-}
+    std::vector<uint64_t> _lbas;
+  };
+  std::vector<std::unique_ptr<ReverseMapping>> _slots;
+};
 
 }
 

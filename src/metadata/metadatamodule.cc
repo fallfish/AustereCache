@@ -1,6 +1,7 @@
 #include "metadatamodule.h"
 #include "metaverification.h"
 #include "metajournal.h"
+#include "frequentslots.h"
 #include "common/config.h"
 #include <cassert>
 

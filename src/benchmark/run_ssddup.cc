@@ -86,6 +86,7 @@ class RunSystem {
   void warm_up()
   {
     _ssddup->write(0, _original_data, _workload_conf._working_set_size);
+    _ssddup->reset_stats();
     DEBUG("finish warm up");
   }
 
@@ -99,20 +100,20 @@ class RunSystem {
           srand(thread_id);
           for (uint32_t i = 0; i < n_requests / _num_workers; i++) {
             int _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
-            uint64_t begin = rand() % _n_chunks;
-            uint64_t end = begin + 8;
+            //uint64_t begin = rand() % _n_chunks;
+            //uint64_t end = begin + rand() % 8;
             //uint64_t begin = 0;
             //uint64_t end = begin + 64;
-            if (end >= _n_chunks) end = _n_chunks - 1;
+            //if (end >= _n_chunks) end = _n_chunks - 1;
 
-            begin = begin * _workload_conf._chunk_size;
-            end = end * _workload_conf._chunk_size;
+            //begin = begin * _workload_conf._chunk_size;
+            //end = end * _workload_conf._chunk_size;
 
 
-            //uint64_t begin = rand() % _workload_conf._working_set_size;
-            //uint64_t end = begin + rand() % (_workload_conf._chunk_size * 3);
-            //if (end >= _workload_conf._working_set_size) end = _workload_conf._working_set_size - 1;
-            //if (begin == end) continue;
+            uint64_t begin = rand() % _workload_conf._working_set_size;
+            uint64_t end = begin + rand() % (_workload_conf._chunk_size * 8);
+            if (end >= _workload_conf._working_set_size) end = _workload_conf._working_set_size - 1;
+            if (begin == end) continue;
 
             int op = 1;
             if (op == 0) {
@@ -213,7 +214,7 @@ int main(int argc, char **argv)
 
   std::atomic<uint64_t> total_bytes(0);
   int elapsed = 0;
-  PERF_FUNCTION(elapsed, run_system.work, run_system._num_workers * 2048, total_bytes);
+  PERF_FUNCTION(elapsed, run_system.work, 2048 * 16, total_bytes);
   std::cout << (double)total_bytes / (1024 * 1024) << std::endl;
   std::cout << elapsed << " ms" << std::endl;
   std::cout << (double)total_bytes / elapsed << " MBytes/s" << std::endl;

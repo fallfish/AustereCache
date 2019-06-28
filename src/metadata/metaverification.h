@@ -3,6 +3,7 @@
 #include "common/common.h"
 #include <cstdint>
 #include "io/iomodule.h"
+#include "frequentslots.h"
 namespace cache {
   class MetaVerification {
    public:
@@ -17,6 +18,7 @@ namespace cache {
 //    uint32_t _ssd_location;
 
     std::shared_ptr<IOModule> _io_module;
+    std::unique_ptr<FrequentSlots> _frequent_slots;
   };
 }
 #endif

@@ -25,20 +25,7 @@ SSDDup::SSDDup()
 }
 
 SSDDup::~SSDDup() {
-  std::cout
-    << "Number of write request: " << _stats->_n_requests[0] << std::endl
-    << "Number of write bytes: " <<   _stats->_total_bytes[0] << std::endl
-    << "Number of read request: " <<  _stats->_n_requests[1] << std::endl
-    << "Number of read bytes: " <<    _stats->_total_bytes[1] << std::endl
-    << "Number of internal write request: " << _stats->_n_requests[2] << std::endl
-    << "Number of internal write bytes: " <<   _stats->_total_bytes[2] << std::endl
-    << "Number of internal read request: " <<  _stats->_n_requests[3] << std::endl
-    << "Number of internal read bytes : " <<   _stats->_total_bytes[3] << std::endl
-    << "Number of read hit: " << _stats->_n_lookup_results[3] << std::endl
-    << "Number of read miss: " << _stats->_n_lookup_results[4] << std::endl
-    << "Number of lba hit: " << _stats->_index_hit[0] << std::endl
-    << "Number of ca hit: " << _stats->_index_hit[1] << std::endl;
-  std::cout << "hit ratio: " << _stats->_n_lookup_results[3] * 1.0 / (_stats->_n_lookup_results[3] + _stats->_n_lookup_results[4]) * 100 << "%" << std::endl;
+  _stats->dump();
 }
 
 void SSDDup::read_mt(uint64_t addr, void *buf, uint32_t len)
@@ -91,7 +78,6 @@ void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
 
 void SSDDup::internal_read(Chunk &c, bool update_metadata)
 {
-  //std::lock_guard<std::mutex> lock(_mutex);
   _stats->add_internal_read_request();
   _stats->add_internal_read_bytes(c._len);
 
@@ -121,6 +107,9 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
         c._compressed_buf = c._buf;
       }
     }
+    
+    if (c._verification_result != VERIFICATION_UNKNOWN)
+      _stats->add_metadata_read();
 
     // In the read-modify-write path, we don't
     // update metadata, because the content will
@@ -132,13 +121,32 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
         c.fingerprinting();
       }
       _manage_module->update_metadata(c);
-      if (c._lookup_result == READ_NOT_HIT) {
+      if (c._lookup_result == READ_NOT_HIT
+          // if the fetched ssd data duplicated, (i.e., ca not valid)
+          // we have no need to write it to the cache
+          && (c._verification_result == BOTH_LBA_AND_CA_NOT_VALID
+            || c._verification_result == ONLY_LBA_VALID)) {
         // write compressed data into cache device
         _manage_module->write(c);
+
+        _stats->add_cache_data_write();
+      }
+
+      if (c._lookup_result == READ_NOT_HIT) {
+        _stats->add_metadata_read();
+        if (c._verification_result == ONLY_CA_VALID)
+          _stats->add_metadata_write();
       }
     }
   }
 
+  if (c._lookup_result == READ_HIT) {
+    _stats->add_cache_data_read();
+  } else {
+    _stats->add_primary_data_read();
+  }
+
+  _stats->add_compress_level(c._compress_level - 1);
   _stats->add_lookup_result(c._lookup_result);
   _stats->add_lba_hit(c._lba_hit);
   _stats->add_ca_hit(c._ca_hit);
@@ -190,18 +198,8 @@ void SSDDup::internal_write(Chunk &c)
   }
 
   _stats->add_lookup_result(c._lookup_result);
-  //_stats->add_lba_hit(c._lba_hit);
-  //_stats->add_ca_hit(c._ca_hit);
-}
-
-void SSDDup::TEST_write(int device, uint64_t addr, void *buf, uint32_t len)
-{
-
-}
-
-void SSDDup::TEST_read(int device, uint64_t addr, void *buf, uint32_t len)
-{
-
+  _stats->add_lba_hit(c._lba_hit);
+  _stats->add_ca_hit(c._ca_hit);
 }
 
 }

@@ -21,6 +21,7 @@ class SSDDup {
   void read_mt(uint64_t addr, void *buf, uint32_t len);
   void TEST_write(int device, uint64_t addr, void *buf, uint32_t len);
   void TEST_read(int device, uint64_t addr, void *buf, uint32_t len);
+  inline void reset_stats() { _stats->reset(); }
  private:
   void internal_read(Chunk &c, bool update_metadata);
   void internal_write(Chunk &c);
