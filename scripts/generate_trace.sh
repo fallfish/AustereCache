@@ -4,6 +4,11 @@ rm ../trace/compressibility_1/*
 rm ../trace/compressibility_2/*
 rm ../trace/compressibility_3/*
 rm ../trace/compressibility_4/*
+mkdir -p ../trace/compressibility_0
+mkdir -p ../trace/compressibility_1
+mkdir -p ../trace/compressibility_2
+mkdir -p ../trace/compressibility_3
+mkdir -p ../trace/compressibility_4
 
 for workload in 16384 1024 512 256 128 64 32 16 8 4 2 1
 do

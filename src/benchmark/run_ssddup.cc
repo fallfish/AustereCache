@@ -84,7 +84,9 @@ class RunSystem {
     }
     _workload_conf._wr_ratio = wr_ratio;
     _workload_conf.print_current_parameters();
-    Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
+    Config::get_configuration().set_cache_device_name("./cache_device");
+    Config::get_configuration().set_primary_device_name("./primary_device");
+    //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
     //Config::get_configuration().set_cache_device_name("/dev/sda");
     _ssddup = std::make_unique<SSDDup>();
   }

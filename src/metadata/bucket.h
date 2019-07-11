@@ -39,10 +39,15 @@ namespace cache {
         uint32_t b, e; init_v(index, b, e);
         _data->store_bits(b, e, v);
       }
+      inline bool is_valid(uint32_t index) { return _valid->get(index); }
+      inline void set_valid(uint32_t index) { _valid->set(index); }
+      inline void set_invalid(uint32_t index) { _valid->clear(index); }
+
      protected:
       uint32_t _n_bits_per_slot, _n_slots, _n_total_bytes,
                _n_bits_per_key, _n_bits_per_value;
       std::unique_ptr< Bitmap > _data;
+      std::unique_ptr< Bitmap > _valid;
       std::mutex _mutex;
   };
 
@@ -82,11 +87,8 @@ namespace cache {
        * @param ca_index used to evict obselete entries that has been evicted in ca_index
        */
       void update(uint32_t lba_sig, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index);
-
     private:
-      void advance(uint32_t index);
-      uint32_t find_non_occupied_position(std::shared_ptr<CAIndex> ca_index);
-      std::unique_ptr<Bitmap> _valid;
+      LRU _lru;
   };
 
   /**
@@ -96,14 +98,13 @@ namespace cache {
    *        
    *        layout:
    *        1. the key-value table (Bucket : Bitmap) 12 * 32 = 384 bits (regardless of alignment)
-   *          key: 12 bit ca hash value prefix
-   *          value: 0 bit
-   *          --------------------
-   *          | 12 bit signature |
-   *          --------------------
+   *          key: 12 bits ca hash value prefix
+   *          value: 2 bits compressibility level
+   *          ----------------------------------------------------
+   *          | 12 bits signature | 2 bits compressibility level |
+   *          ----------------------------------------------------
    *        2. valid bits - _valid (Bitmap) 32 bits
    *        3. clock bits - _clock (Bucket : Bitmap) 2 * 32 bits (key_len : 0, value_len : 2)
-   *        4. space bits - _space (Bucket : Bitmap) 2 * 32 bits (key_len : 0, value_len : 2)
    *           0, 1, 2, 3 represents the compression level 0, 1, 2, 3
    *           (also called size of an item)
    *           helps to compute a data pointer to the cache device
@@ -134,41 +135,6 @@ namespace cache {
       // This is required for hit but verification-failed chunk.
       void erase(uint32_t ca_sig);
     private:
-      inline uint32_t get_space(uint32_t index) {
-        return _space->get_v(index);
-      }
-      inline void set_space(uint32_t index, uint32_t space) {
-        _space->set_v(index, space);
-      }
-
-      inline void init_clock(uint32_t index) {
-        _clock->set_v(index, 1);
-      }
-      inline uint32_t get_clock(uint32_t index) {
-        return _clock->get_v(index);
-      }
-      inline void inc_clock(uint32_t index) {
-        uint32_t v = _clock->get_v(index);
-        if (v != 3) {
-          _clock->set_v(index, v + 1);
-        }
-      }
-      inline void dec_clock(uint32_t index) { 
-        uint32_t v = _clock->get_v(index);
-        if (v != 0) {
-          _clock->set_v(index, v - 1);
-        }
-      }
-
-      inline bool is_valid(uint32_t index) { return _valid->get(index); }
-      inline void set_valid(uint32_t index) { _valid->set(index); }
-      inline void set_invalid(uint32_t index) { _valid->clear(index); }
-
-      uint32_t find_non_occupied_position(uint32_t size);
-
-      uint32_t _clock_ptr;
-      std::unique_ptr<Bitmap> _valid;
-      std::unique_ptr<Bucket> _clock;
       std::unique_ptr<Bucket> _space;
   };
 

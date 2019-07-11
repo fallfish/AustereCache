@@ -28,7 +28,7 @@ cd openssl
 #### Build SSDDup
 ```
 mkdir build && cd build
-CMakeLists .. --DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j4
 ```
 
@@ -45,4 +45,6 @@ bash generate_trace.sh
 cd build
 ./benchmark/run_ssddup --help
 example: ./microbenchmarks/run_ssddup --trace ../trace/compressibility_3/dup-1 --ca-bits 11 --multi-thread 0 --num-workers 1
+Default primary device is ./primary_device, cache device is ./cache_device
+For details, please refer to src/benchmarks/run_ssddup.cc and other micro benchmarks
 ```
