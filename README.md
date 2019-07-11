@@ -8,12 +8,16 @@ Compression and deduplication together achieve storage savings on workload in th
 
 ### Build
 #### Import third_party libraries
+```
 mkdir third_party && cd third_party
+```
 ##### LZ4 compression algorithms
+```
 wget https://github.com/lz4/lz4/archive/v1.9.1.zip
 unzip v1.9.1.zip
 cd lz4-1.9.1
 make -j4
+```
 ##### OpenSSL
 ```
 git clone https://github.com/openssl/openssl.git
