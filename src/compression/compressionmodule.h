@@ -11,6 +11,7 @@ class CompressionModule {
   CompressionModule() {}
   void compress(Chunk &c);
   void decompress(Chunk &c);
+  void decompress(uint8_t *_compressed_buf, uint8_t *_buf, uint8_t compressed_len, uint8_t original_len);
   void compress_TEST(const char *src, char *dest, int len, int &compressibility);
 };
 }

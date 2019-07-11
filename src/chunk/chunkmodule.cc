@@ -27,14 +27,20 @@ namespace cache {
     Config &conf = Config::get_configuration();
     assert(_len == conf.get_chunk_size());
     assert(_addr % conf.get_chunk_size() == 0);
-//    SHA1(_buf, _len, _ca);
-//    MurmurHash3_x86_32(_ca, 20, 2, &_ca_hash);
-    MurmurHash3_x64_128(_buf, _len, 0, _ca);
-    MurmurHash3_x86_32(_ca, 16, 2, &_ca_hash);
-//    MD5(_buf, _len, _ca);
-//    MurmurHash3_x86_32(_ca, 6, 2, &_ca_hash);
+    if (conf.get_fingerprint_algorithm() == 0) {
+      SHA1(_buf, _len, _ca);
+    } else if (conf.get_fingerprint_algorithm() == 1) {
+      MurmurHash3_x64_128(_buf, _len, 0, _ca);
+    }
     _has_ca = true;
+
+    // compute ca hash
+    MurmurHash3_x86_32(_ca, conf.get_ca_length(), 2, &_ca_hash);
     _ca_hash >>= 32 - (conf.get_ca_signature_len() + conf.get_ca_bucket_no_len());
+  }
+
+  void Chunk::compute_strong_ca() {
+    SHA1(_buf, _len, _strong_ca);
   }
 
   void Chunk::compute_lba_hash()
@@ -101,8 +107,9 @@ namespace cache {
 
     c._lba_hit = false;
     c._ca_hit = false;
-    c._verification_result = VERIFICATION_UNKNOWN;
+    c._dedup_result = DEDUP_UNKNOWN;
     c._lookup_result = LOOKUP_UNKNOWN;
+    c._verification_result = VERIFICATION_UNKNOWN;
     c.compute_lba_hash();
 
     _addr += c._len;

@@ -2,13 +2,19 @@
 
 namespace cache {
 
-  DeduplicationModule::DeduplicationModule(std::shared_ptr<MetadataModule> metadata_module) :
+  DeduplicationModule::DeduplicationModule(
+      std::shared_ptr<MetadataModule> metadata_module) :
     _metadata_module(metadata_module)
     {}
 
-  void DeduplicationModule::deduplicate(Chunk &c, bool is_write_path)
+  void DeduplicationModule::dedup(Chunk &c)
   {
-    _metadata_module->lookup(c, is_write_path);
+    _metadata_module->dedup(c);
+  }
+
+  void DeduplicationModule::lookup(Chunk &c)
+  {
+    _metadata_module->lookup(c);
   }
 
 }

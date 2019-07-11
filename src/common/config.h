@@ -11,10 +11,12 @@ class Config
     return instance;
   }
 
+  // getters
   uint32_t get_chunk_size() { return _chunk_size; }
   uint32_t get_sector_size() { return _sector_size; }
   uint32_t get_metadata_size() { return _metadata_size; }
   uint32_t get_ca_length() { return _ca_length; }
+  uint32_t get_strong_ca_length() { return _strong_ca_length; }
   uint64_t get_primary_device_size() { return _primary_device_size; }
   uint64_t get_cache_device_size() { return _cache_device_size; }
 
@@ -28,6 +30,13 @@ class Config
   uint32_t get_max_num_global_threads() { return _max_num_global_threads; }
   uint32_t get_max_num_local_threads() { return _max_num_local_threads; }
 
+  char *get_cache_device_name() { return _cache_device_name; }
+  char *get_primary_device_name() { return _primary_device_name; }
+
+  uint32_t get_fingerprint_algorithm() { return _fingerprint_algorithm; }
+  uint32_t get_fingerprint_computation_method() { return _fingerprint_computation_method; }
+
+  // setters
   void set_chunk_size(uint32_t chunk_size) { _chunk_size = chunk_size; }
   void set_sector_size(uint32_t sector_size) { _sector_size = sector_size; }
   void set_metadata_size(uint32_t metadata_size) { _metadata_size = metadata_size; }
@@ -45,6 +54,19 @@ class Config
   void set_max_num_global_threads(uint32_t max_num_global_threads) { _max_num_global_threads = max_num_global_threads; }
   void set_max_num_local_threads(uint32_t max_num_local_threads) { _max_num_local_threads = max_num_local_threads; }
 
+  void set_cache_device_name(char *cache_device_name) { _cache_device_name = cache_device_name; }
+  void set_primary_device_name(char *primary_device_name) { _primary_device_name = primary_device_name; }
+
+  void set_fingerprint_algorithm(uint32_t v) { 
+    if (v == 0) set_ca_length(20);
+    else set_ca_length(16);
+    _fingerprint_algorithm = v; 
+  }
+  void set_fingerprint_computation_method(uint32_t v) {
+    if (v == 0) set_fingerprint_algorithm(0);
+    else set_fingerprint_algorithm(1);
+    _fingerprint_computation_method = v;
+  }
 
  private:
   Config() {
@@ -54,6 +76,7 @@ class Config
     _sector_size = 8192;
     _metadata_size = 512;
     _ca_length = 16;
+    _strong_ca_length = 20;
     _primary_device_size = 1024 * 1024 * 512;
     _cache_device_size = 1024 * 1024 * 600;
 
@@ -70,11 +93,20 @@ class Config
 
     _max_num_global_threads = 32;
     _max_num_local_threads = 8;
+
+    // io related
+    _cache_device_name = "/dev/sda";
+    _primary_device_name = "/dev/sdb";
+
+    set_fingerprint_computation_method(0);
+    set_fingerprint_algorithm(1);
   }
+
   uint32_t _chunk_size; // 8k size chunk
   uint32_t _sector_size; // 8k size sector
   uint32_t _metadata_size; // 512 byte size chunk
-  uint32_t _ca_length; // content address length, 256 bytes if using sha256, else differs for different hash function
+  uint32_t _ca_length; // content address (fingerprint) length, 20 bytes if using SHA1
+  uint32_t _strong_ca_length; // content address (fingerprint) length, 20 bytes if using SHA1
   uint64_t _primary_device_size;
   uint64_t _cache_device_size;
 
@@ -93,6 +125,16 @@ class Config
   uint32_t _max_num_global_threads;
   uint32_t _max_num_local_threads;
 
+  // io related
+  char *_primary_device_name;
+  char *_cache_device_name;
+
+  // chunk algorithm
+  // 0 - Strong hash (SHA1), 1 - Weak hash (MurmurHash3)
+  uint32_t _fingerprint_algorithm;
+  // 0 - Strong hash, 1 - Weak hash + memcmp, 2 - Weak hash + Strong hash
+  // If computation_method is set to 1 or 2, the _fingerprint_algorithm field must be 1
+  uint32_t _fingerprint_computation_method;
 };
 
 }

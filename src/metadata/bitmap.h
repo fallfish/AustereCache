@@ -84,6 +84,13 @@ namespace cache {
         }
         return v;
       }
+
+      inline uint32_t get_32bits(uint32_t index) { 
+        return get_bits(index * 32, (index + 1) * 32);
+      }
+      inline void set_32bits(uint32_t index, uint64_t v) {
+        store_bits(index * 32, (index + 1) * 32, v);
+      }
     private:
       uint32_t _n_bits;
       std::unique_ptr< uint8_t[] > _data;

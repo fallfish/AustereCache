@@ -9,47 +9,45 @@ ManageModule::ManageModule(
 
 int ManageModule::read(Chunk &c)
 {
-  if (c._lookup_result == READ_HIT) {
+  if (c._lookup_result == HIT) {
     c._compressed_len = c._metadata._compressed_len;
     if (c._compressed_len != 0) {
       _io_module->read(1,
         c._ssd_location + Config::get_configuration().get_metadata_size(),
         c._compressed_buf,
-        c._compress_level * Config::get_configuration().get_sector_size()
+        (c._compress_level + 1) * Config::get_configuration().get_sector_size()
         );
     } else {
       _io_module->read(1,
         c._ssd_location + Config::get_configuration().get_metadata_size(),
         c._buf,
-        c._compress_level * Config::get_configuration().get_sector_size()
+        (c._compress_level + 1) * Config::get_configuration().get_sector_size()
         );
       c._compressed_buf = c._buf;
     }
   } else {
-    //std::cout << "Not Hit " << 
-      //c._addr << " " << c._len << std::endl;
     _io_module->read(0, c._addr,
       c._buf,
       c._len);
   }
+
   return 0;
 }
 
 int ManageModule::write(Chunk &c)
 {
-  if (c._lookup_result == WRITE_DUP_WRITE) {
+  if (c._dedup_result == DUP_WRITE) {
     // do nothing
     return 0;
-  } else if (c._lookup_result == WRITE_DUP_CONTENT || c._lookup_result == WRITE_NOT_DUP) {
+  } else if (c._dedup_result == DUP_CONTENT || c._dedup_result == NOT_DUP) {
     // write through to the primary storage
     _io_module->write(0, c._addr, c._buf, c._len);
   }
-  if (c._lookup_result == WRITE_NOT_DUP
-      || c._lookup_result == READ_NOT_HIT) {
+  if (c._dedup_result == NOT_DUP) {
     _io_module->write(1,
       c._ssd_location + Config::get_configuration().get_metadata_size(),
       c._compressed_buf,
-      c._compress_level * Config::get_configuration().get_sector_size()
+      (c._compress_level + 1) * Config::get_configuration().get_sector_size()
     );
   }
   return 0;

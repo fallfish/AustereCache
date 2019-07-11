@@ -27,7 +27,7 @@ class SSDDup {
   void internal_write(Chunk &c);
   std::unique_ptr<ChunkModule> _chunk_module;
   std::unique_ptr<DeduplicationModule> _deduplication_module;
-  std::unique_ptr<CompressionModule> _compression_module;
+  std::shared_ptr<CompressionModule> _compression_module;
   std::unique_ptr<ManageModule> _manage_module;
 
   // Statistics

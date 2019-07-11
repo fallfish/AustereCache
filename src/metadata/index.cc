@@ -50,10 +50,10 @@ namespace cache {
     }
   }
 
-  uint32_t CAIndex::compute_ssd_location(uint32_t bucket_no, uint32_t index)
+  uint32_t CAIndex::compute_ssd_location(uint32_t bucket_no, uint32_t slot_id)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucket_no * _n_items_per_bucket + index) *
+    return (bucket_no * _n_items_per_bucket + slot_id) *
       (Config::get_configuration().get_sector_size() + 
        Config::get_configuration().get_metadata_size());
   }
@@ -75,9 +75,8 @@ namespace cache {
     uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
 
 //     find contiguous spaces size can fit in
-    _buckets[bucket_no]->update(signature, size);
-    uint32_t index = _buckets[bucket_no]->lookup(signature, size);
-    ssd_location = compute_ssd_location(bucket_no, index);
+    uint32_t slot_id = _buckets[bucket_no]->update(signature, size);
+    ssd_location = compute_ssd_location(bucket_no, slot_id);
   }
 
   void CAIndex::erase(uint32_t ca_hash)

@@ -12,19 +12,29 @@
 
 namespace cache {
 
-// 512 bytes
+/**
+ * @brief Metadata is an on-ssd data structure storing Full-CA and Full-LBAs
+ *        When a chunk matches both LBA index and CA index for prefix matching,
+ *        metadata is fetched from SSD to verify if the chunk is duplicate or not.
+ */
 struct Metadata {
-  uint8_t _ca[128];
+  uint8_t  _ca[20];
+  uint8_t  _strong_ca[20];
   uint32_t _reference_count;
   uint64_t _lbas[37]; // 4 * 32
   uint32_t _num_lbas;
-  uint32_t _compressed_len; // if the data is compressed, the compressed_len is valid, otherwise, it is 0.
-  uint8_t _[76];
+  // If the data is compressed, the compressed_len is valid, otherwise, it is 0.
+  uint32_t _compressed_len; 
+  // 512 bytes alignment for DMA access
+  uint8_t _[76 + 80];
+};
+
+enum DedupResult {
+  DUP_WRITE, DUP_CONTENT, NOT_DUP, DEDUP_UNKNOWN
 };
 
 enum LookupResult {
-  WRITE_DUP_WRITE, WRITE_DUP_CONTENT, WRITE_NOT_DUP,
-  READ_HIT, READ_NOT_HIT, LOOKUP_UNKNOWN
+  HIT, NOT_HIT, LOOKUP_UNKNOWN
 };
 
 enum VerificationResult {
@@ -50,20 +60,21 @@ enum VerificationResult {
  *   5. lba_hit, ca_hit, for performance statistics
  *   6. compressed_buf, compressed_len, compress_level
  *      Compression related.
- *      Compress_level varies from [1, 2, 3, 4]
+ *      Compress_level varies from [0, 1, 2, 3]
  *      which specifies 25%, 50%, 75%, 100% compression ratio, respectively.
  *
  **/
 
 struct Chunk {
     Metadata _metadata;
+
     uint64_t _addr;
     uint32_t _len;
     uint8_t *_buf;
 
     uint8_t *_compressed_buf;
     uint32_t _compressed_len;
-    uint32_t _compress_level; // compression level: 1, 2, 3, 4 * 8k
+    uint32_t _compress_level; // compression level: 0, 1, 2, 3 representing 1, 2, 3, 4 * 8 KiB
 
     // For unaligned read/write request
     // We store the original request here
@@ -72,7 +83,8 @@ struct Chunk {
     uint32_t _original_len;
     uint8_t *_original_buf;
 
-    uint8_t  _ca[128]; // the largest possible content address length for ca
+    uint8_t  _ca[20];
+    uint8_t  _strong_ca[20];
     uint32_t _lba_hash;
     uint32_t _ca_hash;
     bool     _has_ca;
@@ -81,6 +93,7 @@ struct Chunk {
 
     bool _lba_hit;
     bool _ca_hit;
+    DedupResult _dedup_result;
     LookupResult _lookup_result;
     VerificationResult _verification_result;
 
@@ -88,7 +101,6 @@ struct Chunk {
     // Bucket-level locks are used to guarantee the consistency of index
     std::unique_ptr<std::lock_guard<std::mutex>> _lba_bucket_lock;
     std::unique_ptr<std::lock_guard<std::mutex>> _ca_bucket_lock;
-
 
     Chunk() {}
     Chunk(const Chunk &c) {
@@ -101,13 +113,15 @@ struct Chunk {
       _ca_hit = false;
       _verification_result = VERIFICATION_UNKNOWN;
       _lookup_result = LOOKUP_UNKNOWN;
+
       compute_lba_hash();
     }
     /**
-     * @brief compute finger print of current chunk.
+     * @brief compute fingerprint of current chunk.
      *        Require: a write chunk, address is aligned
      */
     void fingerprinting();
+    void compute_strong_ca();
     void compute_lba_hash();
     void TEST_fingerprinting();
     void TEST_compute_lba_hash();
@@ -145,7 +159,7 @@ struct Stats {
   // store number of each lookup results
   // write_dup_write, write_dup_content, write_not_dup,
   // read_hit, read_not_hit
-  std::atomic<int> _n_lookup_results[6];
+  std::atomic<int> _n_lookup_results[3];
   // store number of writes and reads
   // aligned write, aligned read,
   // write request, read request
@@ -240,8 +254,8 @@ struct Stats {
     << "Number of internal write bytes: " <<   _total_bytes[2] << std::endl
     << "Number of internal read request: " <<  _n_requests[3] << std::endl
     << "Number of internal read bytes : " <<   _total_bytes[3] << std::endl
-    << "Number of read hit: " << _n_lookup_results[3] << std::endl
-    << "Number of read miss: " << _n_lookup_results[4] << std::endl
+    << "Number of read hit: " << _n_lookup_results[0] << std::endl
+    << "Number of read miss: " << _n_lookup_results[1] << std::endl
     << "Number of lba hit: " << _index_hit[0] << std::endl
     << "Number of ca hit: " << _index_hit[1] << std::endl
     << "Number of compressiblity levels: 1: " << _compress_level[0] 
@@ -255,7 +269,7 @@ struct Stats {
     << ", " << _n_data_write_read[4]
     << ", " << _n_data_write_read[5] << std::endl;
 
-  std::cout << "hit ratio: " << _n_lookup_results[3] * 1.0 / (_n_lookup_results[3] + _n_lookup_results[4]) * 100 << "%" << std::endl;
+  std::cout << "hit ratio: " << _n_lookup_results[0] * 1.0 / (_n_lookup_results[0] + _n_lookup_results[1]) * 100 << "%" << std::endl;
   }
 };
 

@@ -32,10 +32,11 @@ add_library(cache
   src/utils/MurmurHash3.cpp
   )
 
+include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
 set (OPENSSL_ROOT_DIR ${CMAKE_SOURCE_DIR}/third_party/openssl)
 set (OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED)
-include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
+
 include_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
 link_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
 target_link_libraries(cache OpenSSL::SSL lz4 pthread)
@@ -50,7 +51,6 @@ target_link_libraries(compression_benchmark cache)
 add_executable(trace_gen src/benchmark/trace_gen.cc)
 set_target_properties(trace_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(trace_gen cache)
-target_link_libraries(trace_gen OpenSSL::SSL)
 
 add_executable(run_ssddup src/benchmark/run_ssddup.cc)
 set_target_properties(run_ssddup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
@@ -64,25 +64,29 @@ add_executable(run_compression src/benchmark/run_compression.cc)
 set_target_properties(run_compression PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_compression cache)
 
+add_executable(run_chunk src/benchmark/run_chunk.cc)
+set_target_properties(run_chunk PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(run_chunk cache)
 
-################################
-# GTest
-################################
-ADD_SUBDIRECTORY(third_party/gtest-1.9.0)
-#enable_testing()
-include_directories(third_party/gtest-1.9.0/googletest/include)
 
-################################
-# Unit Tests
-################################
-# Add test cpp file
-add_executable( runUnitTests src/test/main.cpp)
-# Link test executable against gtest & gtest_main
-target_link_libraries(runUnitTests gtest gtest_main cache)
-#add_test( runUnitTests runUnitTests )
+#################################
+## GTest
+#################################
+#ADD_SUBDIRECTORY(third_party/gtest-1.9.0)
+##enable_testing()
+#include_directories(third_party/gtest-1.9.0/googletest/include)
 
-################################
-# GLog
-################################
-ADD_SUBDIRECTORY(third_party/glog-0.4.0)
-include_directories(third_party/gtest-1.9.0/googletest/include)
+#################################
+## Unit Tests
+#################################
+## Add test cpp file
+#add_executable( runUnitTests src/test/main.cpp)
+## Link test executable against gtest & gtest_main
+#target_link_libraries(runUnitTests gtest gtest_main cache)
+##add_test( runUnitTests runUnitTests )
+
+#################################
+## GLog
+#################################
+#ADD_SUBDIRECTORY(third_party/glog-0.4.0)
+#include_directories(third_party/gtest-1.9.0/googletest/include)

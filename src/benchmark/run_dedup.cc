@@ -39,7 +39,7 @@ class RunDeduplicationModule {
         _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
         // read working set
 #ifdef __APPLE__
-        posix_memalign((void**)&_chunks, 512, _n_chunks * sizeof(Chunk));
+        _chunks = reinterpret_cast<Chunk*>(malloc(512, _n_chunks * sizeof(Chunk)));
 #else
         _chunks = reinterpret_cast<Chunk*>(aligned_alloc(512, _n_chunks * sizeof(Chunk)));
 #endif
@@ -54,9 +54,9 @@ class RunDeduplicationModule {
       }
     }
     _io_module = std::make_shared<IOModule>();
-    //_io_module->add_cache_device("./ramdisk/cache_device");
-    _io_module->add_cache_device("/dev/sda");
-    _metadata_module = std::make_shared<MetadataModule>(_io_module);
+    _io_module->add_cache_device("./ramdisk/cache_device");
+    //_io_module->add_cache_device("/dev/sda");
+    _metadata_module = std::make_shared<MetadataModule>(_io_module, nullptr);
     _deduplication_module = std::make_unique<DeduplicationModule>(_metadata_module);
   }
 
@@ -73,7 +73,7 @@ class RunDeduplicationModule {
       _chunks[i]._ca_hash >>= 32 - 
         (conf.get_ca_signature_len() + conf.get_ca_bucket_no_len());
       memcpy(&c, _chunks + i, sizeof(Chunk));
-      _deduplication_module->deduplicate(c, true);
+      _deduplication_module->dedup(c);
       _metadata_module->update(c);
     }
   }
@@ -87,8 +87,8 @@ class RunDeduplicationModule {
       std::vector<std::thread> threads;
       for (int j = begin; j < end; j++) {
         ++ n_total;
-        threads.push_back(std::thread([&]()
-          {
+        //threads.push_back(std::thread([&]()
+          //{
             alignas(512) Chunk c;
             {
               c._addr = _chunks[j]._addr;
@@ -97,22 +97,22 @@ class RunDeduplicationModule {
               c._has_ca = false;
               c._verification_result = cache::VERIFICATION_UNKNOWN;
             }
-            _deduplication_module->deduplicate(c, false);
-            if (c._lookup_result == READ_NOT_HIT) {
+            _deduplication_module->lookup(c);
+            if (c._lookup_result == NOT_HIT) {
               memcpy(c._ca, _chunks[j]._ca, 16);
               c._ca_hash = _chunks[j]._ca_hash;
               c._compress_level = _chunks[j]._compress_level;
               c._has_ca = true;
-            } else if (c._lookup_result == READ_HIT) {
-              //++n_hits;
+            } else if (c._lookup_result == HIT) {
+              ++n_hits;
             }
             _metadata_module->update(c);
-          }
-        ));
+          //}
+        //));
       }
-      for (auto &t : threads) {
-        t.join();
-      }
+      //for (auto &t : threads) {
+        //t.join();
+      //}
     }
   }
  private:

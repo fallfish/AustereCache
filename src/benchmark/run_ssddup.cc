@@ -64,6 +64,10 @@ class RunSystem {
         _multi_thread = atoi(value);
       } else if (strcmp(param, "--num-workers") == 0) {
         _num_workers = atoi(value);
+      } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
+        Config::get_configuration().set_fingerprint_algorithm(atoi(value));
+      } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
+        Config::get_configuration().set_fingerprint_computation_method(atoi(value));
       }
     }
 
@@ -80,6 +84,8 @@ class RunSystem {
     }
     _workload_conf._wr_ratio = wr_ratio;
     _workload_conf.print_current_parameters();
+    Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
+    //Config::get_configuration().set_cache_device_name("/dev/sda");
     _ssddup = std::make_unique<SSDDup>();
   }
 
@@ -96,14 +102,15 @@ class RunSystem {
     for (int thread_id = 0; thread_id < _num_workers; thread_id++) {
       workers.push_back(std::thread( [&, thread_id]()
         {
-        std::cout << thread_id << std::endl;
+        //std::cout << thread_id << std::endl;
           srand(thread_id);
           for (uint32_t i = 0; i < n_requests / _num_workers; i++) {
+          std::cout << i << std::endl;
             int _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
             //uint64_t begin = rand() % _n_chunks;
             //uint64_t end = begin + rand() % 8;
-            //uint64_t begin = 0;
-            //uint64_t end = begin + 64;
+            //uint64_t begin = 3;
+            //uint64_t end = begin + 1;
             //if (end >= _n_chunks) end = _n_chunks - 1;
 
             //begin = begin * _workload_conf._chunk_size;
@@ -148,7 +155,8 @@ class RunSystem {
   {
     int count = 0;
     for (uint32_t i = 0; i < length; i++) {
-     if (((char*)a)[i] == ((char*)b)[i]) count++;
+      if (((char*)a)[i] == ((char*)b)[i]) count++;
+      else return count;
     }
     return count;
   }
@@ -156,7 +164,14 @@ class RunSystem {
   void print_help()
   {
     std::cout << "--wr-ratio: the ratio of write chunks and read chunks" << std::endl
-      << "--trace: input workload file" << std::endl;
+      << "--trace: input workload file" << std::endl
+      << "--wr-ratio: write-read ratio of the workload float number (0 ~ 1)" << std::endl
+      << "--multi-thread: enable multi-thread or not, 1 means enable, 0 means disable" << std::endl
+      << "--ca-bits: number of bits of ca index" << std::endl
+      << "--num-workers: number of workers to issue read requests" << std::endl
+      << "--fingerprint-algorithm: main fingerprint algorithm, 0 - SHA1, 1 - murmurhash" << std::endl
+      << "--fingerprint-computation-method: indicate the fingerprint computation optimization, 0 - SHA1, 1 - weak hash + memcmp, 2 - weak hash + SHA1" << std::endl;
+
   }
 
   void modify_chunk(uint64_t begin, uint64_t end)
@@ -217,6 +232,6 @@ int main(int argc, char **argv)
   PERF_FUNCTION(elapsed, run_system.work, 2048 * 16, total_bytes);
   std::cout << (double)total_bytes / (1024 * 1024) << std::endl;
   std::cout << elapsed << " ms" << std::endl;
-  std::cout << (double)total_bytes / elapsed << " MBytes/s" << std::endl;
+  std::cout << "Throughput: " << (double)total_bytes / elapsed << " MBytes/s" << std::endl;
 }
 

@@ -3,6 +3,7 @@
 
 #include "common/common.h"
 #include <memory>
+#include <exception>
 
 namespace cache {
 
@@ -13,7 +14,7 @@ class FrequentSlots {
   void allocate(uint32_t ca_hash)
   {
     for (auto &reverse_mapping : _slots) {
-      if (reverse_mapping == nullptr) {
+      if (reverse_mapping.get() == nullptr) {
         reverse_mapping = std::make_unique<ReverseMapping>();
         reverse_mapping->_ca_hash = ca_hash;
         return ;
@@ -28,7 +29,8 @@ class FrequentSlots {
   bool query(uint32_t ca_hash, uint32_t lba)
   {
     for (auto &reverse_mapping : _slots) {
-      if (reverse_mapping->_ca_hash == ca_hash) {
+      if (reverse_mapping.get() == nullptr) continue;
+      if (reverse_mapping->_ca_hash == ca_hash) { 
         for (auto l : reverse_mapping->_lbas) {
           if (l == lba)
             return true;
@@ -36,10 +38,12 @@ class FrequentSlots {
         return false;
       }
     }
+    return false;
   }
 
   void add(uint32_t ca_hash, uint32_t lba) {
     for (auto &reverse_mapping : _slots) {
+      if (reverse_mapping.get() == nullptr) continue;
       if (reverse_mapping->_ca_hash == ca_hash) {
         reverse_mapping->_lbas.push_back(lba);
       }
@@ -48,6 +52,7 @@ class FrequentSlots {
 
   void remove(uint32_t ca_hash) {
     for (auto &reverse_mapping : _slots) {
+      if (reverse_mapping.get() == nullptr) continue;
       if (reverse_mapping->_ca_hash == ca_hash) {
         reverse_mapping.reset();
       }

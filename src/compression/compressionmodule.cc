@@ -11,18 +11,18 @@ void CompressionModule::compress(Chunk &c)
 {
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
-      c._len, c._len * 0.9);
+      c._len, c._len * 0.75);
   double compress_ratio = c._compressed_len * 1.0 / c._len;
   if (compress_ratio > 0.75 || c._compressed_len == 0) {
-    c._compress_level = 4;
+    c._compress_level = 3;
     c._compressed_buf = c._buf;
   } else {
     if (compress_ratio > 0.5) {
-      c._compress_level = 3;
-    } else if (compress_ratio > 0.25) {
       c._compress_level = 2;
-    } else {
+    } else if (compress_ratio > 0.25) {
       c._compress_level = 1;
+    } else {
+      c._compress_level = 0;
     }
   }
   return ;
@@ -32,6 +32,13 @@ void CompressionModule::decompress(Chunk &c)
 {
   LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
       c._compressed_len, c._len);
+  return ;
+}
+
+void CompressionModule::decompress(uint8_t *compressed_buf, uint8_t *buf, uint8_t compressed_len, uint8_t original_len)
+{
+  LZ4_decompress_safe((const char*)compressed_buf, (char*)buf,
+      compressed_len, original_len);
   return ;
 }
 
