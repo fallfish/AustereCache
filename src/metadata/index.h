@@ -28,12 +28,13 @@ namespace cache {
       LBAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_items_per_bucket, std::shared_ptr<CAIndex> ca_index);
       bool lookup(uint32_t lba_hash, uint32_t &ca_hash);
+      void promote(uint32_t lba_hash);
       void update(uint32_t lba_hash, uint32_t ca_hash);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t lba_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
     private:
       std::shared_ptr<CAIndex> _ca_index;
-      std::vector< std::unique_ptr<LBABucket> > _buckets;
+      std::vector< std::shared_ptr<LBABucket> > _buckets;
   };
 
   class CAIndex : Index {
@@ -42,14 +43,14 @@ namespace cache {
       CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_items_per_bucket);
       bool lookup(uint32_t ca_hash, uint32_t &size, uint64_t &ssd_location);
+      void promote(uint32_t ca_hash);
       void update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location);
-      void erase(uint32_t ca_hash);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t ca_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
     private:
       uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index);
-      std::vector< std::unique_ptr<CABucket> > _buckets;
+      std::vector< std::shared_ptr<CABucket> > _buckets;
   };
 }
 #endif

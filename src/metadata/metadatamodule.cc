@@ -96,17 +96,17 @@ namespace cache {
     // If the ca is not valid, it means a new chunk and the previous one
     // should be evicted.
 
-    //if (c._ca_hit) {
-      //_ca_index->promote(c._ca_hash);
-    //} else {
+    if (c._ca_hit) {
+      _ca_index->promote(c._ca_hash);
+    } else {
       _ca_index->update(c._ca_hash, c._compress_level, c._ssd_location);
-    //}
+    }
 
-    //if (c._lba_hit) {
-      //_lba_index->promote(c._lba_hash);
-    //} else {
+    if (c._lba_hit) {
+      _lba_index->promote(c._lba_hash);
+    } else {
       _lba_index->update(c._lba_hash, c._ca_hash);
-    //}
+    }
 
     _meta_journal->add_update(c);
 

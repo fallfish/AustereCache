@@ -5,44 +5,68 @@
 #include <memory>
 #include <mutex>
 #include "bitmap.h"
+#include "cache_policy.h"
 namespace cache {
   // Bucket is an abstraction of multiple key-value pairs (mapping)
   // bit level bucket
   class CAIndex;
+  class CachePolicy;
   class Bucket {
     public:
       Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots);
       virtual ~Bucket();
+
+      void set_cache_policy(std::unique_ptr<CachePolicy> cache_policy) 
+      { 
+        _cache_policy = std::move(cache_policy);
+      }
+
+
       std::mutex &get_mutex() { return _mutex; }
 
-      inline void init_k(uint32_t index, uint32_t &b, uint32_t &e) {
+      inline void init_k(uint32_t index, uint32_t &b, uint32_t &e)
+      {
         b = index * _n_bits_per_slot;
         e = b + _n_bits_per_key;
       }
-      inline uint32_t get_k(uint32_t index) { 
+      inline uint32_t get_k(uint32_t index)
+      {
         uint32_t b, e; init_k(index, b, e);
         return _data->get_bits(b, e);
       }
-      inline void set_k(uint32_t index, uint32_t v) {
+      inline void set_k(uint32_t index, uint32_t v)
+      {
         uint32_t b, e; init_k(index, b, e);
         _data->store_bits(b, e, v);
       }
-      inline void init_v(uint32_t index, uint32_t &b, uint32_t &e) {
+      inline void init_v(uint32_t index, uint32_t &b, uint32_t &e)
+      {
         b = index * _n_bits_per_slot + _n_bits_per_key;
         e = b + _n_bits_per_value;
       }
-      inline uint32_t get_v(uint32_t index) { 
+      inline uint32_t get_v(uint32_t index)
+      {
         uint32_t b, e; init_v(index, b, e);
         return _data->get_bits(b, e);
       }
-      inline void set_v(uint32_t index, uint32_t v) {
+      inline void set_v(uint32_t index, uint32_t v)
+      {
         uint32_t b, e; init_v(index, b, e);
         _data->store_bits(b, e, v);
       }
+
+      inline bool is_valid(uint32_t index) { return _valid->get(index); }
+      inline void set_valid(uint32_t index) { _valid->set(index); }
+      inline void set_invalid(uint32_t index) { _valid->clear(index); }
+
+      inline uint32_t get_n_slots() { return _n_slots; }
+
      protected:
       uint32_t _n_bits_per_slot, _n_slots, _n_total_bytes,
                _n_bits_per_key, _n_bits_per_value;
       std::unique_ptr< Bitmap > _data;
+      std::unique_ptr< Bitmap > _valid;
+      std::unique_ptr< CachePolicy > _cache_policy;
       std::mutex _mutex;
   };
 
@@ -71,6 +95,7 @@ namespace cache {
        * @return ~0 if the lba signature does not exist, otherwise the corresponding index
        */
       uint32_t lookup(uint32_t lba_sig, uint32_t &ca_hash);
+      void promote(uint32_t lba_sig);
       /**
        * @brief Update the lba index structure
        *        In the eviction procedure, we firstly check whether old
@@ -102,11 +127,6 @@ namespace cache {
    *          | 12 bit signature |
    *          --------------------
    *        2. valid bits - _valid (Bitmap) 32 bits
-   *        3. clock bits - _clock (Bucket : Bitmap) 2 * 32 bits (key_len : 0, value_len : 2)
-   *        4. space bits - _space (Bucket : Bitmap) 2 * 32 bits (key_len : 0, value_len : 2)
-   *           0, 1, 2, 3 represents the compression level 0, 1, 2, 3
-   *           (also called size of an item)
-   *           helps to compute a data pointer to the cache device
    */
   class CABucket : public Bucket {
     public:
@@ -121,55 +141,19 @@ namespace cache {
        *
        * @return ~0 if the lba signature does not exist, otherwise the corresponding index
        */
-      uint32_t lookup(uint32_t ca_sig, uint32_t &size);
+      uint32_t lookup(uint32_t ca_sig, uint32_t &n_slots_occupied);
 
+      void promote(uint32_t ca_sig);
       /**
        * @brief Update the lba index structure
        *
        * @param lba_sig
        * @param size
        */
-      uint32_t update(uint32_t ca_sig, uint32_t size);
+      uint32_t update(uint32_t ca_sig, uint32_t n_slots_to_occupy);
       // Delete an entry for a certain ca signature
       // This is required for hit but verification-failed chunk.
       void erase(uint32_t ca_sig);
-    private:
-      inline uint32_t get_space(uint32_t index) {
-        return _space->get_v(index);
-      }
-      inline void set_space(uint32_t index, uint32_t space) {
-        _space->set_v(index, space);
-      }
-
-      inline void init_clock(uint32_t index) {
-        _clock->set_v(index, 1);
-      }
-      inline uint32_t get_clock(uint32_t index) {
-        return _clock->get_v(index);
-      }
-      inline void inc_clock(uint32_t index) {
-        uint32_t v = _clock->get_v(index);
-        if (v != 3) {
-          _clock->set_v(index, v + 1);
-        }
-      }
-      inline void dec_clock(uint32_t index) { 
-        uint32_t v = _clock->get_v(index);
-        if (v != 0) {
-          _clock->set_v(index, v - 1);
-        }
-      }
-
-      inline bool is_valid(uint32_t index) { return _valid->get(index); }
-      inline void set_valid(uint32_t index) { _valid->set(index); }
-      inline void set_invalid(uint32_t index) { _valid->clear(index); }
-
-      uint32_t find_non_occupied_position(uint32_t size);
-
-      uint32_t _clock_ptr;
-      std::unique_ptr<Bitmap> _valid;
-      std::unique_ptr<Bucket> _clock;
-      std::unique_ptr<Bucket> _space;
   };
 
   

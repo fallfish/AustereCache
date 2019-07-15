@@ -17,9 +17,11 @@ namespace cache {
     _buckets.resize(n_buckets);
     for (int i = 0; i < n_buckets; i++) {
       _buckets[i] = std::move(
-          std::make_unique<LBABucket>(
+          std::make_shared<LBABucket>(
             n_bits_per_key, n_bits_per_value, n_items_per_bucket)
           );
+      _buckets[i]->set_cache_policy(
+          std::move(std::make_unique<LRU>(_buckets[i])));
     }
   }
 
@@ -28,6 +30,13 @@ namespace cache {
     uint32_t bucket_no = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
     return _buckets[bucket_no]->lookup(signature, ca_hash) != ~((uint32_t)0);
+  }
+
+  void LBAIndex::promote(uint32_t lba_hash)
+  {
+    uint32_t bucket_no = lba_hash >> _n_bits_per_key;
+    uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
+    _buckets[bucket_no]->promote(signature);
   }
 
   void LBAIndex::update(uint32_t lba_hash, uint32_t ca_hash)
@@ -47,6 +56,8 @@ namespace cache {
           std::make_unique<CABucket>(
             n_bits_per_key, n_bits_per_value, n_items_per_bucket)
           );
+      _buckets[i]->set_cache_policy(
+          std::move(std::make_unique<CAClock>(_buckets[i])));
     }
   }
 
@@ -58,32 +69,35 @@ namespace cache {
        Config::get_configuration().get_metadata_size());
   }
 
-  bool CAIndex::lookup(uint32_t ca_hash, uint32_t &size, uint64_t &ssd_location)
+  bool CAIndex::lookup(uint32_t ca_hash, uint32_t &compressibility_level, uint64_t &ssd_location)
   {
-    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
-    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
-    uint32_t index = _buckets[bucket_no]->lookup(signature, size);
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key,
+             signature = ca_hash & ((1 << _n_bits_per_key) - 1),
+             n_slots_occupied = 0;
+    uint32_t index = _buckets[bucket_no]->lookup(signature, n_slots_occupied);
     if (index == ~((uint32_t)0)) return false;
+
+    compressibility_level = n_slots_occupied - 1;
     ssd_location = compute_ssd_location(bucket_no, index);
 
     return true;
   }
 
-  void CAIndex::update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location)
+  void CAIndex::promote(uint32_t ca_hash)
   {
-    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
-    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
-
-//     find contiguous spaces size can fit in
-    uint32_t slot_id = _buckets[bucket_no]->update(signature, size);
-    ssd_location = compute_ssd_location(bucket_no, slot_id);
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key,
+             signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+    _buckets[bucket_no]->promote(signature);
   }
 
-  void CAIndex::erase(uint32_t ca_hash)
+  void CAIndex::update(uint32_t ca_hash, uint32_t compressibility_level, uint64_t &ssd_location)
   {
-    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
-    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
-    _buckets[bucket_no]->erase(signature);
+    uint32_t bucket_no = ca_hash >> _n_bits_per_key,
+             signature = ca_hash & ((1 << _n_bits_per_key) - 1),
+             n_slots_to_occupy = compressibility_level + 1;
+
+    uint32_t slot_id = _buckets[bucket_no]->update(signature, n_slots_to_occupy);
+    ssd_location = compute_ssd_location(bucket_no, slot_id);
   }
 
   std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint32_t lba_hash)

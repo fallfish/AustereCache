@@ -87,6 +87,7 @@ class RunSystem {
     Config::get_configuration().set_cache_device_name("./cache_device");
     Config::get_configuration().set_primary_device_name("./primary_device");
     //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
+    //Config::get_configuration().set_primary_device_name("/dev/sdb");
     //Config::get_configuration().set_cache_device_name("/dev/sda");
     _ssddup = std::make_unique<SSDDup>();
   }
@@ -231,7 +232,7 @@ int main(int argc, char **argv)
 
   std::atomic<uint64_t> total_bytes(0);
   int elapsed = 0;
-  PERF_FUNCTION(elapsed, run_system.work, 2048 * 16, total_bytes);
+  PERF_FUNCTION(elapsed, run_system.work, 512, total_bytes);
   std::cout << (double)total_bytes / (1024 * 1024) << std::endl;
   std::cout << elapsed << " ms" << std::endl;
   std::cout << "Throughput: " << (double)total_bytes / elapsed << " MBytes/s" << std::endl;

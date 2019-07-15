@@ -15,6 +15,7 @@ add_library(cache
   src/metadata/metaverification.cc
   src/metadata/metajournal.cc
   src/metadata/metadatamodule.cc
+  src/metadata/cache_policy.cc
 
   src/chunk/chunkmodule.cc
 

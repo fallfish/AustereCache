@@ -1,6 +1,7 @@
 #include <utility>
 
 #include <cstring>
+#include <cassert>
 #include "bitmap.h"
 #include "bucket.h"
 #include "index.h"
@@ -10,7 +11,8 @@ namespace cache {
     _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
     _n_bits_per_slot(n_bits_per_key + n_bits_per_value), _n_slots(n_slots),
     _n_total_bytes(((n_bits_per_key + n_bits_per_value) * n_slots + 7) / 8),
-    _data(std::make_unique<Bitmap>((n_bits_per_key + n_bits_per_value) * n_slots))
+    _data(std::make_unique<Bitmap>((n_bits_per_key + n_bits_per_value) * n_slots)),
+    _valid(std::make_unique<Bitmap>(1 * n_slots))
   {} 
 
   Bucket::~Bucket() {}
@@ -18,15 +20,15 @@ namespace cache {
   LBABucket::LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
     Bucket(n_bits_per_key, n_bits_per_value, n_slots),
     _valid(std::make_unique<Bitmap>(n_slots))
-  {
-  }
+  {}
 
   LBABucket::~LBABucket() {}
 
   uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &ca_hash) {
     for (uint32_t slot_id = 0; slot_id < _n_slots; slot_id++) {
-      uint32_t k = get_k(slot_id);
-      if (k == lba_sig) {
+      if (!is_valid(slot_id)) continue;
+      uint32_t lba_sig_ = get_k(slot_id);
+      if (lba_sig_ == lba_sig) {
         ca_hash = get_v(slot_id);
         return slot_id;
       }
@@ -34,72 +36,39 @@ namespace cache {
     return ~((uint32_t)0);
   }
 
-  void LBABucket::advance(uint32_t slot_id)
-  {
-    uint32_t k = get_k(slot_id);
-    uint32_t v = get_v(slot_id);
-    for (uint32_t i = slot_id; i < _n_slots - 1; i++) {
-      set_k(i, get_k(i + 1));
-      set_v(i, get_v(i + 1));
-      _valid->clear(i);
-      if (_valid->get(i + 1))
-        _valid->set(i);
-    }
-    set_k(_n_slots - 1, k);
-    set_v(_n_slots - 1, v);
-    _valid->set(_n_slots - 1);
-  }
-
-  uint32_t LBABucket::find_non_occupied_position(std::shared_ptr<CAIndex> ca_index)
-  {
-    uint32_t position = 0;
-    bool valid = true;
-    for (uint32_t i = 0; i < _n_slots; i++) {
-      uint32_t v = get_v(i);
-      if (!_valid->get(i)) continue;
-      uint32_t size; uint64_t ssd_location; // useless variables
-      // note here that v = 0 can result in too many evictions
-      // needs ~15 lookup per update, further optimization needed
-      // but correctness not impacted
-      if (ca_index != nullptr)
-        valid = ca_index->lookup(v, size, ssd_location);
-      if (!valid) {
-//        std::cout << "LBABucket::evict: " << v << std::endl;
-//        if (v == 0) std::cout << "v = 0" << std::endl;
-        set_k(i, 0), set_v(i, 0);
-        _valid->clear(i);
-        position = i;
-      }
-    }
-    return position;
+  void LBABucket::promote(uint32_t lba_sig) {
+    uint32_t ca_hash_ = 0;
+    uint32_t slot_id = lookup(lba_sig, ca_hash_);
+    assert(slot_id != ~((uint32_t)0));
+    _cache_policy->promote(slot_id);
   }
 
   void LBABucket::update(uint32_t lba_sig, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index) {
-    uint32_t v = 0;
-    uint32_t index = lookup(lba_sig, v);
-    if (index != ~((uint32_t)0)) {
-      if (v != ca_hash) {
-        set_v(index, ca_hash);
-      }
-    } else {
-      index = find_non_occupied_position(std::move(ca_index));
-      set_k(index, lba_sig);
-      set_v(index, ca_hash);
-      _valid->set(index);
+    uint32_t ca_hash_ = 0;
+    uint32_t slot_id = lookup(lba_sig, ca_hash_);
+    if (slot_id != ~((uint32_t)0)) {
+      set_v(slot_id, ca_hash);
+      set_invalid(slot_id);
     }
-    advance(index);
-    if (_valid->get(0)) {
-      uint32_t v = 1;
+
+    // If is full, clear all obsoletes first
+    // Warning: Number of slots is 32, so a uint32_t comparison is efficient.
+    //          Any other design with larger number of slots should change this
+    //          one.
+    if (_valid->get_32bits(0) == ~(uint32_t)0) {
+      _cache_policy->clear_obsoletes(std::move(ca_index));
     }
+    slot_id = _cache_policy->allocate();
+    set_k(slot_id, lba_sig);
+    set_v(slot_id, ca_hash);
+    _valid->set(slot_id);
+    _cache_policy->promote(slot_id);
   }
 
   CABucket::CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
     Bucket(n_bits_per_key, n_bits_per_value, n_slots)
   {
     _valid = std::make_unique< Bitmap >(1 * n_slots);
-    _space = std::make_unique< Bucket >(0, 2, n_slots);
-    _clock = std::make_unique< Bucket >(0, 2, n_slots);
-    _clock_ptr = 0;
   }
 
   CABucket::~CABucket() {}
@@ -109,83 +78,56 @@ namespace cache {
    * alignment issue needs to be dealed for each element
    *
    */
-  uint32_t CABucket::lookup(uint32_t ca_sig, uint32_t &size)
+  uint32_t CABucket::lookup(uint32_t ca_sig, uint32_t &n_slots_occupied)
   {
-    uint32_t index = 0, space = 0;
-    while (index < _n_slots) {
-      if (is_valid(index)) {
-        if (get_k(index) == ca_sig) {
-          size = get_space(index);
-          return index;
-        }
-        index += space;
+    uint32_t slot_id = 0;
+    n_slots_occupied = 0;
+    for ( ; slot_id < _n_slots; ) {
+      if (!is_valid(slot_id)
+          || ca_sig != get_k(slot_id)) {
+        ++slot_id;
+        continue;
       }
-      ++index;
+      while (slot_id < _n_slots
+          && is_valid(slot_id)
+          && ca_sig == get_k(slot_id)) {
+        ++n_slots_occupied; 
+        ++slot_id;
+      }
+      return slot_id - n_slots_occupied;
     }
     return ~((uint32_t)0);
   }
 
-  uint32_t CABucket::find_non_occupied_position(uint32_t size)
+
+  void CABucket::promote(uint32_t ca_sig)
   {
-    uint32_t index = 0, space = 0;
-    // check whether there is a contiguous space
-    while (index < _n_slots) {
-      if (is_valid(index)) {
-        space = 0;
-        index += get_space(index) + 1;
-      } else {
-        ++space;
-        ++index;
-      }
-      if (space == size + 1) break;
-    }
-    if (space < size + 1) {
-      // No contiguous space, need to evict previous slot
-      space = 0;
-      index = _clock_ptr;
-      while (1) {
-        if (index == _n_slots) {
-          space = 0;
-          index = 0;
-        }
-        if (is_valid(index) && get_clock(index) != 0) {
-          // the slot is valid and clock bits is not zero
-          // cannot accommodate new item
-          dec_clock(index);
-          space = 0;
-          index += get_space(index) + 1;
-        } else {
-          set_invalid(index);
-          ++space;
-          ++index;
-        }
-        if (space == size + 1) break;
-      }
-      _clock_ptr = index;
-    }
-    //std::cout << "CABucket::clock_ptr: " << _clock_ptr << std::endl;
-    index -= space;
-    return index;
+    uint32_t slot_id = 0, compressibility_level = 0;
+    slot_id = lookup(ca_sig, compressibility_level);
+    assert(slot_id != ~((uint32_t)0));
+
+    _cache_policy->promote(slot_id, compressibility_level + 1);
   }
 
-  uint32_t CABucket::update(uint32_t ca_sig, uint32_t size)
+  uint32_t CABucket::update(uint32_t ca_sig, uint32_t n_slots_to_occupy)
   {
-    uint32_t size_ = 0, value = 0;
-    uint32_t slot_id = lookup(ca_sig, size_);
+    uint32_t n_slots_occupied = 0, value = 0;
+    uint32_t slot_id = lookup(ca_sig, n_slots_occupied);
     if (slot_id != ~((uint32_t)0)) {
-      if (size_ == size) {
-        inc_clock(slot_id);
-        return slot_id;
-      } else {
-        set_invalid(slot_id);
+      for (uint32_t slot_id_ = slot_id;
+          slot_id_ < slot_id + n_slots_occupied;
+          ++slot_id_) {
+        set_invalid(slot_id_);
       }
     }
-    slot_id = find_non_occupied_position(size);
-    //std::cout << "return slot_id in cabucket: " << slot_id << std::endl;
-    set_k(slot_id, ca_sig);
-    init_clock(slot_id);
-    set_space(slot_id, size);
-    set_valid(slot_id);
+
+    slot_id = _cache_policy->allocate(n_slots_to_occupy);
+    for (uint32_t slot_id_ = slot_id;
+        slot_id_ < slot_id + n_slots_to_occupy;
+        ++slot_id_) {
+      set_k(slot_id_, ca_sig);
+      set_valid(slot_id_);
+    }
 
     return slot_id;
   }
