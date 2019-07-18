@@ -24,6 +24,7 @@ class BlockDevice : public Device {
   int read(uint64_t addr, uint8_t* buf, uint32_t len);
   int write(uint64_t addr, uint8_t* buf, uint32_t len);
   int open(char *filename, uint64_t size);
+  void sync();
  private:
   int open_new_device(char *filename, uint64_t size);
   int open_existing_device(char *filename, uint64_t size, struct stat *statbuf);

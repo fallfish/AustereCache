@@ -5,24 +5,26 @@
 #include "bitmap.h"
 #include "bucket.h"
 #include "index.h"
+#include "cache_policy.h"
 
 namespace cache {
-  Bucket::Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
+
+
+  Bucket::Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots,
+      uint8_t *data, uint8_t *valid, CachePolicy *cache_policy, uint32_t bucket_id) :
     _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
     _n_bits_per_slot(n_bits_per_key + n_bits_per_value), _n_slots(n_slots),
-    _n_total_bytes(((n_bits_per_key + n_bits_per_value) * n_slots + 7) / 8),
-    _data(std::make_unique<Bitmap>((n_bits_per_key + n_bits_per_value) * n_slots)),
-    _valid(std::make_unique<Bitmap>(1 * n_slots))
-  {} 
+    _data(data), _valid(valid), _bucket_id(bucket_id)
+  {
+    if (cache_policy != nullptr)
+      _cache_policy = cache_policy->get_executor(this);
+  }
 
-  Bucket::~Bucket() {}
-
-  LBABucket::LBABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
-    Bucket(n_bits_per_key, n_bits_per_value, n_slots),
-    _valid(std::make_unique<Bitmap>(n_slots))
-  {}
-
-  LBABucket::~LBABucket() {}
+  Bucket::~Bucket()
+  {
+    if (_cache_policy != nullptr)
+      delete _cache_policy;
+  }
 
   uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &ca_hash) {
     for (uint32_t slot_id = 0; slot_id < _n_slots; slot_id++) {
@@ -55,23 +57,16 @@ namespace cache {
     // Warning: Number of slots is 32, so a uint32_t comparison is efficient.
     //          Any other design with larger number of slots should change this
     //          one.
-    if (_valid->get_32bits(0) == ~(uint32_t)0) {
+    if (get_valid_32bits(0) == ~(uint32_t)0) {
       _cache_policy->clear_obsoletes(std::move(ca_index));
     }
     slot_id = _cache_policy->allocate();
     set_k(slot_id, lba_sig);
     set_v(slot_id, ca_hash);
-    _valid->set(slot_id);
+    set_valid(slot_id);
     _cache_policy->promote(slot_id);
   }
 
-  CABucket::CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
-    Bucket(n_bits_per_key, n_bits_per_value, n_slots)
-  {
-    _valid = std::make_unique< Bitmap >(1 * n_slots);
-  }
-
-  CABucket::~CABucket() {}
 
   /*
    * memory is byte addressable
@@ -140,6 +135,35 @@ namespace cache {
       }
     }
   }
+
+  Buckets::Buckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets) :
+    _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
+    _n_bits_per_slot(n_bits_per_key + n_bits_per_value), _n_slots(n_slots),
+    _n_data_bytes_per_bucket(((n_bits_per_key + n_bits_per_value) * n_slots + 7) / 8),
+    _n_valid_bytes_per_bucket((1 * n_slots + 7) / 8),
+    _data(std::make_unique<uint8_t[]>(_n_data_bytes_per_bucket * n_buckets)),
+    _valid(std::make_unique<uint8_t[]>(_n_valid_bytes_per_bucket * n_buckets)),
+    _mutexes(std::make_unique<std::mutex[]>(n_buckets))
+  {} 
+
+  Buckets::~Buckets() {}
+  void Buckets::set_cache_policy(std::unique_ptr<CachePolicy> cache_policy)
+  { 
+    _cache_policy = std::move(cache_policy);
+  }
+
+  LBABuckets::LBABuckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets) :
+    Buckets(n_bits_per_key, n_bits_per_value, n_slots, n_buckets)
+  {}
+
+  LBABuckets::~LBABuckets() {}
+
+  CABuckets::CABuckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets) :
+    Buckets(n_bits_per_key, n_bits_per_value, n_slots, n_buckets)
+  {
+  }
+
+  CABuckets::~CABuckets() {}
 
   //BlockBucket::BlockBucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
     //Bucket(0, 2, n_slots)

@@ -1,16 +1,24 @@
 #include "cache_policy.h"
+#include "bucket.h"
 #include "index.h"
+#include <memory>
 
 namespace cache {
-
-  CachePolicy::CachePolicy(std::shared_ptr<Bucket> bucket):
+  CachePolicyExecutor::CachePolicyExecutor(Bucket *bucket) :
     _bucket(bucket)
-  {
-  }
+  {}
 
-  LRU::LRU(std::shared_ptr<Bucket> bucket) : CachePolicy(bucket) {}
+  LRUExecutor::LRUExecutor(Bucket *bucket) :
+    CachePolicyExecutor(bucket)
+  {}
 
-  void LRU::promote(uint32_t slot_id, uint32_t n_slots_to_occupy)
+  CAClockExecutor::CAClockExecutor(Bucket *bucket, std::unique_ptr<Bucket> clock, uint32_t *clock_ptr) :
+    CachePolicyExecutor(bucket),
+    _clock(std::move(clock)),
+    _clock_ptr(clock_ptr)
+  {}
+
+  void LRUExecutor::promote(uint32_t slot_id, uint32_t n_slots_to_occupy)
   {
     uint32_t n_slots = _bucket->get_n_slots();
     uint32_t k = _bucket->get_k(slot_id);
@@ -37,7 +45,7 @@ namespace cache {
   // Only LBA Index would call this function
   // LBA signature only takes one slot.
   // So there is no need to care about the entry may take contiguous slots.
-  void LRU::clear_obsoletes(std::shared_ptr<CAIndex> ca_index)
+  void LRUExecutor::clear_obsoletes(std::shared_ptr<CAIndex> ca_index)
   {
     for (uint32_t slot_id = 0; slot_id < _bucket->get_n_slots(); ++slot_id) {
       if (!_bucket->is_valid(slot_id)) continue;
@@ -55,7 +63,7 @@ namespace cache {
     }
   }
 
-  uint32_t LRU::allocate(uint32_t n_slots_to_occupy)
+  uint32_t LRUExecutor::allocate(uint32_t n_slots_to_occupy)
   {
     uint32_t slot_id = 0, n_slots_available = 0,
              n_slots = _bucket->get_n_slots();
@@ -91,12 +99,7 @@ namespace cache {
     return slot_id - n_slots_to_occupy;
   }
 
-  CAClock::CAClock(std::shared_ptr<Bucket> bucket) : CachePolicy(bucket) {
-    _clock = std::make_unique< Bucket >(0, 2, bucket->get_n_slots());
-    _clock_ptr = 0;
-
-  }
-  void CAClock::promote(uint32_t slot_id, uint32_t n_slots_occupied)
+  void CAClockExecutor::promote(uint32_t slot_id, uint32_t n_slots_occupied)
   {
     for (uint32_t slot_id_ = slot_id;
         slot_id_ < slot_id + n_slots_occupied;
@@ -105,11 +108,11 @@ namespace cache {
     }
   }
 
-  void CAClock::clear_obsoletes(std::shared_ptr<CAIndex> ca_index)
+  void CAClockExecutor::clear_obsoletes(std::shared_ptr<CAIndex> ca_index)
   {
   }
 
-  uint32_t CAClock::allocate(uint32_t n_slots_to_occupy)
+  uint32_t CAClockExecutor::allocate(uint32_t n_slots_to_occupy)
   {
     uint32_t slot_id = 0, n_slots_available = 0,
              n_slots = _bucket->get_n_slots();
@@ -127,7 +130,7 @@ namespace cache {
 
     if (n_slots_available < n_slots_to_occupy) {
       // No contiguous space, need to evict previous slot
-      slot_id = _clock_ptr;
+      slot_id = *_clock_ptr;
       n_slots_available = 0;
 
       while (1) {
@@ -154,7 +157,7 @@ namespace cache {
         }
         n_slots_available = 0;
       }
-      _clock_ptr = slot_id;
+      *_clock_ptr = slot_id;
     }
 
     for (uint32_t slot_id_ = slot_id - n_slots_to_occupy;
@@ -162,28 +165,48 @@ namespace cache {
       init_clock(slot_id_);
     }
 
-    //std::cout << slot_id << " " << n_slots_to_occupy << std::endl;
 
     return slot_id - n_slots_to_occupy;
   }
 
-  inline void CAClock::init_clock(uint32_t index) {
+  inline void CAClockExecutor::init_clock(uint32_t index) {
     _clock->set_v(index, 1);
   }
-  inline uint32_t CAClock::get_clock(uint32_t index) {
+  inline uint32_t CAClockExecutor::get_clock(uint32_t index) {
     return _clock->get_v(index);
   }
-  inline void CAClock::inc_clock(uint32_t index) {
+  inline void CAClockExecutor::inc_clock(uint32_t index) {
     uint32_t v = _clock->get_v(index);
     if (v != 3) {
       _clock->set_v(index, v + 1);
     }
   }
-  inline void CAClock::dec_clock(uint32_t index) { 
+  inline void CAClockExecutor::dec_clock(uint32_t index) { 
     uint32_t v = _clock->get_v(index);
     if (v != 0) {
       _clock->set_v(index, v - 1);
     }
   }
 
+  CachePolicy::CachePolicy() {}
+
+  LRU::LRU() {}
+
+  CAClock::CAClock(uint32_t n_slots_per_bucket, uint32_t n_buckets) : CachePolicy() {
+    _clock = std::make_unique< Buckets >(0, 2, n_slots_per_bucket, n_buckets);
+    _clock_ptr = 0;
+  }
+
+  CachePolicyExecutor* LRU::get_executor(Bucket *bucket)
+  { 
+    return new LRUExecutor(bucket);
+  }
+
+  // TODO: Check whether there is memory leak when destructing
+  CachePolicyExecutor* CAClock::get_executor(Bucket *bucket)
+  { 
+    return new CAClockExecutor(
+          bucket, std::move(_clock->get_bucket(bucket->get_bucket_id())),
+          &_clock_ptr);
+  }
 }

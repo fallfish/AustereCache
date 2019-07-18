@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "metaverification.h"
+#include "cache_policy.h"
 #include <cstring>
 
 namespace cache {

@@ -94,6 +94,11 @@ namespace cache {
     close(_fd);
   }
 
+  void BlockDevice::sync()
+  {
+    ::syncfs(_fd);
+  }
+
   int BlockDevice::open_new_device(char *filename, uint64_t size)
   {
     std::cout << "BlockDevice::Open new device!" << std::endl;
@@ -105,7 +110,8 @@ namespace cache {
 #ifdef __APPLE__
     fd = ::open(filename, O_RDWR | 0 | O_CREAT, 0666); // MacOS has no O_DIRECT support
 #else
-    fd = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
+    fd = ::open(filename, O_RDWR | O_CREAT, 0666);
+    //fd = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
 #endif
     if (fd < 0) {
       // cannot create device with O_DIRECT
@@ -131,7 +137,8 @@ namespace cache {
 #ifdef __APPLE__
     fd = ::open(filename, O_RDWR); // MacOS has no O_DIRECT support
 #else
-    fd = ::open(filename, O_RDWR | O_DIRECT);
+    //fd = ::open(filename, O_RDWR | O_DIRECT);
+    fd = ::open(filename, O_RDWR);
 #endif
 
     if (fd < 0) {
