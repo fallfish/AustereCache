@@ -16,10 +16,10 @@ namespace cache {
     uint32_t ca_slots_per_bucket = config.get_ca_slots_per_bucket(),
              lba_slots_per_bucket = config.get_lba_slots_per_bucket();
     _ca_index = std::make_shared<CAIndex>(
-      ca_signature_len, 4, (1 << ca_bucket_no_len), ca_slots_per_bucket);
+      ca_signature_len, 4, ca_slots_per_bucket, (1 << ca_bucket_no_len));
     _lba_index = std::make_unique<LBAIndex>(
       lba_signature_len, (ca_signature_len + ca_bucket_no_len),
-      (1 << lba_bucket_no_len), lba_slots_per_bucket, _ca_index);
+      lba_slots_per_bucket, (1 << lba_bucket_no_len), _ca_index);
     // _meta_verification and _meta_journal should
     // hold a shared_ptr to _io_module
     _meta_verification = std::make_unique<MetaVerification>(io_module, compression_module);

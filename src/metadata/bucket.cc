@@ -41,7 +41,7 @@ namespace cache {
   void LBABucket::promote(uint32_t lba_sig) {
     uint32_t ca_hash_ = 0;
     uint32_t slot_id = lookup(lba_sig, ca_hash_);
-    assert(slot_id != ~((uint32_t)0));
+    //assert(slot_id != ~((uint32_t)0));
     _cache_policy->promote(slot_id);
   }
 
@@ -49,8 +49,13 @@ namespace cache {
     uint32_t ca_hash_ = 0;
     uint32_t slot_id = lookup(lba_sig, ca_hash_);
     if (slot_id != ~((uint32_t)0)) {
+      //if (ca_hash == get_v(slot_id)) {
+        //promote(lba_sig);
+        //return ;
+      //} else {
       set_v(slot_id, ca_hash);
       set_invalid(slot_id);
+      //}
     }
 
     // If is full, clear all obsoletes first
@@ -97,11 +102,11 @@ namespace cache {
 
   void CABucket::promote(uint32_t ca_sig)
   {
-    uint32_t slot_id = 0, compressibility_level = 0;
-    slot_id = lookup(ca_sig, compressibility_level);
-    assert(slot_id != ~((uint32_t)0));
+    uint32_t slot_id = 0, compressibility_level = 0, n_slots_occupied;
+    slot_id = lookup(ca_sig, n_slots_occupied);
+    //assert(slot_id != ~((uint32_t)0));
 
-    _cache_policy->promote(slot_id, compressibility_level + 1);
+    _cache_policy->promote(slot_id, n_slots_occupied);
   }
 
   uint32_t CABucket::update(uint32_t ca_sig, uint32_t n_slots_to_occupy)
@@ -109,6 +114,10 @@ namespace cache {
     uint32_t n_slots_occupied = 0, value = 0;
     uint32_t slot_id = lookup(ca_sig, n_slots_occupied);
     if (slot_id != ~((uint32_t)0)) {
+      //if (n_slots_occupied == n_slots_to_occupy) {
+        //promote(slot_id);
+        //return slot_id;
+      //}
       for (uint32_t slot_id_ = slot_id;
           slot_id_ < slot_id + n_slots_occupied;
           ++slot_id_) {
@@ -135,35 +144,6 @@ namespace cache {
       }
     }
   }
-
-  Buckets::Buckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets) :
-    _n_bits_per_key(n_bits_per_key), _n_bits_per_value(n_bits_per_value),
-    _n_bits_per_slot(n_bits_per_key + n_bits_per_value), _n_slots(n_slots),
-    _n_data_bytes_per_bucket(((n_bits_per_key + n_bits_per_value) * n_slots + 7) / 8),
-    _n_valid_bytes_per_bucket((1 * n_slots + 7) / 8),
-    _data(std::make_unique<uint8_t[]>(_n_data_bytes_per_bucket * n_buckets)),
-    _valid(std::make_unique<uint8_t[]>(_n_valid_bytes_per_bucket * n_buckets)),
-    _mutexes(std::make_unique<std::mutex[]>(n_buckets))
-  {} 
-
-  Buckets::~Buckets() {}
-  void Buckets::set_cache_policy(std::unique_ptr<CachePolicy> cache_policy)
-  { 
-    _cache_policy = std::move(cache_policy);
-  }
-
-  LBABuckets::LBABuckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets) :
-    Buckets(n_bits_per_key, n_bits_per_value, n_slots, n_buckets)
-  {}
-
-  LBABuckets::~LBABuckets() {}
-
-  CABuckets::CABuckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets) :
-    Buckets(n_bits_per_key, n_bits_per_value, n_slots, n_buckets)
-  {
-  }
-
-  CABuckets::~CABuckets() {}
 
   //BlockBucket::BlockBucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots) :
     //Bucket(0, 2, n_slots)

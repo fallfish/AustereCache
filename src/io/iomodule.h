@@ -18,6 +18,7 @@ class IOModule {
  private:
   // Currently, we assume that only one cache and one primary
   std::unique_ptr< BlockDevice > _primary_device;
+  std::unique_ptr< BlockDevice > _cache_device;
 
   struct WriteBuffer {
     WriteBuffer(uint32_t buffer_size) {
@@ -37,18 +38,23 @@ class IOModule {
     uint32_t _buffer_size;
     uint32_t _current_position;
     std::atomic<uint32_t> _n_writers;
-    std::mutex _mutex;
-    std::unique_ptr< BlockDevice > _cache_device;
+    std::mutex _write_mutex;
+    std::atomic<uint32_t> _n_readers;
+    std::mutex _read_mutex;
+    BlockDevice* _cache_device;
     alignas(128) uint8_t _buffer[0];
 
     uint32_t write(uint64_t addr, uint8_t *buf, uint32_t len) {
       uint64_t position = 0, current_index = 0;
       {
-        std::lock_guard<std::mutex> l(_mutex);
+        std::lock_guard<std::mutex> l(_write_mutex);
 
         // current buffer is full
         if (len > _buffer_size - _current_position) {
-          while (_n_writers != 0) { };
+          std::cout << "Full!" << std::endl;
+          while (_n_writers != 0) ;
+          std::lock_guard<std::mutex> l(_read_mutex);
+          while (_n_readers != 0) ;
 
           for (auto &p : _index) {
             _cache_device->write(p._addr, _buffer + p._pos, p._len);
@@ -77,12 +83,28 @@ class IOModule {
     }
 
     uint32_t read(uint64_t addr, uint8_t *buf, uint32_t len) {
-      return _cache_device->read(addr, buf, len);
-      //for (auto &p : _index) {
-        //if (p._addr == addr && p._len == len) {
-          //memcpy(buf, _buf + p.position
-        //}
-      //}
+      uint32_t index = -1, position = 0;
+      uint32_t res;
+      {
+        std::lock_guard<std::mutex> l(_read_mutex);
+        for (uint32_t i = 0; i < _index.size(); ++i) {
+          if (_index[i]._addr == addr && _index[i]._len == len) {
+            index = i;
+            position = _index[i]._pos;
+            break;
+          }
+        }
+        if (index != -1) {
+          _n_readers.fetch_add(1);
+        }
+      }
+
+      if (index != -1) {
+        memcpy(buf, _buffer + position, len);
+        _n_readers.fetch_sub(1);
+      } else {
+        res = _cache_device->read(addr, buf, len);
+      }
     }
 
   } *_write_buffer;

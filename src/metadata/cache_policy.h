@@ -71,7 +71,18 @@ namespace cache {
 
       CachePolicyExecutor* get_executor(Bucket *bucket);
 
-      std::unique_ptr< Buckets > _clock;
+      std::unique_ptr<Bucket> get_bucket(uint32_t bucket_id) {
+        return std::move(std::make_unique<Bucket>(
+            0, 2, _n_slots_per_bucket,
+            _clock.get() + _n_bytes_per_bucket * bucket_id, 
+            nullptr,
+            nullptr, bucket_id));
+      }
+
+
+      std::unique_ptr<uint8_t []> _clock;
+      uint32_t _n_slots_per_bucket;
+      uint32_t _n_bytes_per_bucket;
       uint32_t _clock_ptr;
   };
 }

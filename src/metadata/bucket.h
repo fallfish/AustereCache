@@ -57,7 +57,9 @@ namespace cache {
         _data.set_32bits(index, v);
       }
 
-      inline bool is_valid(uint32_t index) { return _valid.get(index); }
+      inline bool is_valid(uint32_t index) { 
+        return _valid.get(index);
+      }
       inline void set_valid(uint32_t index) { _valid.set(index); }
       inline void set_invalid(uint32_t index) { _valid.clear(index); }
       inline uint32_t get_valid_32bits(uint32_t index) { return _valid.get_32bits(index); }
@@ -161,66 +163,6 @@ namespace cache {
       // This is required for hit but verification-failed chunk.
       void erase(uint32_t ca_sig);
   };
-
-
-  class Buckets {
-    public:
-      Buckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets);
-      virtual ~Buckets();
-
-      void set_cache_policy(std::unique_ptr<CachePolicy> cache_policy);
-      std::mutex& get_mutex(uint32_t bucket_id) { return _mutexes[bucket_id]; }
-
-
-      std::unique_ptr<Bucket> get_bucket(uint32_t bucket_id) {
-        return std::move(std::make_unique<Bucket>(
-            _n_bits_per_key, _n_bits_per_value, _n_slots,
-            _data.get() + _n_data_bytes_per_bucket * bucket_id, 
-            _valid.get() + _n_valid_bytes_per_bucket * bucket_id,
-            _cache_policy.get(), bucket_id));
-      }
-
-     protected:
-      uint32_t _n_bits_per_slot, _n_slots, _n_total_bytes,
-               _n_bits_per_key, _n_bits_per_value,
-               _n_data_bytes_per_bucket,
-               _n_valid_bytes_per_bucket;
-      std::unique_ptr< uint8_t[] > _data;
-      std::unique_ptr< uint8_t[] > _valid;
-      std::unique_ptr< CachePolicy > _cache_policy;
-      std::unique_ptr< std::mutex[] > _mutexes;
-  };
-
-  class LBABuckets : public Buckets {
-    public:
-      LBABuckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets);
-      ~LBABuckets();
-
-      std::unique_ptr<LBABucket> get_lba_bucket(uint32_t bucket_id)
-      {
-        return std::move(std::make_unique<LBABucket>(
-            _n_bits_per_key, _n_bits_per_value, _n_slots,
-            _data.get() + _n_data_bytes_per_bucket * bucket_id, 
-            _valid.get() + _n_valid_bytes_per_bucket * bucket_id,
-            _cache_policy.get(), bucket_id));
-      }
-  };
-
-  class CABuckets : public Buckets {
-    public:
-      CABuckets(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots, uint32_t n_buckets);
-      ~CABuckets();
-
-      std::unique_ptr<CABucket> get_ca_bucket(uint32_t bucket_id) {
-        return std::move(std::make_unique<CABucket>(
-            _n_bits_per_key, _n_bits_per_value, _n_slots,
-            _data.get() + _n_data_bytes_per_bucket * bucket_id, 
-            _valid.get() + _n_valid_bytes_per_bucket * bucket_id,
-            _cache_policy.get(), bucket_id));
-      }
-
-  };
-
   
   /**
    * @brief BlockBucket enlarges the number of slots.

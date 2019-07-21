@@ -150,6 +150,7 @@ namespace cache {
             && k == _bucket->get_k(slot_id)) {
           if (get_clock(slot_id) == 0) {
             _bucket->set_invalid(slot_id);
+            ++n_slots_available;
           } else {
             dec_clock(slot_id);
           }
@@ -193,7 +194,9 @@ namespace cache {
   LRU::LRU() {}
 
   CAClock::CAClock(uint32_t n_slots_per_bucket, uint32_t n_buckets) : CachePolicy() {
-    _clock = std::make_unique< Buckets >(0, 2, n_slots_per_bucket, n_buckets);
+    _n_slots_per_bucket = n_slots_per_bucket;
+    _n_bytes_per_bucket = (2 * n_slots_per_bucket + 7) / 8;
+    _clock = std::make_unique< uint8_t[] >(_n_bytes_per_bucket * n_buckets);
     _clock_ptr = 0;
   }
 
@@ -205,8 +208,9 @@ namespace cache {
   // TODO: Check whether there is memory leak when destructing
   CachePolicyExecutor* CAClock::get_executor(Bucket *bucket)
   { 
-    return new CAClockExecutor(
-          bucket, std::move(_clock->get_bucket(bucket->get_bucket_id())),
+    CachePolicyExecutor *a = new CAClockExecutor(
+          bucket, std::move(get_bucket(bucket->get_bucket_id())),
           &_clock_ptr);
+    return a;
   }
 }

@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include "bucket.h"
+#include "cache_policy.h"
 namespace cache {
   class Index {
     public:
@@ -14,9 +15,18 @@ namespace cache {
 
       //virtual bool lookup(uint8_t *key, uint8_t *value) = 0;
       //virtual void set(uint8_t *key, uint8_t *value) = 0;
+
+      void set_cache_policy(std::unique_ptr<CachePolicy> cache_policy);
+      std::mutex& get_mutex(uint32_t bucket_id) { return _mutexes[bucket_id]; }
     protected:
-      uint32_t _n_bits_per_key, _n_bits_per_value;
-      uint32_t _n_buckets, _n_slots_per_bucket;
+      uint32_t _n_bits_per_slot, _n_slots_per_bucket, _n_total_bytes,
+               _n_bits_per_key, _n_bits_per_value,
+               _n_data_bytes_per_bucket, n_buckets,
+               _n_valid_bytes_per_bucket;
+      std::unique_ptr< uint8_t[] > _data;
+      std::unique_ptr< uint8_t[] > _valid;
+      std::unique_ptr< CachePolicy > _cache_policy;
+      std::unique_ptr< std::mutex[] > _mutexes;
   };
 
   class CAIndex;
@@ -33,9 +43,17 @@ namespace cache {
       void update(uint32_t lba_hash, uint32_t ca_hash);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t lba_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
+
+      std::unique_ptr<LBABucket> get_lba_bucket(uint32_t bucket_id)
+      {
+        return std::move(std::make_unique<LBABucket>(
+            _n_bits_per_key, _n_bits_per_value, _n_slots_per_bucket,
+            _data.get() + _n_data_bytes_per_bucket * bucket_id, 
+            _valid.get() + _n_valid_bytes_per_bucket * bucket_id,
+            _cache_policy.get(), bucket_id));
+      }
     private:
       std::shared_ptr<CAIndex> _ca_index;
-      std::unique_ptr<LBABuckets> _buckets;
   };
 
   class CAIndex : Index {
@@ -49,9 +67,15 @@ namespace cache {
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t ca_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
+      std::unique_ptr<CABucket> get_ca_bucket(uint32_t bucket_id) {
+        return std::move(std::make_unique<CABucket>(
+            _n_bits_per_key, _n_bits_per_value, _n_slots_per_bucket,
+            _data.get() + _n_data_bytes_per_bucket * bucket_id, 
+            _valid.get() + _n_valid_bytes_per_bucket * bucket_id,
+            _cache_policy.get(), bucket_id));
+      }
     private:
       uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index);
-      std::unique_ptr<CABuckets> _buckets;
   };
 }
 #endif
