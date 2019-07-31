@@ -9,6 +9,7 @@
 #include "common/config.h"
 #include "utils/utils.h"
 #include <atomic>
+#define DIRECT_IO
 
 namespace cache {
 
@@ -126,7 +127,14 @@ struct Chunk {
     void TEST_fingerprinting();
     void TEST_compute_lba_hash();
     inline bool is_end() { return _len == 0; }
-    inline bool is_aligned() { return _len == Config::get_configuration().get_chunk_size(); }
+    inline bool is_aligned() { 
+#ifdef DIRECT_IO
+      return _len == Config::get_configuration().get_chunk_size()
+        && (long long)_buf % 512 == 0;
+#else
+      return _len == Config::get_configuration().get_chunk_size();
+#endif
+    }
     
     /**
      * @brief If the chunk is unaligned, we must pre-read the corresponding
@@ -160,6 +168,7 @@ struct Stats {
   // write_dup_write, write_dup_content, write_not_dup,
   // read_hit, read_not_hit
   std::atomic<int> _n_lookup_results[3];
+  std::atomic<int> _n_dedup_results[4];
   // store number of writes and reads
   // aligned write, aligned read,
   // write request, read request
@@ -177,6 +186,24 @@ struct Stats {
   // number of metadata read, number of data read
   std::atomic<int> _n_data_write_read[6];
 
+  // stats in write buffer
+  std::atomic<uint64_t> _n_bytes_written_to_write_buffer;
+  std::atomic<uint64_t> _n_bytes_written_to_cache_disk;
+  std::atomic<uint64_t> _n_bytes_written_to_primary_disk;
+  std::atomic<uint64_t> _n_bytes_read_from_write_buffer;
+  std::atomic<uint64_t> _n_bytes_read_from_cache_disk;
+  std::atomic<uint64_t> _n_bytes_read_from_primary_disk;
+  inline void add_bytes_written_to_write_buffer(uint64_t v) { _n_bytes_written_to_write_buffer.fetch_add(v, std::memory_order_relaxed); }
+  inline void add_bytes_written_to_cache_disk(uint64_t v) {   _n_bytes_written_to_cache_disk  .fetch_add(v, std::memory_order_relaxed); }
+  inline void add_bytes_written_to_primary_disk(uint64_t v) { _n_bytes_written_to_primary_disk.fetch_add(v, std::memory_order_relaxed); }
+  inline void add_bytes_read_from_write_buffer(uint64_t v) {  _n_bytes_read_from_write_buffer .fetch_add(v, std::memory_order_relaxed); }
+  inline void add_bytes_read_from_cache_disk(uint64_t v) {    _n_bytes_read_from_cache_disk   .fetch_add(v, std::memory_order_relaxed); }
+  inline void add_bytes_read_from_primary_disk(uint64_t v) {  _n_bytes_read_from_primary_disk .fetch_add(v, std::memory_order_relaxed); }
+
+  static Stats* get_instance() {
+    static Stats instance;
+    return &instance;
+  }
   Stats() {
     reset();
   }
@@ -193,6 +220,10 @@ struct Stats {
   inline void add_lookup_result(LookupResult lookup_result)
   {
     _n_lookup_results[lookup_result].fetch_add(1, std::memory_order_relaxed);
+  }
+  inline void add_dedup_result(DedupResult dedup_result)
+  {
+    _n_dedup_results[dedup_result].fetch_add(1, std::memory_order_relaxed);
   }
 
   inline void add_compress_level(int compress_level) 
@@ -241,6 +272,12 @@ struct Stats {
     for (int i = 0; i < 2; i++) _index_hit[i].store(0, std::memory_order_relaxed);
     for (int i = 0; i < 4; i++) _compress_level[i].store(0, std::memory_order_relaxed);
     for (int i = 0; i < 6; i++) _n_data_write_read[i].store(0, std::memory_order_relaxed);
+    _n_bytes_written_to_write_buffer .store(0, std::memory_order_relaxed);
+    _n_bytes_written_to_cache_disk   .store(0, std::memory_order_relaxed);
+    _n_bytes_written_to_primary_disk .store(0, std::memory_order_relaxed);
+    _n_bytes_read_from_write_buffer  .store(0, std::memory_order_relaxed);
+    _n_bytes_read_from_cache_disk    .store(0, std::memory_order_relaxed);
+    _n_bytes_read_from_primary_disk  .store(0, std::memory_order_relaxed);
   }
 
   void dump()
@@ -262,14 +299,21 @@ struct Stats {
     << ", 2: " << _compress_level[1] 
     << ", 3: " << _compress_level[2] 
     << ", 4: " << _compress_level[3] << std::endl
-    << "Number of metadata read/write, cache data read/write, primary data read/write: " << _n_data_write_read[0]
-    << ", " << _n_data_write_read[1]
-    << ", " << _n_data_write_read[2]
-    << ", " << _n_data_write_read[3]
-    << ", " << _n_data_write_read[4]
-    << ", " << _n_data_write_read[5] << std::endl;
+    //<< "Number of metadata read/write, cache disk read/write, primary disk read/write: " << _n_data_write_read[0]
+    //<< ", " << _n_data_write_read[1]
+    //<< ", " << _n_data_write_read[2]
+    //<< ", " << _n_data_write_read[3]
+    //<< ", " << _n_data_write_read[4]
+    //<< ", " << _n_data_write_read[5] << std::endl
+    << "Number of bytes read for write buffer: " << _n_bytes_read_from_write_buffer << std::endl
+    << "Number of bytes written to write buffer: " << _n_bytes_written_to_write_buffer << std::endl
+    << "Number of bytes read from cache disk: " << _n_bytes_read_from_cache_disk << std::endl
+    << "Number of bytes written to cache disk: " << _n_bytes_written_to_cache_disk << std::endl
+    << "Number of bytes read from primary disk: " << _n_bytes_read_from_primary_disk << std::endl
+    << "Number of bytes written to primary disk: " << _n_bytes_written_to_primary_disk << std::endl;
 
-  std::cout << "hit ratio: " << _n_lookup_results[0] * 1.0 / (_n_lookup_results[0] + _n_lookup_results[1]) * 100 << "%" << std::endl;
+    std::cout << "hit ratio: " << _n_lookup_results[0] * 1.0 / (_n_lookup_results[0] + _n_lookup_results[1]) * 100 << "%" << std::endl;
+    std::cout << "dup ratio: " << _n_dedup_results[1] * 1.0 / (_n_dedup_results[0] + _n_dedup_results[1] + _n_dedup_results[2]) * 100 << "%" << std::endl;
   }
 };
 

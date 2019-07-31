@@ -11,6 +11,7 @@ class Device {
   virtual ~Device();
   virtual int read(uint64_t addr, uint8_t* buf, uint32_t len)  = 0;
   virtual int write(uint64_t addr, uint8_t* buf, uint32_t len) = 0;
+  bool _direct_io;
  protected:
   int _fd;
   void *_device_buffer;

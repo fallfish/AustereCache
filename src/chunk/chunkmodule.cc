@@ -5,6 +5,7 @@
 #include <openssl/md5.h>
 #include <cstring>
 #include <cassert>
+
 namespace cache {
 
   //Chunk::Chunk() {}
@@ -72,7 +73,7 @@ namespace cache {
     uint32_t chunk_size = conf.get_chunk_size();
     assert(_addr - _addr % chunk_size == _original_addr - _original_addr % chunk_size);
 
-    memcpy(_buf + _addr % chunk_size, _original_buf, _original_len);
+    memcpy(_buf + _original_addr % chunk_size, _original_buf, _original_len);
     _len = chunk_size;
     _addr -= _addr % chunk_size;
 
@@ -122,6 +123,7 @@ namespace cache {
   bool Chunker::next(uint64_t &addr, uint8_t *&buf, uint32_t &len)
   {
     if (_len == 0) return false;
+
 
     uint32_t next_addr = 
       ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?

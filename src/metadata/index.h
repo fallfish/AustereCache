@@ -5,8 +5,12 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include <map>
+#include <list>
 #include "bucket.h"
 #include "cache_policy.h"
+#include "common/config.h"
+#include "cachededup_index.h"
 namespace cache {
   class Index {
     public:
@@ -77,5 +81,6 @@ namespace cache {
     private:
       uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index);
   };
+
 }
 #endif

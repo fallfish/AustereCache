@@ -45,10 +45,10 @@ class RunChunkModule {
         }
 
         // read working set
-#ifdef __APPLE__
-        posix_memalign((void**)&_original_data, 512, _workload_conf._working_set_size);
-#else
+#ifdef DIRECT_IO
         _original_data = (char *)aligned_alloc(512, _workload_conf._working_set_size);
+#else
+        _original_data = (char *)malloc(_workload_conf._working_set_size);
 #endif
         n = read(fd, _original_data, _workload_conf._working_set_size);
         if (n != _workload_conf._working_set_size) {
@@ -82,6 +82,7 @@ class RunChunkModule {
 
   void work()
   {
+    Config::get_configuration().set_fingerprint_algorithm(1);
     Chunker chunker = _chunk_module->create_chunker(0, _original_data, _workload_conf._working_set_size);
     Chunk chunk;
     while (chunker.next(chunk)) {

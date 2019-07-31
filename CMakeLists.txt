@@ -16,6 +16,7 @@ add_library(cache
   src/metadata/metajournal.cc
   src/metadata/metadatamodule.cc
   src/metadata/cache_policy.cc
+  src/metadata/cachededup_index.cc
 
   src/chunk/chunkmodule.cc
 
@@ -45,10 +46,6 @@ target_link_libraries(cache OpenSSL::SSL lz4 pthread)
 ################################
 # Micro Benchmarks
 ################################
-add_executable(compression_benchmark src/benchmark/compression.cc)
-set_target_properties(compression_benchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(compression_benchmark cache)
-
 add_executable(trace_gen src/benchmark/trace_gen.cc)
 set_target_properties(trace_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(trace_gen cache)
@@ -69,6 +66,13 @@ add_executable(run_chunk src/benchmark/run_chunk.cc)
 set_target_properties(run_chunk PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_chunk cache)
 
+###############################################
+## Buse Userspace Virtual Kernel Block Device
+###############################################
+link_directories(${CMAKE_SOURCE_DIR}/third_party/BUSE)
+include_directories(third_party/BUSE)
+add_executable(buse_ssddup third_party/BUSE/ssddup.cc)
+target_link_libraries(buse_ssddup cache buse)
 
 #################################
 ## GTest

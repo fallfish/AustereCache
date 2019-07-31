@@ -21,7 +21,8 @@ class RunSystem {
   }
   ~RunSystem() {
     free(_original_data);
-    free(_read_data);
+    for (int i = 0; i < _num_workers; ++i)
+      free(_read_data[i]);
   }
 
   void parse_argument(int argc, char **argv)
@@ -68,6 +69,11 @@ class RunSystem {
         Config::get_configuration().set_fingerprint_algorithm(atoi(value));
       } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
         Config::get_configuration().set_fingerprint_computation_method(atoi(value));
+      } else if (strcmp(param, "--write-buffer-size") == 0) {
+        Config::get_configuration().set_write_buffer_size(atoi(value));
+        std::cout << "write_buffer_size: " << atoi(value) << std::endl;
+      } else if (strcmp(param, "--direct-io") == 0) {
+        Config::get_configuration().set_direct_io(atoi(value));
       }
     }
 
@@ -84,18 +90,24 @@ class RunSystem {
     }
     _workload_conf._wr_ratio = wr_ratio;
     _workload_conf.print_current_parameters();
-    Config::get_configuration().set_cache_device_name("./cache_device");
-    Config::get_configuration().set_primary_device_name("./primary_device");
+    //Config::get_configuration().set_cache_device_name("./cache_device");
+    //Config::get_configuration().set_primary_device_name("./primary_device");
     //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
-    //Config::get_configuration().set_primary_device_name("/dev/sdb");
-    //Config::get_configuration().set_cache_device_name("/dev/sda");
+    //Config::get_configuration().set_primary_device_name("./primary_device");
+    //Config::get_configuration().set_primary_device_name("./ramdisk/primary_device");
+    //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
+    Config::get_configuration().set_primary_device_name("/dev/sdc");
+    Config::get_configuration().set_cache_device_name("/dev/sda");
     _ssddup = std::make_unique<SSDDup>();
   }
 
   void warm_up()
   {
+    //_ssddup->read(0, _read_data[0], _workload_conf._working_set_size);
     _ssddup->write(0, _original_data, _workload_conf._working_set_size);
     _ssddup->reset_stats();
+    sync();
+    //_ssddup->sync();
     DEBUG("finish warm up");
   }
 
@@ -105,37 +117,24 @@ class RunSystem {
     for (int thread_id = 0; thread_id < _num_workers; thread_id++) {
       workers.push_back(std::thread( [&, thread_id]()
         {
-        //std::cout << thread_id << std::endl;
           srand(thread_id);
           for (uint32_t i = 0; i < n_requests / _num_workers; i++) {
-          std::cout << i << std::endl;
+            // generate random number of chunk request (1 ~ 4)
             int _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
-            //uint64_t begin = rand() % _n_chunks;
-            //uint64_t end = begin + rand() % 8;
-            //uint64_t begin = 3;
-            //uint64_t end = begin + 1;
-            //if (end >= _n_chunks) end = _n_chunks - 1;
+            uint64_t begin = rand() % _n_chunks * (uint64_t)_workload_conf._chunk_size;
+            uint64_t end = begin + _workload_conf._chunk_size 
+                          + rand() % 3 * (uint64_t)_workload_conf._chunk_size;
+            if (end > _workload_conf._working_set_size) end = _workload_conf._working_set_size;
 
-            //begin = begin * _workload_conf._chunk_size;
-            //end = end * _workload_conf._chunk_size;
-
-
-            uint64_t begin = rand() % _workload_conf._working_set_size;
-            uint64_t end = begin + rand() % (_workload_conf._chunk_size * 8);
-            if (end >= _workload_conf._working_set_size) end = _workload_conf._working_set_size - 1;
-            if (begin == end) continue;
-
-            int op = 1;
-            if (op == 0) {
+            uint32_t op = rand() % 100;
+            if (op < 0) {
               modify_chunk(begin, end);
+              begin = begin / 32768 * 32768;
+              end = (end / 32768 + 1) * 32768;
               _ssddup->write(begin, _original_data + begin, end - begin);
             } else {
               total_bytes.fetch_add(end - begin, std::memory_order_relaxed);
-              if (_multi_thread) {
-                _ssddup->read_mt(begin, _read_data[thread_id] + begin, end - begin);
-              } else {
-                _ssddup->read(begin, _read_data[thread_id] + begin, end - begin);
-              }
+              _ssddup->read(begin, _read_data[thread_id] + begin, end - begin);
               int result = -1;
               result = compare_array(_original_data + begin, _read_data[thread_id] + begin, end - begin);
               if (result != end - begin) {
@@ -151,6 +150,7 @@ class RunSystem {
     for (auto &worker : workers) {
       worker.join();
     }
+    sync();
   }
 
  private: 
@@ -232,7 +232,7 @@ int main(int argc, char **argv)
 
   std::atomic<uint64_t> total_bytes(0);
   int elapsed = 0;
-  PERF_FUNCTION(elapsed, run_system.work, 512, total_bytes);
+  PERF_FUNCTION(elapsed, run_system.work, 4096, total_bytes);
   std::cout << (double)total_bytes / (1024 * 1024) << std::endl;
   std::cout << elapsed << " ms" << std::endl;
   std::cout << "Throughput: " << (double)total_bytes / elapsed << " MBytes/s" << std::endl;

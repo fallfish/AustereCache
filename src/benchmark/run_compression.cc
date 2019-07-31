@@ -39,13 +39,14 @@ class RunCompressionModule {
         }
 
         // read working set
-#ifdef __APPLE__
-        _original_data = reinterpret_cast<uint8_t*>(malloc(512, _workload_conf._working_set_size));
-        _compressed_data = reinterpret_cast<uint8_t*>(malloc(512, _workload_conf._working_set_size));
-#else
+#ifdef DIRECT_IO
         _original_data = reinterpret_cast<uint8_t*>(aligned_alloc(512, _workload_conf._working_set_size));
         _compressed_data = reinterpret_cast<uint8_t*>(aligned_alloc(512, _workload_conf._working_set_size));
+#else
+        _original_data = reinterpret_cast<uint8_t*>(malloc(_workload_conf._working_set_size));
+        _compressed_data = reinterpret_cast<uint8_t*>(malloc(_workload_conf._working_set_size));
 #endif
+
         n = read(fd, _original_data, _workload_conf._working_set_size);
 
         if (n != _workload_conf._working_set_size) {

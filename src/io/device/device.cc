@@ -8,12 +8,15 @@
 #include <cstring>
 #include <csignal>
 
+#include "common/env.h"
 #include "utils/utils.h"
 #include "device.h"
 #include "utils/MurmurHash3.h"
 
 namespace cache {
-  Device::~Device() {}
+  Device::~Device() {
+    close(_fd);
+  }
 
   BlockDevice::BlockDevice() {}
 
@@ -75,7 +78,6 @@ namespace cache {
       if (n < 0) {
         std::cout << (long)buf << " " << addr << " " << len << std::endl;
         std::cout << "BlockDevice::read " << std::strerror(errno) << std::endl;
-        std::raise(SIGINT);
         exit(-1);
       }
       n_read_bytes += n;
@@ -107,12 +109,10 @@ namespace cache {
       // error: new file needs to be created, however the size given is 0.
       return -1;
     }
-#ifdef __APPLE__
-    fd = ::open(filename, O_RDWR | 0 | O_CREAT, 0666); // MacOS has no O_DIRECT support
-#else
-    fd = ::open(filename, O_RDWR | O_CREAT, 0666);
-    //fd = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
-#endif
+    if (_direct_io)
+      fd = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
+    else
+      fd = ::open(filename, O_RDWR | O_CREAT, 0666);
     if (fd < 0) {
       // cannot create device with O_DIRECT
       fd = ::open(filename, O_RDWR | O_CREAT, 0666);
@@ -134,12 +134,10 @@ namespace cache {
   {
     int fd = 0;
     std::cout << "BlockDevice::Open existing device!" << std::endl;
-#ifdef __APPLE__
-    fd = ::open(filename, O_RDWR); // MacOS has no O_DIRECT support
-#else
-    //fd = ::open(filename, O_RDWR | O_DIRECT);
-    fd = ::open(filename, O_RDWR);
-#endif
+    if (_direct_io)
+      fd = ::open(filename, O_RDWR | O_DIRECT);
+    else
+      fd = ::open(filename, O_RDWR);
 
     if (fd < 0) {
       std::cout << "No O_DIRECT!" << std::endl;

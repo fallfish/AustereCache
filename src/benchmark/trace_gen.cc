@@ -6,6 +6,7 @@
 #include "common/common.h" // Chunk for generating fingerprints
 #include "workload_conf.h"
 #include "utils/MurmurHash3.h"
+#include "utils/gen_zipf.h"
 #include "chunk/chunkmodule.h"
 #include "compression/compressionmodule.h"
 
@@ -114,10 +115,11 @@ class TraceGenerator {
         print_help();
         exit(-1);
       }
-      if (strcmp(value, "--h") == 0) {
+      if (strcmp(param_name, "--h") == 0 || strcmp(value, "--h") == 0) {
         print_help();
         exit(0);
       }
+      std::cout << param_name << std::endl;
       if (strcmp(param_name, "--wr-ratio") == 0) {
         _wr_ratio = atof(value);
       } else if (strcmp(param_name, "--compressibility") == 0) {
@@ -167,6 +169,14 @@ class TraceGenerator {
         } else if (strcmp(value, "sha1") == 0) {
           _fp_alg = 1;
         }
+      } else if (strcmp(param_name, "--distribution") == 0) {
+        if (strcmp(value, "uniform") == 0) {
+          _distribution = 0;
+        } else if (strcmp(value, "zipf") == 0) {
+          _distribution = 1;
+        }
+      } else if (strcmp(param_name, "--skewness") == 0) {
+        _skewness = atof(value);
       } else {
         std::cout << "invalid parameters" << std::endl;
         print_help();
@@ -192,7 +202,8 @@ class TraceGenerator {
       << "--duplication-factor: the level of duplicate chunks" << std::endl
       << "--working-set: the size of whole data set" << std::endl
       << "--cache-device-size: the size of cache device" << std::endl
-      << "--output-file: file name of generated trace" << std::endl;
+      << "--output-file: file name of generated trace" << std::endl
+      << "--distribution: trace distribution (zipf or uniform)" << std::endl;
   }
 
   void print_current_parameters()
@@ -210,33 +221,33 @@ class TraceGenerator {
 
   void generate_workload_data()
   {
-    _workload_data = reinterpret_cast<char*>(malloc(_working_set_size));
-    for (uint64_t addr = 0; addr < _working_set_size; addr += _chunk_size) {
-      int rd;
+    char *base_chunks = reinterpret_cast<char*>(malloc(_num_unique_chunks * _chunk_size));
+    int _comp = 0;
+    for (uint64_t addr = 0; addr < _num_unique_chunks * _chunk_size; addr += _chunk_size) {
       if (_compressibility == 4) {
-        rd = rand() % 4;
-        memcpy(_workload_data + addr, _base_chunks[rd], _chunk_size);
-
-        if (_num_unique_chunks == -1) {
-          rd = rand() % _chunk_size;
-          (_workload_data + addr)[rd] = rand() % 0xff;
-        } else {
-          if (_num_unique_chunks >= 4) {
-            rd = rand() % (_num_unique_chunks / 4);
-            if ((_workload_data + addr)[rd] == 0x1) (_workload_data + addr)[rd] = 0x0;
-            else (_workload_data + addr)[rd] = 0x1;
-          }
-        }
+        _comp += 1;
+        if (_comp == 4) _comp = 0;
+        memcpy(base_chunks + addr, _base_chunks[_comp], _chunk_size);
       } else {
-        memcpy(_workload_data + addr, _base_chunks[_compressibility], _chunk_size);
-        if (_num_unique_chunks == -1) {
-          rd = rand() % _chunk_size;
-          (_workload_data + addr)[rd] = rand() % 0xff;
-        } else {
-          rd = rand() % (_num_unique_chunks);
-          if ((_workload_data + addr)[rd] == 0x1) (_workload_data + addr)[rd] = 0x0;
-          else (_workload_data + addr)[rd] = 0x1;
-        }
+        memcpy(base_chunks + addr, _base_chunks[_compressibility], _chunk_size);
+      }
+      uint32_t modify_index = rand() % _chunk_size;
+      uint32_t modify_byte = rand() % 0xff;
+      (base_chunks + addr)[modify_index] = modify_byte;
+    }
+    _workload_data = reinterpret_cast<char*>(malloc(_working_set_size));
+    if (_distribution == 1) {
+      // zipf distribution
+      genzipf::rand_val(1);
+      for (uint64_t addr = 0; addr < _working_set_size; addr += _chunk_size) {
+        int rd = genzipf::zipf(_skewness, _num_unique_chunks);
+        memcpy(_workload_data + addr, base_chunks + rd * _chunk_size, _chunk_size);
+      }
+    } else if (_distribution == 0) {
+      // uniform distribution
+      for (uint64_t addr = 0; addr < _working_set_size; addr += _chunk_size) {
+        int rd = rand() % _num_unique_chunks;
+        memcpy(_workload_data + addr, base_chunks + rd * _chunk_size, _chunk_size);
       }
     }
   }
@@ -250,6 +261,7 @@ class TraceGenerator {
     }
     return ret;
   }
+
   WorkloadConfiguration _workload_conf;
   uint32_t _chunk_size;
   char *_base_chunks[4];
@@ -263,9 +275,10 @@ class TraceGenerator {
   char _output_file[100];
   char *_workload_data;
   Chunk *_chunks;
-};
 
-//}
+  int _distribution;
+  int _skewness;
+};
 }
 
 int main(int argc, char **argv)

@@ -208,9 +208,8 @@ namespace cache {
   // TODO: Check whether there is memory leak when destructing
   CachePolicyExecutor* CAClock::get_executor(Bucket *bucket)
   { 
-    CachePolicyExecutor *a = new CAClockExecutor(
+    return new CAClockExecutor(
           bucket, std::move(get_bucket(bucket->get_bucket_id())),
           &_clock_ptr);
-    return a;
   }
 }

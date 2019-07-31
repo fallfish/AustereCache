@@ -49,13 +49,12 @@ namespace cache {
     uint32_t ca_hash_ = 0;
     uint32_t slot_id = lookup(lba_sig, ca_hash_);
     if (slot_id != ~((uint32_t)0)) {
-      //if (ca_hash == get_v(slot_id)) {
-        //promote(lba_sig);
-        //return ;
-      //} else {
+      if (ca_hash == get_v(slot_id)) {
+        promote(lba_sig);
+        return ;
+      }
       set_v(slot_id, ca_hash);
       set_invalid(slot_id);
-      //}
     }
 
     // If is full, clear all obsoletes first
@@ -114,10 +113,10 @@ namespace cache {
     uint32_t n_slots_occupied = 0, value = 0;
     uint32_t slot_id = lookup(ca_sig, n_slots_occupied);
     if (slot_id != ~((uint32_t)0)) {
-      //if (n_slots_occupied == n_slots_to_occupy) {
-        //promote(slot_id);
-        //return slot_id;
-      //}
+      if (n_slots_occupied == n_slots_to_occupy) {
+        promote(slot_id);
+        return slot_id;
+      }
       for (uint32_t slot_id_ = slot_id;
           slot_id_ < slot_id + n_slots_occupied;
           ++slot_id_) {

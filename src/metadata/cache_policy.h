@@ -43,8 +43,6 @@ namespace cache {
     uint32_t *_clock_ptr;
   };
 
-      
-
 
   class CachePolicy {
     public:

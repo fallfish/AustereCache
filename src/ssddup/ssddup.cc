@@ -1,13 +1,20 @@
 #include "ssddup.h"
+#include "common/env.h"
 #include "common/config.h"
+
+#include <unistd.h>
 
 #include <vector>
 #include <thread>
 #include <cassert>
+#include <chrono>
 
 namespace cache {
 SSDDup::SSDDup()
 {
+  double vm, rss;
+  process_mem_usage(vm, rss);
+  std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
   _chunk_module = std::make_unique<ChunkModule>();
   std::shared_ptr<IOModule> io_module = std::make_shared<IOModule>();
   io_module->add_cache_device(Config::get_configuration().get_cache_device_name());
@@ -17,16 +24,26 @@ SSDDup::SSDDup()
     std::make_shared<MetadataModule>(io_module, _compression_module);
   _deduplication_module = std::make_unique<DeduplicationModule>(metadata_module);
   _manage_module = std::make_unique<ManageModule>(io_module, metadata_module);
-  _stats = std::make_unique<Stats>();
+  _stats = Stats::get_instance();
   _thread_pool = std::make_unique<ThreadPool>(Config::get_configuration().get_max_num_global_threads());
 
   std::cout << sizeof(Metadata) << std::endl;
-  std::cout << Config::get_configuration().get_fingerprint_algorithm() << std::endl;
-  std::cout << Config::get_configuration().get_fingerprint_computation_method() << std::endl;
 }
 
 SSDDup::~SSDDup() {
   _stats->dump();
+  double vm, rss;
+  process_mem_usage(vm, rss);
+  std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
+}
+
+void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
+{
+  if (Config::get_configuration().get_multi_thread()) {
+    read_mt(addr, buf, len);
+  } else {
+    read_singlethread(addr, buf, len);
+  }
 }
 
 void SSDDup::read_mt(uint64_t addr, void *buf, uint32_t len)
@@ -56,7 +73,7 @@ void SSDDup::read_mt(uint64_t addr, void *buf, uint32_t len)
 }
 
 
-void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
+void SSDDup::read_singlethread(uint64_t addr, void *buf, uint32_t len)
 {
   Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
 
@@ -77,6 +94,86 @@ void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
   }
 }
 
+
+void SSDDup::write(uint64_t addr, void *buf, uint32_t len)
+{
+
+  Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
+  alignas(512) Chunk c;
+
+  while ( chunker.next(c) ) {
+    //std::cout << c._addr << " " << c._len << std::endl;
+    _stats->add_write_request();
+    _stats->add_write_bytes(c._len);
+    // this read_buffer resides in the application stack
+    // and will be wrapped by read_chunk
+    // to avoid memory allocation overhead
+    // it is small 8K/32K memory overhead
+    alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
+    if (!c.is_aligned()) {
+      // read-modify-write is introduced
+      c.preprocess_unaligned(temp_buffer);
+      // read
+      internal_read(c, /* update_index = */ false);
+
+      // modify
+      c.merge_write();
+    }
+    internal_write(c);
+    c._ca_bucket_lock.reset();
+    c._lba_bucket_lock.reset();
+  }
+}
+
+#ifdef CACHE_DEDUP
+//#ifdef DLRU
+void SSDDup::internal_read(Chunk &c, bool update_metadata)
+{
+  _stats->add_internal_read_request();
+  _stats->add_internal_read_bytes(c._len);
+
+  _deduplication_module->lookup(c);
+  _manage_module->read(c);
+
+  if (update_metadata) {
+    if (c._lookup_result == NOT_HIT) {
+      c.fingerprinting();
+      _deduplication_module->dedup(c);
+      _manage_module->update_metadata(c);
+      if (c._dedup_result == NOT_DUP) {
+        _manage_module->write(c);
+      }
+    } else {
+      _manage_module->update_metadata(c);
+    }
+  }
+
+  if (c._lookup_result == HIT) {
+    _stats->add_cache_data_read();
+  } else {
+    _stats->add_primary_data_read();
+  }
+
+  _stats->add_compress_level(c._compress_level);
+  _stats->add_lookup_result(c._lookup_result);
+  _stats->add_lba_hit(c._lba_hit);
+  _stats->add_ca_hit(c._ca_hit);
+}
+void SSDDup::internal_write(Chunk &c)
+{
+  _stats->add_lba_hit(c._lba_hit);
+  _stats->add_ca_hit(c._ca_hit);
+  c.fingerprinting();
+  _deduplication_module->dedup(c);
+  _manage_module->update_metadata(c);
+  _manage_module->write(c);
+  _stats->add_dedup_result(c._dedup_result);
+}
+//#else
+
+//#endif
+
+#else
 void SSDDup::internal_read(Chunk &c, bool update_metadata)
 {
   _stats->add_internal_read_request();
@@ -91,7 +188,6 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
 
     // look up index
     _deduplication_module->lookup(c);
-
     // read from ssd or hdd according to the lookup result
     _manage_module->read(c);
 
@@ -120,7 +216,6 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
         if (c._dedup_result == NOT_DUP) {
           // write compressed data into cache device
           _manage_module->write(c);
-
           _stats->add_cache_data_write();
         }
       } else {
@@ -146,39 +241,11 @@ void SSDDup::internal_read(Chunk &c, bool update_metadata)
   _stats->add_lba_hit(c._lba_hit);
   _stats->add_ca_hit(c._ca_hit);
 }
-
-void SSDDup::write(uint64_t addr, void *buf, uint32_t len)
-{
-
-  Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
-  alignas(512) Chunk c;
-
-  while ( chunker.next(c) ) {
-    _stats->add_write_request();
-    _stats->add_write_bytes(c._len);
-    // this read_buffer resides in the application stack
-    // and will be wrapped by read_chunk
-    // to avoid memory allocation overhead
-    // it is small 8K/32K memory overhead
-    alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
-    if (!c.is_aligned()) {
-      // read-modify-write is introduced
-      c.preprocess_unaligned(temp_buffer);
-      // read
-      internal_read(c, /* update_index = */ false);
-
-      // modify
-      c.merge_write();
-    }
-    c._compressed_buf = temp_buffer;
-    internal_write(c);
-    c._ca_bucket_lock.reset();
-    c._lba_bucket_lock.reset();
-  }
-}
-
 void SSDDup::internal_write(Chunk &c)
 {
+  c._lookup_result = LOOKUP_UNKNOWN;
+  alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
+  c._compressed_buf = temp_buffer;
   _stats->add_internal_write_request();
   _stats->add_internal_write_bytes(c._len);
 
@@ -192,8 +259,12 @@ void SSDDup::internal_write(Chunk &c)
     _manage_module->write(c);
   }
 
+  if (c._dedup_result == NOT_DUP || c._dedup_result == DUP_CONTENT)
+    _stats->add_primary_data_write();
   _stats->add_lba_hit(c._lba_hit);
   _stats->add_ca_hit(c._ca_hit);
+  _stats->add_dedup_result(c._dedup_result);
 }
 
+#endif
 }

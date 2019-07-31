@@ -32,9 +32,15 @@ class Config
 
   char *get_cache_device_name() { return _cache_device_name; }
   char *get_primary_device_name() { return _primary_device_name; }
+  bool get_direct_io() { return _direct_io; }
 
   uint32_t get_fingerprint_algorithm() { return _fingerprint_algorithm; }
   uint32_t get_fingerprint_computation_method() { return _fingerprint_computation_method; }
+
+  uint32_t get_write_buffer_size() { return _buffered_write_buffer_size; }
+  
+  bool get_multi_thread() { return _multi_thread; }
+
 
   // setters
   void set_chunk_size(uint32_t chunk_size) { _chunk_size = chunk_size; }
@@ -56,6 +62,10 @@ class Config
 
   void set_cache_device_name(char *cache_device_name) { _cache_device_name = cache_device_name; }
   void set_primary_device_name(char *primary_device_name) { _primary_device_name = primary_device_name; }
+  bool set_direct_io(bool v) { _direct_io = v; }
+
+  void set_write_buffer_size(uint32_t v) { _buffered_write_buffer_size = v; }
+  void set_multi_thread(bool v) { _multi_thread = v; }
 
   void set_fingerprint_algorithm(uint32_t v) { 
     if (v == 0) set_ca_length(20);
@@ -91,12 +101,13 @@ class Config
     _ca_bucket_no_len = 10;
     _ca_slots_per_bucket = 32;
 
+    _multi_thread = false;
     _max_num_global_threads = 32;
     _max_num_local_threads = 8;
 
     // io related
-    _cache_device_name = "/dev/sda";
-    _primary_device_name = "/dev/sdb";
+    _cache_device_name = "./cache_device";
+    _primary_device_name = "./primary_device";
 
     set_fingerprint_computation_method(0);
     set_fingerprint_algorithm(1);
@@ -107,8 +118,6 @@ class Config
   uint32_t _metadata_size; // 512 byte size chunk
   uint32_t _ca_length; // content address (fingerprint) length, 20 bytes if using SHA1
   uint32_t _strong_ca_length; // content address (fingerprint) length, 20 bytes if using SHA1
-  uint64_t _primary_device_size;
-  uint64_t _cache_device_size;
 
   // Each bucket has 32 slots. Each index has _n_buckets buckets,
   // Each slot represents one chunk 32K.
@@ -124,10 +133,15 @@ class Config
   // Multi threading related
   uint32_t _max_num_global_threads;
   uint32_t _max_num_local_threads;
+  bool _multi_thread;
 
   // io related
   char *_primary_device_name;
   char *_cache_device_name;
+  uint64_t _primary_device_size;
+  uint64_t _cache_device_size;
+  uint32_t _buffered_write_buffer_size = 1024 * 8 * 32;
+  bool _direct_io = false;
 
   // chunk algorithm
   // 0 - Strong hash (SHA1), 1 - Weak hash (MurmurHash3)

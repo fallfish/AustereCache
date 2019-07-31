@@ -16,6 +16,7 @@ class ManageModule {
   int read(Chunk &c);
   int write(Chunk &c);
   void update_metadata(Chunk &c);
+  inline void sync() { _io_module->sync(); }
  private:
   std::shared_ptr<IOModule> _io_module;
   std::shared_ptr<MetadataModule> _metadata_module;
