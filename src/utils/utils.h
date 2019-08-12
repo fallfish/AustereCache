@@ -12,3 +12,13 @@
     gettimeofday(&t2, NULL);\
     elapsed += (t2.tv_sec-t1.tv_sec)*1000000 + t2.tv_usec-t1.tv_usec;\
   }
+
+#define PERF_FUNCTION_BOOL(elapsed, func, ...) \
+  {\
+    struct timeval t1, t2;\
+    gettimeofday(&t1, NULL);\
+    bool ret = func(__VA_ARGS__); \
+    gettimeofday(&t2, NULL);\
+    elapsed += (t2.tv_sec-t1.tv_sec)*1000000 + t2.tv_usec-t1.tv_usec;\
+    ret; \
+  }

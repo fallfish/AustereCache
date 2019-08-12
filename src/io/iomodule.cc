@@ -8,12 +8,18 @@ namespace cache {
 
 IOModule::IOModule()
 {
+#if defined(CDARC)
+  _weu._buf = new uint8_t[Config::get_configuration().get_write_buffer_size()];
+  _weu._len = Config::get_configuration().get_write_buffer_size();
+  _write_buffer = nullptr;
+#else
   if (Config::get_configuration().get_write_buffer_size() != 0) {
     _write_buffer = new WriteBuffer(Config::get_configuration().get_write_buffer_size());
     _write_buffer->_thread_pool = std::make_unique<ThreadPool>(Config::get_configuration().get_max_num_global_threads());
   } else {
     _write_buffer = nullptr;
   }
+#endif
 }
 
 IOModule::~IOModule()
@@ -21,6 +27,9 @@ IOModule::~IOModule()
   if (_write_buffer != nullptr) {
     delete _write_buffer;
   }
+#if defined(CDARC)
+  free(_weu._buf);
+#endif
 }
 
 uint32_t IOModule::add_cache_device(char *filename)
@@ -52,13 +61,17 @@ uint32_t IOModule::read(uint32_t device, uint64_t addr, void *buf, uint32_t len)
   uint32_t ret = 0;
   if (device == 0) {
     ret = _primary_device->read(addr, (uint8_t*)buf, len);
-    Stats::get_instance()->add_bytes_written_to_primary_disk(len);
-  } else {
+    Stats::get_instance()->add_bytes_read_from_primary_disk(len);
+  } else if (device == 1) {
     if (_write_buffer != nullptr) {
       ret = _write_buffer->read(addr, (uint8_t*)buf, len);
     } else {
       ret = _cache_device->read(addr, (uint8_t*)buf, len);
     }
+#if defined(CDARC)
+  } else if (device == 2) {
+    _weu.read(addr, (uint8_t*)buf, len);
+#endif
   }
   return ret;
 }
@@ -67,14 +80,25 @@ uint32_t IOModule::write(uint32_t device, uint64_t addr, void *buf, uint32_t len
 {
   if (device == 0) {
     _primary_device->write(addr, (uint8_t*)buf, len);
-    Stats::get_instance()->add_bytes_read_from_primary_disk(len);
-  } else {
+    Stats::get_instance()->add_bytes_written_to_primary_disk(len);
+  } else if (device == 1) {
     if (_write_buffer != nullptr) {
       _write_buffer->write(addr, (uint8_t*)buf, len);
     } else {
       _cache_device->write(addr, (uint8_t*)buf, len);
     }
+#if defined(CDARC)
+  } else if (device == 2) {
+    _weu.write(addr, (uint8_t*)buf, len);
+#endif
   }
+}
+
+void IOModule::flush(uint64_t addr)
+{
+#if defined(CDARC)
+  _cache_device->write(addr, _weu._buf, _weu._len);
+#endif
 }
 
 }

@@ -11,9 +11,48 @@ namespace cache {
     _n_valid_bytes_per_bucket((1 * n_slots_per_bucket + 7) / 8),
     _data(std::make_unique<uint8_t[]>(_n_data_bytes_per_bucket * n_buckets)),
     _valid(std::make_unique<uint8_t[]>(_n_valid_bytes_per_bucket * n_buckets)),
-    _mutexes(std::make_unique<std::mutex[]>(n_buckets))
+    _mutexes(std::make_unique<std::mutex[]>(n_buckets)),
+    _n_buckets(n_buckets)
   {}
 
+  LBAIndex::~LBAIndex() {
+    std::cout << "~LBAIndex: " << std::endl;
+    std::map<uint32_t, uint32_t> counters;
+    for (int i = 0; i < _n_buckets; ++i) {
+      uint32_t count = 0;
+      for (int j = 0; j < 32; ++j) {
+        if (get_lba_bucket(i)->is_valid(j)) {
+          count += 1;
+        }
+      }
+      if (counters.find(count) == counters.end()) {
+        counters[count] = 0;
+      }
+      counters[count] += 1;
+    }
+    for (auto p : counters) {
+      std::cout << p.first << " " << p.second << std::endl;
+    }
+  }
+  CAIndex::~CAIndex() {
+    std::cout << "~CAIndex: " << std::endl;
+    std::map<uint32_t, uint32_t> counters;
+    for (int i = 0; i < _n_buckets; ++i) {
+      uint32_t count = 0;
+      for (int j = 0; j < 32; ++j) {
+        if (get_ca_bucket(i)->is_valid(j)) {
+          count += 1;
+        }
+      }
+      if (counters.find(count) == counters.end()) {
+        counters[count] = 0;
+      }
+      counters[count] += 1;
+    }
+    for (auto p : counters) {
+      std::cout << (p.first / 4) << " " << p.second << std::endl;
+    }
+  }
   void Index::set_cache_policy(std::unique_ptr<CachePolicy> cache_policy)
   { 
     _cache_policy = std::move(cache_policy);

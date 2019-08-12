@@ -12,6 +12,7 @@ do
         do
           #echo "${comp} ${workload} ${multithread} ${num_workers} ${ca_bits}" | tee results/use_memory/${comp}_${workload}_${multithread}_${num_workers}_${ca_bits}
           echo "stdbuf -oL sudo ./microbenchmarks/run_ssddup --trace ../trace/compressibility_${comp}/${workload} --ca-bits $ca_bits --multi-thread ${multithread} --num-workers ${num_workers}"
+          exit
           #echo "stdbuf -oL sudo ./microbenchmarks/run_ssddup --trace ../trace/compressibility_${comp}/${workload} --ca-bits $ca_bits --multi-thread ${multithread} --num-workers ${num_workers}" | tee -a results/use_memory/${comp}_${workload}_${multithread}_${num_workers}_${ca_bits}
           #stdbuf -oL sudo ./microbenchmarks/run_ssddup --trace ../trace/compressibility_${comp}/${workload} --ca-bits $ca_bits --multi-thread ${multithread} --num-workers ${num_workers} | tee -a results/use_memory/${comp}_${workload}_${multithread}_${num_workers}_${ca_bits}
           #echo ""

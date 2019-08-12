@@ -18,59 +18,59 @@ class TraceGenerator {
  public:
  // Parameters that need consideration
  // 1. Workload mode: write-read ratio
- // 2. Compressibility: 0 - 25%, 25% - 50%, 50% - 75%, 75% - not-compressible, mixed
- // 3. Duplication factor: average occurrences of all chunks, 1 means all unique, number of total chunks means all same, number of unique chunks can be computed as (working_set_size / chunk_size / duplication_factor)
- // 4. Working set: KiB, MiB, GiB
- // 5. Cache device size: KiB, MiB, GiB
+ // 2. Compressibility: 0 - 25%, 25% - 50%, 50% - 75%, 75% - not-compressible, mixed (0, 1, 2, 3, 4)
+ // 3. Number of unique chunks
+ // 4. Total number of chunks 
  // 6. Output file name
- // 7. Distribution: random
-  TraceGenerator() {
+ // 7. Distribution: random, zipf
+ // 8. Zipf distribution skewness
+  TraceGenerator()
+  {
     {
       // set default values
-      _wr_ratio = 0;
       _compressibility = 0;
-      _duplication_factor = 1;
-      _working_set_size = 1024 * 1024; // 1MiB
-      _cache_device_size = 1024 * 32;
+      _chunk_size = 32768;
+      _num_unique_chunks = 8192;
+      _distribution = 0; // 0 indicates uniform distribution, 1 indicates zipf distribution
+      _num_chunks = 8192;
       strcpy(_output_file, "trace");
-      _num_unique_chunks = 1.0 * _working_set_size / _chunk_size;
-      _fp_alg = 0;
     }
-    _chunk_size = 32768;
-    alloc_aligned_memory((void**)&_base_chunks[0], 512, _chunk_size);
-    alloc_aligned_memory((void**)&_base_chunks[1], 512, _chunk_size);
-    alloc_aligned_memory((void**)&_base_chunks[2], 512, _chunk_size);
-    alloc_aligned_memory((void**)&_base_chunks[3], 512, _chunk_size);
-    int seed = 0;
-    srand(0);
-    for (int i = 0; i < _chunk_size; i++) {
-      _base_chunks[0][i]= ((i + seed) & (0xff - 7));
-      _base_chunks[1][i]= ((i + seed) & (0xff - i / 256 ));
-      _base_chunks[2][i]= ((i + seed) & (0xff - i * i / 256 ));
-      _base_chunks[3][i]= ((i + seed) & (0xff - rand() / 256 ));
-    }
-    new (&_workload_conf) WorkloadConfiguration(
-        _base_chunks, _chunk_size, _wr_ratio, _compressibility,
-        _duplication_factor, _working_set_size, _cache_device_size,
-        _fp_alg);
   }
 
   ~TraceGenerator()
   {
-    if (_workload_data != nullptr) free(_workload_data);
+    if (_workload_chunks != nullptr) free(_workload_chunks);
     if (_chunks != nullptr) free(_chunks);
   }
 
   void generate_trace()
   {
+    generate_workload_data();
+    _workload_conf = new WorkloadConfiguration(
+        _base_chunks, _chunk_size, _num_unique_chunks, _num_chunks,
+        _distribution, _skewness);
+
     int fd = open(_output_file, O_CREAT | O_RDWR, 0666);
     if (fd < 0) {
       std::cout << "TraceGen::generate_trace: File " << _output_file << " failed to open!" << std::endl;
       exit(1);
     }
 
-    int n = write(fd, &_workload_conf, sizeof(WorkloadConfiguration));
-    n = write(fd, _workload_data, _working_set_size);
+    int n = write(fd, _workload_conf, sizeof(WorkloadConfiguration));
+    if (n < 0) {
+      std::cout << "Fail to write workload configuration!" << std::endl;
+      exit(1);
+    }
+    n = write(fd, _workload_chunks, _num_chunks * _chunk_size);
+    if (n < 0) {
+      std::cout << "Fail to write workload chunks!" << std::endl;
+      exit(1);
+    }
+    n = write(fd, _unique_chunks, _num_unique_chunks * _chunk_size);
+    if (n < 0) {
+      std::cout << "Fail to write unique chunks!" << std::endl;
+      exit(1);
+    }
 
     close(fd);
     std::cout << "TraceGen::generate_trace: Generate trace successfully!" << std::endl;
@@ -80,7 +80,7 @@ class TraceGenerator {
   {
     CompressionModule compression_module;
     ChunkModule chunk_module;
-    Chunker chunker = chunk_module.create_chunker(0, _workload_data, _working_set_size);
+    Chunker chunker = chunk_module.create_chunker(0, _workload_chunks, _num_chunks * _chunk_size);
     uint8_t tmp_buf[_chunk_size];
 
     char _fingerprint_file[100];
@@ -88,7 +88,7 @@ class TraceGenerator {
     strcat(_fingerprint_file, "-chunk");
 
     int fd = open(_fingerprint_file, O_CREAT | O_RDWR, 0666);
-    _chunks = reinterpret_cast<Chunk *>(malloc(sizeof(Chunk) * _working_set_size / _chunk_size));
+    _chunks = reinterpret_cast<Chunk *>(malloc(sizeof(Chunk) * _num_chunks));
 
     // compute lba_hash, ca_hash, compressiblity, and ca (fingerprint) for each chunk
     int index = 0;
@@ -101,7 +101,7 @@ class TraceGenerator {
     }
 
     int n = write(fd, &_workload_conf, sizeof(WorkloadConfiguration));
-    n = write(fd, _chunks, sizeof(Chunk) * _working_set_size / _chunk_size);
+    n = write(fd, _chunks, sizeof(Chunk) * _num_chunks);
   }
 
   void parse_config(int argc, char **argv)
@@ -120,55 +120,17 @@ class TraceGenerator {
         exit(0);
       }
       std::cout << param_name << std::endl;
-      if (strcmp(param_name, "--wr-ratio") == 0) {
-        _wr_ratio = atof(value);
+      if (strcmp(param_name, "--chunk-size") == 0) {
+        _chunk_size = atoi(value);
       } else if (strcmp(param_name, "--compressibility") == 0) {
-        // 0, 1, 2, 3, (from non-compressible to high-compressible)
-        // 4 (mixed)
         _compressibility = atoi(value);
-      } else if (strcmp(param_name, "--duplication-factor") == 0) {
-        // 0 means no-duplicate chunks, -1 means all zero
-        _duplication_factor = atoi(value);
-      } else if (strcmp(param_name, "--working-set-size") == 0) {
-        int len = strlen(value);
-        char tmp_str[len];
-        memcpy(tmp_str, value, len - 1);
-        tmp_str[len - 1] = '\0';
-        double tmp = 1.0;
-        switch (value[len-1]) {
-          case 'G':
-            tmp *= 1024;
-          case 'M':
-            tmp *= 1024;
-          case 'K':
-            tmp *= 1024;
-        }
-        _working_set_size = (uint64_t) (tmp * atof(tmp_str));
-        std::cout << _working_set_size << std::endl;
-      } else if (strcmp(param_name, "--cache-device-size") == 0) {
-        int len = strlen(value);
-        char tmp_str[len];
-        memcpy(tmp_str, value, len - 1);
-        tmp_str[len - 1] = '\0';
-        double tmp = 1.0;
-        switch (value[len-1]) {
-          case 'G':
-            tmp *= 1024;
-          case 'M':
-            tmp *= 1024;
-          case 'K':
-            tmp *= 1024;
-        }
-        _cache_device_size = (uint64_t) (tmp * atof(tmp_str));
+      } else if (strcmp(param_name, "--num-unique-chunks") == 0) {
+        _num_unique_chunks = atoi(value);
+      } else if (strcmp(param_name, "--num-chunks") == 0) {
+        _num_chunks = atoi(value);
       } else if (strcmp(param_name, "--output-file") == 0) {
         memcpy(_output_file, value, strlen(value));
         _output_file[strlen(value)] = '\0';
-      } else if (strcmp(param_name, "--fp-alg") == 0) {
-        if (strcmp(value, "murmurhash3") == 0) {
-          _fp_alg = 0;
-        } else if (strcmp(value, "sha1") == 0) {
-          _fp_alg = 1;
-        }
       } else if (strcmp(param_name, "--distribution") == 0) {
         if (strcmp(value, "uniform") == 0) {
           _distribution = 0;
@@ -177,21 +139,13 @@ class TraceGenerator {
         }
       } else if (strcmp(param_name, "--skewness") == 0) {
         _skewness = atof(value);
+        std::cout << _skewness << std::endl;
       } else {
         std::cout << "invalid parameters" << std::endl;
         print_help();
         exit(-1);
       }
-      _num_unique_chunks = 1.0 * _working_set_size / _chunk_size / _duplication_factor;
-      if (_num_unique_chunks == 0) _num_unique_chunks = 1;
     }
-
-    new (&_workload_conf) WorkloadConfiguration(
-        _base_chunks, _chunk_size, _wr_ratio, _compressibility,
-        _duplication_factor, _working_set_size, _cache_device_size,
-        _fp_alg);
-    print_current_parameters();
-    generate_workload_data();
   }
 
  private:
@@ -208,76 +162,73 @@ class TraceGenerator {
 
   void print_current_parameters()
   {
-    std::cout << "--wr-ratio: " << _wr_ratio << std::endl
-      << "--compressibility: " << _compressibility << std::endl
-      << "--duplication-factor: " << _duplication_factor << std::endl
-      << "--working-set-size: " << _working_set_size << std::endl
-      << "--cache-device-size: " << _cache_device_size << std::endl
-      << "--output-file: " << _output_file << std::endl;
-    if (_fp_alg == 0) {
-      std::cout << "--fp-algorithm: murmurhash3" << std::endl;
-    }
   }
 
   void generate_workload_data()
   {
-    char *base_chunks = reinterpret_cast<char*>(malloc(_num_unique_chunks * _chunk_size));
-    int _comp = 0;
+    // Generate base chunks of different compressibility
+    srand(0);
+    for (int i = 0; i < 4; ++i) {
+      _base_chunks[i] = reinterpret_cast<char*>(malloc(_chunk_size));
+    }
+    for (int i = 0; i < _chunk_size; ++i) {
+      _base_chunks[0][i]= (i & (0xff - 7));
+      _base_chunks[1][i]= (i & (0xff - i / 256 ));
+      _base_chunks[2][i]= (i & (0xff - i * i / 256 ));
+      _base_chunks[3][i]= (i & (0xff - rand() / 256 ));
+    }
+
+    // Generate unique chunks
+    _unique_chunks = reinterpret_cast<char*>(malloc(_num_unique_chunks * _chunk_size));
+    int comp = 0;
     for (uint64_t addr = 0; addr < _num_unique_chunks * _chunk_size; addr += _chunk_size) {
       if (_compressibility == 4) {
-        _comp += 1;
-        if (_comp == 4) _comp = 0;
-        memcpy(base_chunks + addr, _base_chunks[_comp], _chunk_size);
+        comp += 1;
+        if (comp == 4) comp = 0;
+        memcpy(_unique_chunks + addr, _base_chunks[comp], _chunk_size);
       } else {
-        memcpy(base_chunks + addr, _base_chunks[_compressibility], _chunk_size);
+        memcpy(_unique_chunks + addr, _base_chunks[_compressibility], _chunk_size);
       }
       uint32_t modify_index = rand() % _chunk_size;
       uint32_t modify_byte = rand() % 0xff;
-      (base_chunks + addr)[modify_index] = modify_byte;
+      (_unique_chunks + addr)[modify_index] = modify_byte;
     }
-    _workload_data = reinterpret_cast<char*>(malloc(_working_set_size));
+
+    _workload_chunks = reinterpret_cast<char*>(malloc(_num_chunks * _chunk_size));
     if (_distribution == 1) {
       // zipf distribution
       genzipf::rand_val(1);
-      for (uint64_t addr = 0; addr < _working_set_size; addr += _chunk_size) {
+      for (uint64_t addr = 0; addr < _num_chunks * _chunk_size; addr += _chunk_size) {
         int rd = genzipf::zipf(_skewness, _num_unique_chunks);
-        memcpy(_workload_data + addr, base_chunks + rd * _chunk_size, _chunk_size);
+        memcpy(_workload_chunks + addr, _unique_chunks + rd * _chunk_size, _chunk_size);
       }
     } else if (_distribution == 0) {
       // uniform distribution
-      for (uint64_t addr = 0; addr < _working_set_size; addr += _chunk_size) {
+      srand(1);
+      for (uint64_t addr = 0; addr < _num_chunks * _chunk_size; addr += _chunk_size) {
         int rd = rand() % _num_unique_chunks;
-        memcpy(_workload_data + addr, base_chunks + rd * _chunk_size, _chunk_size);
+        memcpy(_workload_chunks + addr, _unique_chunks + rd * _chunk_size, _chunk_size);
       }
     }
   }
 
-  int alloc_aligned_memory(void **buf, size_t align, size_t len)
-  {
-    int ret = posix_memalign(buf, align, len);
-    if (ret < 0) {
-      std::cout << "TraceGenerator::alloc_aligned_memory " 
-        << strerror(errno) << std::endl;
-    }
-    return ret;
-  }
-
-  WorkloadConfiguration _workload_conf;
+  // configuration for running the benchmark
+  WorkloadConfiguration *_workload_conf;
+  // parameters
   uint32_t _chunk_size;
+  uint32_t _num_unique_chunks;
+  uint32_t _num_chunks;
+  uint32_t _distribution;
+  uint32_t _compressibility;
+  float _skewness;
+
+  // store chunk data
   char *_base_chunks[4];
-  double _wr_ratio;
-  int _compressibility;
-  int _duplication_factor;
-  int _num_unique_chunks;
-  int _working_set_size;
-  int _cache_device_size;
-  int _fp_alg;
-  char _output_file[100];
-  char *_workload_data;
+  char *_unique_chunks;
+  char *_workload_chunks;
   Chunk *_chunks;
 
-  int _distribution;
-  int _skewness;
+  char _output_file[100];
 };
 }
 

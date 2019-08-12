@@ -65,8 +65,14 @@ namespace cache {
 
   int BlockDevice::read(uint64_t addr, uint8_t* buf, uint32_t len)
   {
+#if !defined(CDARC)
+    if (addr % 512 != 0) {
+      std::cout << addr << std::endl;
+      int o = 1 + 1;
+    }
     assert(addr % 512 == 0);
     assert(len % 512 == 0);
+#endif
 
     if (addr + len > _size) {
       len -= addr + len - _size;

@@ -71,7 +71,6 @@ class RunChunkModule {
       print_help();
       exit(1);
     }
-    _workload_conf._wr_ratio = wr_ratio;
     _workload_conf.print_current_parameters();
     _chunk_module = std::make_unique<ChunkModule>();
   }

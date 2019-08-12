@@ -25,24 +25,33 @@ namespace cache {
     // hold a shared_ptr to _io_module
     _meta_verification = std::make_unique<MetaVerification>(io_module, compression_module);
     _meta_journal = std::make_unique<MetaJournal>(io_module);
+    std::cout << "Number of LBA buckets: " << (1 << lba_bucket_no_len) << std::endl;
+    std::cout << "Number of CA buckets: " << (1 << ca_bucket_no_len) << std::endl;
 #ifdef CACHE_DEDUP
-#ifdef DLRU
-    DLRU_MetadataCache::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len));
-    DLRU_DataCache::get_instance().init(ca_slots_per_bucket * (1 << ca_bucket_no_len));
-#endif
-#ifdef DARC
-    DARC_MetadataCache::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 1);
-    DARC_DataCache::get_instance().init(ca_slots_per_bucket * (1 << ca_bucket_no_len));
+#if defined(DLRU)
+    DLRU_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len));
+    DLRU_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << ca_bucket_no_len));
+    std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << ca_bucket_no_len)) << std::endl;
+#elif defined(DARC)
+    DARC_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
+    DARC_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << ca_bucket_no_len));
+    std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << ca_bucket_no_len)) << std::endl;
+#elif defined(CDARC)
+    DARC_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
+    CDARC_FingerprintIndex::get_instance().init((1 << ca_bucket_no_len));
+    std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (1 << ca_bucket_no_len) << std::endl;
 #endif
 #endif
   }
 
-
 #ifdef CACHE_DEDUP
-#ifdef DLRU
+#if defined(DLRU)
   void MetadataModule::dedup(Chunk &c)
   {
-    c._ca_hit = DLRU_DataCache::get_instance().lookup(c._ca, c._ssd_location);
+    c._ca_hit = DLRU_FingerprintIndex::get_instance().lookup(c._ca, c._ssd_location);
     if (c._ca_hit)
       c._dedup_result = DUP_CONTENT;
     else
@@ -50,9 +59,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c._lba_hit = DLRU_MetadataCache::get_instance().lookup(c._addr, c._ca);
+    c._lba_hit = DLRU_SourceIndex::get_instance().lookup(c._addr, c._ca);
     if (c._lba_hit) {
-      c._ca_hit = DLRU_DataCache::get_instance().lookup(c._ca, c._ssd_location);
+      c._ca_hit = DLRU_FingerprintIndex::get_instance().lookup(c._ca, c._ssd_location);
     }
     if (c._lba_hit && c._ca_hit)
       c._lookup_result = HIT;
@@ -61,14 +70,13 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    DLRU_MetadataCache::get_instance().update(c._addr, c._ca);
-    DLRU_DataCache::get_instance().update(c._ca, c._ssd_location);
+    DLRU_SourceIndex::get_instance().update(c._addr, c._ca);
+    DLRU_FingerprintIndex::get_instance().update(c._ca, c._ssd_location);
   }
-#endif
-#ifdef DARC
+#elif defined(DARC)
   void MetadataModule::dedup(Chunk &c)
   {
-    c._ca_hit = DARC_DataCache::get_instance().lookup(c._ca, c._ssd_location);
+    c._ca_hit = DARC_FingerprintIndex::get_instance().lookup(c._ca, c._ssd_location);
     if (c._ca_hit)
       c._dedup_result = DUP_CONTENT;
     else
@@ -76,9 +84,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c._lba_hit = DARC_MetadataCache::get_instance().lookup(c._addr, c._ca);
+    c._lba_hit = DARC_SourceIndex::get_instance().lookup(c._addr, c._ca);
     if (c._lba_hit) {
-      c._ca_hit = DARC_DataCache::get_instance().lookup(c._ca, c._ssd_location);
+      c._ca_hit = DARC_FingerprintIndex::get_instance().lookup(c._ca, c._ssd_location);
     }
     if (c._lba_hit && c._ca_hit)
       c._lookup_result = HIT;
@@ -87,8 +95,35 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    DARC_DataCache::get_instance().update(c._addr, c._ca, c._ssd_location);
-    DARC_MetadataCache::get_instance().update(c._addr, c._ca);
+    DARC_SourceIndex::get_instance().adjust_adaptive_factor(c._addr);
+    DARC_FingerprintIndex::get_instance().update(c._addr, c._ca, c._ssd_location);
+    DARC_SourceIndex::get_instance().update(c._addr, c._ca);
+  }
+#elif defined(CDARC)
+  void MetadataModule::dedup(Chunk &c)
+  {
+    c._ca_hit = CDARC_FingerprintIndex::get_instance().lookup(c._ca, c._weu_id, c._weu_offset, c._compressed_len);
+    if (c._ca_hit)
+      c._dedup_result = DUP_CONTENT;
+    else
+      c._dedup_result = NOT_DUP;
+  }
+  void MetadataModule::lookup(Chunk &c)
+  {
+    c._lba_hit = DARC_SourceIndex::get_instance().lookup(c._addr, c._ca);
+    if (c._lba_hit) {
+      c._ca_hit = CDARC_FingerprintIndex::get_instance().lookup(c._ca, c._weu_id, c._weu_offset, c._compressed_len);
+    }
+    if (c._lba_hit && c._ca_hit)
+      c._lookup_result = HIT;
+    else
+      c._lookup_result = NOT_HIT;
+  }
+  void MetadataModule::update(Chunk &c)
+  {
+    DARC_SourceIndex::get_instance().adjust_adaptive_factor(c._addr);
+    c._evicted_weu_id = CDARC_FingerprintIndex::get_instance().update(c._addr, c._ca, c._weu_id, c._weu_offset, c._compressed_len);
+    DARC_SourceIndex::get_instance().update(c._addr, c._ca);
   }
 #endif
 #else

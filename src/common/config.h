@@ -140,7 +140,7 @@ class Config
   char *_cache_device_name;
   uint64_t _primary_device_size;
   uint64_t _cache_device_size;
-  uint32_t _buffered_write_buffer_size = 1024 * 8 * 32;
+  uint32_t _buffered_write_buffer_size = 0;
   bool _direct_io = false;
 
   // chunk algorithm

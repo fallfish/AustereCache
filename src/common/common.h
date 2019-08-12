@@ -25,7 +25,7 @@ struct Metadata {
   uint64_t _lbas[37]; // 4 * 32
   uint32_t _num_lbas;
   // If the data is compressed, the compressed_len is valid, otherwise, it is 0.
-  uint32_t _compressed_len; 
+  uint32_t _compressed_len;
   // 512 bytes alignment for DMA access
   uint8_t _[76 + 80];
 };
@@ -44,6 +44,7 @@ enum VerificationResult {
 
 /*
  * The basic read/write unit.
+ * An object of class Chunk is passed along the data path of a single request.
  * Members:
  *   1. address, buffer, length of data to be read/write
  *   2. (original) address, buffer, length of the requested data
@@ -64,6 +65,7 @@ enum VerificationResult {
  *      Compress_level varies from [0, 1, 2, 3]
  *      which specifies 25%, 50%, 75%, 100% compression ratio, respectively.
  *
+ *   7. (CacheDedup-DARC-specific) weu_id, weu_offset, and evicted_weu_id from the decision of the DARC_FingerprintIndex.
  **/
 
 struct Chunk {
@@ -91,6 +93,7 @@ struct Chunk {
     bool     _has_ca;
 
     uint64_t _ssd_location;
+    uint64_t _metadata_location;
 
     bool _lba_hit;
     bool _ca_hit;
@@ -102,6 +105,12 @@ struct Chunk {
     // Bucket-level locks are used to guarantee the consistency of index
     std::unique_ptr<std::lock_guard<std::mutex>> _lba_bucket_lock;
     std::unique_ptr<std::lock_guard<std::mutex>> _ca_bucket_lock;
+
+#ifdef CDARC
+    uint32_t _weu_id;
+    uint32_t _weu_offset;
+    uint32_t _evicted_weu_id;
+#endif
 
     Chunk() {}
     Chunk(const Chunk &c) {
@@ -163,6 +172,12 @@ struct Chunk {
     void merge_read();
 };
 
+
+/*
+ * class Stats is used to statistic in the data path.
+ * It is a singleton class with std::atomic to ensure
+ * thread-safe.
+ */
 struct Stats {
   // store number of each lookup results
   // write_dup_write, write_dup_content, write_not_dup,

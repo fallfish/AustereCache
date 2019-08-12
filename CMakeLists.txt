@@ -9,6 +9,19 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 include_directories(include)
 include_directories(src)
 
+if (DLRU)
+  add_definitions(-DCACHE_DEDUP)
+  add_definitions(-DDLRU)
+endif()
+if (DARC)
+  add_definitions(-DCACHE_DEDUP)
+  add_definitions(-DDARC)
+endif()
+if (CDARC)
+  add_definitions(-DCACHE_DEDUP)
+  add_definitions(-DCDARC)
+endif()
+
 add_library(cache
   src/metadata/bucket.cc
   src/metadata/index.cc
@@ -50,6 +63,10 @@ add_executable(trace_gen src/benchmark/trace_gen.cc)
 set_target_properties(trace_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(trace_gen cache)
 
+add_executable(access_pattern_gen src/benchmark/access_pattern_gen.cc)
+set_target_properties(access_pattern_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(access_pattern_gen cache)
+
 add_executable(run_ssddup src/benchmark/run_ssddup.cc)
 set_target_properties(run_ssddup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_ssddup cache)
@@ -69,10 +86,10 @@ target_link_libraries(run_chunk cache)
 ###############################################
 ## Buse Userspace Virtual Kernel Block Device
 ###############################################
-link_directories(${CMAKE_SOURCE_DIR}/third_party/BUSE)
-include_directories(third_party/BUSE)
-add_executable(buse_ssddup third_party/BUSE/ssddup.cc)
-target_link_libraries(buse_ssddup cache buse)
+# link_directories(${CMAKE_SOURCE_DIR}/third_party/BUSE)
+# include_directories(third_party/BUSE)
+# add_executable(buse_ssddup third_party/BUSE/ssddup.cc)
+# target_link_libraries(buse_ssddup cache buse)
 
 #################################
 ## GTest

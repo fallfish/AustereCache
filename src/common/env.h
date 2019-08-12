@@ -1,4 +1,4 @@
 #define DIRECT_IO
-#define CACHE_DEDUP
-#define DARC
+//#define CACHE_DEDUP
+//#define DARC
 //#define DLRU

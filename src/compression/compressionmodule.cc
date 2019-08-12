@@ -9,6 +9,15 @@ namespace cache {
 
 void CompressionModule::compress(Chunk &c)
 {
+#if defined(CDARC)
+  c._compressed_len = LZ4_compress_default(
+      (const char*)c._buf, (char*)c._compressed_buf,
+      c._len, c._len - 1);
+  if (c._compressed_len == 0) {
+    c._compressed_len = c._len;
+    c._compressed_buf = c._buf;
+  }
+#else
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
       c._len, c._len * 0.75);
@@ -25,13 +34,19 @@ void CompressionModule::compress(Chunk &c)
       c._compress_level = 0;
     }
   }
+#endif
   return ;
 }
 
 void CompressionModule::decompress(Chunk &c)
 {
-  LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
-      c._compressed_len, c._len);
+#if defined(CDARC)
+  if (c._compressed_len != c._len)
+#else
+  if (c._compressed_len != 0)
+#endif
+    LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
+        c._compressed_len, c._len);
   return ;
 }
 

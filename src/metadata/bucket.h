@@ -1,3 +1,12 @@
+/* File: metadata/bucket.h
+ * Description:
+ *   This file contains declarations of our designed LBABucket and CABucket.
+ *
+ *   1. A base class Bucket holds bit-level manipulators to the bucket data (slots)
+ *      and valid bits, and contains a cache policy implementations.
+ *   2. LBABucket and CABucket expose bucket-level lookup, promote, and lookup
+ *      to the caller.
+ */
 #ifndef __BUCKET_H__
 #define __BUCKET_H__
 #include <cstdint>

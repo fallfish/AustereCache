@@ -20,6 +20,22 @@ class ManageModule {
  private:
   std::shared_ptr<IOModule> _io_module;
   std::shared_ptr<MetadataModule> _metadata_module;
+  bool preprocess_write_cache(
+      Chunk &c, uint32_t &device_no,
+      uint64_t &addr, uint8_t *&buf, uint32_t &len);
+  bool preprocess_write_primary(
+      Chunk &c, uint32_t &device_no,
+      uint64_t &addr, uint8_t *&buf, uint32_t &len);
+  void preprocess_read(Chunk &c, uint32_t &device_no, uint64_t &addr, uint8_t *&buf, uint32_t &len);
+
+#if defined(CDARC)
+  // maintain WEU to SSD locations
+  std::map<uint32_t, uint64_t> _weu_to_ssd_location;
+  uint32_t _weu_size;
+  uint32_t _current_weu_id;
+  uint64_t _current_ssd_location;
+#else
+#endif
 };
 
 }

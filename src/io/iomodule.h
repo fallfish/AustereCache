@@ -24,6 +24,7 @@ class IOModule {
   uint32_t add_primary_device(char *filename);
   uint32_t read(uint32_t device, uint64_t addr, void *buf, uint32_t len);
   uint32_t write(uint32_t device, uint64_t addr, void *buf, uint32_t len);
+  void flush(uint64_t addr);
   inline void sync() { _primary_device->sync(); _cache_device->sync(); }
  private:
   // Currently, we assume that only one cache and one primary
@@ -244,6 +245,20 @@ class IOModule {
     }
   } *_write_buffer;
 
+#if defined(CDARC)
+  struct {
+    uint8_t *_buf;
+    uint32_t _len;
+    void read(uint64_t addr, uint8_t *buf, uint32_t len)
+    {
+      memcpy(buf, _buf + addr, len);
+    }
+    void write(uint64_t addr, uint8_t *buf, uint32_t len)
+    {
+      memcpy(_buf + addr, buf, len);
+    }
+  } _weu;
+#endif
 };
 
 }

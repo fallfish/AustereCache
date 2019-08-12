@@ -1,3 +1,14 @@
+/* File: metadata/index.h
+ * Description:
+ *   This file contains declarations of our designed LBAIndex and CAIndex.
+ *
+ *   1. Each Index instance manages the memory of bucket slots mappings, bucket valid bits,
+ *      and mutexes, and corresponding cache policy functions.
+ *   2. Bucket access is in the form of functions with pointers to slots, valid bits, and mutex.
+ *      Index implements a getBucketManipulator function that wraps and returns a bucket manipulator.
+ *   3. Index exposes lookup, promote, and update for caller to query/update the index structure,
+ *      it also expose mutex lock and unlock for concurrency control.
+ */
 #ifndef __INDEX_H__
 #define __INDEX_H__
 #include <iostream>
@@ -16,6 +27,7 @@ namespace cache {
     public:
       Index(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_slots_per_bucket);
+      ~Index() {}
 
       //virtual bool lookup(uint8_t *key, uint8_t *value) = 0;
       //virtual void set(uint8_t *key, uint8_t *value) = 0;
@@ -25,7 +37,7 @@ namespace cache {
     protected:
       uint32_t _n_bits_per_slot, _n_slots_per_bucket, _n_total_bytes,
                _n_bits_per_key, _n_bits_per_value,
-               _n_data_bytes_per_bucket, n_buckets,
+               _n_data_bytes_per_bucket, _n_buckets,
                _n_valid_bytes_per_bucket;
       std::unique_ptr< uint8_t[] > _data;
       std::unique_ptr< uint8_t[] > _valid;
@@ -35,13 +47,10 @@ namespace cache {
 
   class CAIndex;
   class LBAIndex : Index {
-    /*
-     *
-     *
-     */
     public:
       LBAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_slots_per_bucket, std::shared_ptr<CAIndex> ca_index);
+      ~LBAIndex();
       bool lookup(uint32_t lba_hash, uint32_t &ca_hash);
       void promote(uint32_t lba_hash);
       void update(uint32_t lba_hash, uint32_t ca_hash);
@@ -65,6 +74,7 @@ namespace cache {
       // n_bits_per_key = 12, n_bits_per_value = 4
       CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_slots_per_bucket);
+      ~CAIndex();
       bool lookup(uint32_t ca_hash, uint32_t &size, uint64_t &ssd_location);
       void promote(uint32_t ca_hash);
       void update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location);
