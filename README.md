@@ -17,12 +17,14 @@ wget https://github.com/lz4/lz4/archive/v1.9.1.zip
 unzip v1.9.1.zip
 cd lz4-1.9.1
 make -j4
+cd ..
 ```
 ##### OpenSSL
 ```
 git clone https://github.com/openssl/openssl.git
 cd openssl
 ./config && make -j4
+cd ..
 ```
 
 #### Build SSDDup
@@ -30,6 +32,7 @@ cd openssl
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j4
+cd ..
 ```
 
 ### Test
