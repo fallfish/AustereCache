@@ -24,7 +24,7 @@ cd ..
 git clone https://github.com/openssl/openssl.git
 cd openssl
 ./config && make -j4
-cd ..
+cd ../..
 ```
 
 #### Build SSDDup
