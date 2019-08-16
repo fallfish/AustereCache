@@ -1,11 +1,10 @@
 #include "cachededup_index.h"
 #include "common/config.h"
+#include "common/stats.h"
+
 #include <iostream>
 #include <cassert>
 
-void DEBUG() {
-  std::cout << "" << std::endl;
-}
 namespace cache {
   DLRU_SourceIndex DLRU_SourceIndex::instance;
   DLRU_FingerprintIndex DLRU_FingerprintIndex::instance;
@@ -53,6 +52,7 @@ namespace cache {
       uint64_t lba_ = _list.back();
       _list.pop_back();
       _mp.erase(lba_);
+      Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();
     }
     _list.push_front(lba);
     ca_._it = _list.begin();
@@ -117,6 +117,7 @@ namespace cache {
       // assign the evicted free ssd location to the newly inserted data
       _space_allocator.recycle(_mp[ca_]._ssd_data_pointer);
       _mp.erase(ca_);
+      Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
     }
     dp_._ssd_data_pointer = _space_allocator.allocate();
 
@@ -174,7 +175,6 @@ namespace cache {
     CA ca_;
     auto it = _mp.find(lba);
     if (it == _mp.end()) {
-DARC_SourceIndex_update_not_found:
       check_metadata_cache(lba);
 
       _t1.push_front(lba);
@@ -437,6 +437,8 @@ DARC_SourceIndex_update_not_found:
     if ((it->second._reference_count -= 1) == 0) {
       _zero_reference_list.push_front(ca_);
     }
+    // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
+    Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();
   }
 
   void DARC_FingerprintIndex::update(uint64_t lba, uint8_t *ca, uint64_t &ssd_data_pointer)
@@ -463,6 +465,7 @@ DARC_SourceIndex_update_not_found:
       _mp.erase(ca_);
 
       memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+      Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
     }
 
     dp_._ssd_data_pointer = _space_allocator.allocate();
@@ -546,6 +549,8 @@ DARC_SourceIndex_update_not_found:
     if ( (_weu_reference_count[weu_id] -= 1) == 0 ) {
       _zero_reference_list.push_front(weu_id);
     }
+    // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
+    Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();
   }
 
   uint32_t CDARC_FingerprintIndex::update(
@@ -572,6 +577,7 @@ DARC_SourceIndex_update_not_found:
 
       _weu_allocator.recycle(weu_id);
       evicted_weu_id = weu_id;
+      Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
     }
     dp_._len = len;
     _weu_allocator.allocate(dp_._weu_id, dp_._offset, dp_._len);

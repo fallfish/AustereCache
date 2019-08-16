@@ -61,12 +61,12 @@ class TraceGenerator {
       std::cout << "Fail to write workload configuration!" << std::endl;
       exit(1);
     }
-    n = write(fd, _workload_chunks, _num_chunks * _chunk_size);
+    n = write(fd, _workload_chunks, (uint64_t)_num_chunks * _chunk_size);
     if (n < 0) {
       std::cout << "Fail to write workload chunks!" << std::endl;
       exit(1);
     }
-    n = write(fd, _unique_chunks, _num_unique_chunks * _chunk_size);
+    n = write(fd, _unique_chunks, (uint64_t)_num_unique_chunks * _chunk_size);
     if (n < 0) {
       std::cout << "Fail to write unique chunks!" << std::endl;
       exit(1);
@@ -126,8 +126,9 @@ class TraceGenerator {
         _compressibility = atoi(value);
       } else if (strcmp(param_name, "--num-unique-chunks") == 0) {
         _num_unique_chunks = atoi(value);
-      } else if (strcmp(param_name, "--num-chunks") == 0) {
-        _num_chunks = atoi(value);
+      } else if (strcmp(param_name, "--duplication-ratio") == 0) {
+        _duplication_ratio = atof(value);
+        _num_chunks = _num_unique_chunks * _duplication_ratio;
       } else if (strcmp(param_name, "--output-file") == 0) {
         memcpy(_output_file, value, strlen(value));
         _output_file[strlen(value)] = '\0';
@@ -179,9 +180,9 @@ class TraceGenerator {
     }
 
     // Generate unique chunks
-    _unique_chunks = reinterpret_cast<char*>(malloc(_num_unique_chunks * _chunk_size));
+    _unique_chunks = reinterpret_cast<char*>(malloc((uint64_t)(_num_unique_chunks) * _chunk_size));
     int comp = 0;
-    for (uint64_t addr = 0; addr < _num_unique_chunks * _chunk_size; addr += _chunk_size) {
+    for (uint64_t addr = 0; addr < (uint64_t)(_num_unique_chunks) * _chunk_size; addr += _chunk_size) {
       if (_compressibility == 4) {
         comp += 1;
         if (comp == 4) comp = 0;
@@ -194,11 +195,11 @@ class TraceGenerator {
       (_unique_chunks + addr)[modify_index] = modify_byte;
     }
 
-    _workload_chunks = reinterpret_cast<char*>(malloc(_num_chunks * _chunk_size));
+    _workload_chunks = reinterpret_cast<char*>(malloc((uint64_t)(_num_chunks) * _chunk_size));
     if (_distribution == 1) {
       // zipf distribution
       genzipf::rand_val(1);
-      for (uint64_t addr = 0; addr < _num_chunks * _chunk_size; addr += _chunk_size) {
+      for (uint64_t addr = 0; addr < (uint64_t)(_num_chunks) * _chunk_size; addr += _chunk_size) {
         int rd = genzipf::zipf(_skewness, _num_unique_chunks);
         memcpy(_workload_chunks + addr, _unique_chunks + rd * _chunk_size, _chunk_size);
       }
@@ -217,6 +218,7 @@ class TraceGenerator {
   // parameters
   uint32_t _chunk_size;
   uint32_t _num_unique_chunks;
+  float    _duplication_ratio;
   uint32_t _num_chunks;
   uint32_t _distribution;
   uint32_t _compressibility;

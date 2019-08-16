@@ -24,6 +24,7 @@ class RunSystem {
   }
   ~RunSystem() {
     free(_workload_chunks);
+    free(_unique_chunks);
     for (int i = 0; i < _num_workers; ++i)
       free(_read_data[i]);
   }
@@ -51,7 +52,7 @@ class RunSystem {
         _chunk_size = _workload_conf._chunk_size;
         _num_unique_chunks = _workload_conf._num_unique_chunks;
         _num_chunks = _workload_conf._num_chunks;
-        _working_set_size = _chunk_size * _num_chunks;
+        _working_set_size = (uint64_t)_chunk_size * _num_chunks;
         _distribution = _workload_conf._distribution;
         _skewness = _workload_conf._skewness;
         std::cout << _chunk_size << " " << _num_unique_chunks << " " << _num_chunks << " " << _working_set_size << " " << _distribution << " " << _skewness << std::endl;
@@ -62,9 +63,10 @@ class RunSystem {
         _unique_chunks = (char *)aligned_alloc(512, _num_unique_chunks * _chunk_size);
 #else
         _workload_chunks = reinterpret_cast<char*>(malloc(_working_set_size));
-        _unique_chunks = reinterpret_cast<char*>(malloc(_num_unique_chunks * _chunk_size));
+        _unique_chunks = reinterpret_cast<char*>(malloc((uint64_t)_num_unique_chunks * _chunk_size));
 #endif
         n = read(fd, _workload_chunks, _working_set_size);
+        std::cout << n << " " << _working_set_size << std::endl;
         if (n != _working_set_size) {
           std::cout << "RunSystem: read working set failed!" << std::endl; 
           exit(1);
@@ -119,15 +121,14 @@ class RunSystem {
     //Config::get_configuration().set_primary_device_name("./primary_device");
     //Config::get_configuration().set_primary_device_name("./ramdisk/primary_device");
     //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
-    //Config::get_configuration().set_primary_device_name("/dev/sdb");
-    //Config::get_configuration().set_cache_device_name("/dev/sda");
+    Config::get_configuration().set_primary_device_name("/dev/sdb");
+    Config::get_configuration().set_cache_device_name("/dev/sda");
     _ssddup = std::make_unique<SSDDup>();
   }
 
   void warm_up()
   {
     std::cout << sizeof(WorkloadConfiguration) << std::endl;
-    //_ssddup->read(0, _read_data[0], _workload_conf._working_set_size);
     _ssddup->write(0, _workload_chunks, _working_set_size);
     _ssddup->reset_stats();
     sync();
@@ -137,6 +138,12 @@ class RunSystem {
 
   void work(int n_requests, std::atomic<uint64_t> &total_bytes)
   {
+    //for (uint64_t addr = 0; addr < Config::get_configuration().get_primary_device_size(); addr += _chunk_size) {
+      //std::cout << addr << std::endl;
+      //_ssddup->read(addr, _read_data[0], _chunk_size);
+    //}
+    //return;
+
     std::vector<std::thread> workers;
     if (_accesses.size() != 0) n_requests = _accesses.size();
     for (int thread_id = 0; thread_id < _num_workers; thread_id++) {
@@ -145,6 +152,7 @@ class RunSystem {
           srand(thread_id);
           std::cout << _accesses.size() << std::endl;
           for (uint32_t i = 0; i < _accesses.size(); i++) {
+          std::cout << i << std::endl;
             uint32_t begin, len;
 
             begin = _accesses[i].first;
@@ -168,6 +176,7 @@ class RunSystem {
                   << (begin * _chunk_size) << ", length: " << (len * _chunk_size)
                   << " matched length: " << result << std::endl;
                 std::cout << "The request num: " << i << std::endl;
+                _ssddup->dump_stats();
                 exit(1);
               }
             }
@@ -223,7 +232,7 @@ class RunSystem {
   char *_workload_chunks, *_unique_chunks, **_read_data;
 
   WorkloadConfiguration _workload_conf; 
-  uint32_t _working_set_size;
+  uint64_t _working_set_size;
   uint32_t _chunk_size;
   uint32_t _num_unique_chunks;
   uint32_t _num_chunks;

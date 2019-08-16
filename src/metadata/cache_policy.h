@@ -28,7 +28,8 @@ namespace cache {
   };
 
   struct CAClockExecutor : public CachePolicyExecutor {
-    CAClockExecutor(Bucket *bucket, std::unique_ptr<Bucket> clock, uint32_t *clock_ptr);
+    CAClockExecutor(Bucket *bucket, std::shared_ptr<Bucket> clock, uint32_t *clock_ptr);
+    ~CAClockExecutor();
 
     void promote(uint32_t slot_id, uint32_t n_slots_occupied = 1);
     void clear_obsoletes(std::shared_ptr<CAIndex> ca_index);
@@ -39,14 +40,14 @@ namespace cache {
     inline void inc_clock(uint32_t index);
     inline void dec_clock(uint32_t index);
 
-    std::unique_ptr<Bucket> _clock;
+    std::shared_ptr<Bucket> _clock;
     uint32_t *_clock_ptr;
   };
 
 
   class CachePolicy {
     public:
-      virtual CachePolicyExecutor* get_executor(Bucket *bucket) = 0;
+      virtual std::shared_ptr<CachePolicyExecutor> get_executor(Bucket *bucket) = 0;
 
       CachePolicy();
   };
@@ -55,7 +56,7 @@ namespace cache {
     public:
       LRU();
         
-      CachePolicyExecutor* get_executor(Bucket *bucket);
+      std::shared_ptr<CachePolicyExecutor> get_executor(Bucket *bucket);
   };
 
   /**
@@ -67,14 +68,14 @@ namespace cache {
     public:
       CAClock(uint32_t n_slots_per_bucket, uint32_t n_buckets);
 
-      CachePolicyExecutor* get_executor(Bucket *bucket);
+      std::shared_ptr<CachePolicyExecutor> get_executor(Bucket *bucket);
 
-      std::unique_ptr<Bucket> get_bucket(uint32_t bucket_id) {
-        return std::move(std::make_unique<Bucket>(
+      std::shared_ptr<Bucket> get_bucket(uint32_t bucket_id) {
+        return std::make_shared<Bucket>(
             0, 2, _n_slots_per_bucket,
             _clock.get() + _n_bytes_per_bucket * bucket_id, 
             nullptr,
-            nullptr, bucket_id));
+            nullptr, bucket_id);
       }
 
 

@@ -1,4 +1,6 @@
 #include "managemodule.h"
+#include "common/stats.h"
+#include "utils/utils.h"
 #include <cassert>
 namespace cache {
 
@@ -137,16 +139,17 @@ bool ManageModule::preprocess_write_cache(
 
 int ManageModule::write(Chunk &c)
 {
-  static AThreadPool threadpool(2);
   uint32_t device_no;
   uint64_t addr;
   uint8_t *buf;
   uint32_t len;
+#if !defined(WRITE_BACK_CACHE)
   if (preprocess_write_primary(c, device_no, addr, buf, len)) {
     //threadpool.doJob([this, device_no, addr, buf, len]() {
         _io_module->write(device_no, addr, buf, len);
         //});
   }
+#endif
   if (preprocess_write_cache(c, device_no, addr, buf, len)) {
     //threadpool.doJob([this, device_no, addr, buf, len]() {
         _io_module->write(device_no, addr, buf, len);

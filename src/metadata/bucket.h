@@ -24,7 +24,7 @@ namespace cache {
     public:
       Bucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots,
           uint8_t *data, uint8_t *valid, CachePolicy *cache_policy, uint32_t bucket_id);
-      ~Bucket();
+      virtual ~Bucket();
 
 
       inline void init_k(uint32_t index, uint32_t &b, uint32_t &e)
@@ -75,12 +75,11 @@ namespace cache {
       inline void set_valid_32bits(uint32_t index, uint32_t v) { _valid.set_32bits(index, v); }
 
       inline uint32_t get_n_slots() { return _n_slots; }
-
       inline uint32_t get_bucket_id() { return _bucket_id; }
 
       Bitmap::Manipulator _data;
       Bitmap::Manipulator _valid;
-      CachePolicyExecutor *_cache_policy;
+      std::shared_ptr<CachePolicyExecutor> _cache_policy;
       uint32_t _n_bits_per_slot, _n_slots,
                _n_bits_per_key, _n_bits_per_value;
       uint32_t _bucket_id;

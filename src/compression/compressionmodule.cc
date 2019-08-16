@@ -2,13 +2,18 @@
 #include "common/config.h"
 #include "lz4.h"
 
+#include "common/stats.h"
+#include "utils/utils.h"
+
 #include <iostream>
 #include <cstring>
+#include <csignal>
 
 namespace cache {
 
 void CompressionModule::compress(Chunk &c)
 {
+  BEGIN_TIMER();
 #if defined(CDARC)
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
@@ -35,25 +40,40 @@ void CompressionModule::compress(Chunk &c)
     }
   }
 #endif
+  END_TIMER(compression);
   return ;
 }
 
 void CompressionModule::decompress(Chunk &c)
 {
+  BEGIN_TIMER();
 #if defined(CDARC)
   if (c._compressed_len != c._len)
 #else
-  if (c._compressed_len != 0)
+  if (c._compressed_len != 0) {
 #endif
     LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
         c._compressed_len, c._len);
+  }
+  END_TIMER(decompression);
   return ;
 }
 
-void CompressionModule::decompress(uint8_t *compressed_buf, uint8_t *buf, uint8_t compressed_len, uint8_t original_len)
+void CompressionModule::decompress(uint8_t *compressed_buf, uint8_t *buf, uint32_t compressed_len, uint32_t original_len)
 {
-  LZ4_decompress_safe((const char*)compressed_buf, (char*)buf,
-      compressed_len, original_len);
+  BEGIN_TIMER();
+#if defined(CDARC)
+  if (compressed_len != original_len)
+#else
+  if (compressed_len != 0) {
+#endif
+    int res = LZ4_decompress_safe((const char*)compressed_buf, (char*)buf,
+        compressed_len, original_len);
+    std::cout << res << std::endl;
+  } else {
+    memcpy(buf, compressed_buf, original_len);
+  }
+  END_TIMER(decompression);
   return ;
 }
 

@@ -6,6 +6,7 @@ namespace cache {
     uint64_t _working_set_size;
     uint32_t _chunk_size;
     uint32_t _num_unique_chunks;
+    float    _duplication_ratios;
     uint32_t _num_chunks;
     uint32_t _distribution;
     float _skewness;

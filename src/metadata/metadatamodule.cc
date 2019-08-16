@@ -4,6 +4,8 @@
 #include "metajournal.h"
 #include "frequentslots.h"
 #include "common/config.h"
+#include "common/stats.h"
+#include "utils/utils.h"
 #include <cassert>
 
 namespace cache {
@@ -142,7 +144,7 @@ namespace cache {
     if (c._lba_bucket_lock.get() == nullptr) {
       c._lba_bucket_lock = std::move(_lba_index->lock(c._lba_hash));
     }
-    c._lba_hit = _lba_index->lookup(c._lba_hash, ca_hash);
+    c._lba_hit = _lba_index->lookup(c._lba_hash, ca_hash) && (ca_hash == c._ca_hash);
 
     if (c._ca_bucket_lock.get() == nullptr) {
       c._ca_bucket_lock = std::move(_ca_index->lock(c._ca_hash));
@@ -153,7 +155,7 @@ namespace cache {
       c._verification_result = _meta_verification->verify(c);
     }
 
-    if (c._ca_hit && c._lba_hit && c._ca_hash == ca_hash
+    if (c._ca_hit && c._lba_hit
         && c._verification_result == BOTH_LBA_AND_CA_VALID) {
       // duplicate write
       c._dedup_result = DUP_WRITE;
@@ -197,10 +199,27 @@ namespace cache {
     // If the ca is not valid, it means a new chunk and the previous one
     // should be evicted.
 
-    _ca_index->update(c._ca_hash, c._compress_level, c._ssd_location);
-    _lba_index->update(c._lba_hash, c._ca_hash);
+    BEGIN_TIMER();
+    if (c._lookup_result == HIT) {
+      _ca_index->promote(c._ca_hash);
+      _lba_index->promote(c._lba_hash);
+    } else {
+      if (c._dedup_result == DUP_CONTENT) {
+        _ca_index->promote(c._ca_hash);
+        if (c._lba_hit) {
+          _lba_index->promote(c._lba_hash);
+        } else {
+          _lba_index->update(c._lba_hash, c._ca_hash);
+        }
+      } else {
+        _ca_index->update(c._ca_hash, c._compress_level, c._ssd_location);
+        _lba_index->update(c._lba_hash, c._ca_hash);
+      }
+    }
 
     _meta_journal->add_update(c);
+
+    END_TIMER(update_index);
 
     // Cases when an on-ssd metadata update is needed
     // 1. DUP_CONTENT (update lba lists in the on-ssd metadata)

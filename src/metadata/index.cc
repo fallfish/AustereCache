@@ -1,6 +1,7 @@
 #include "index.h"
 #include "cache_policy.h"
 #include "common/config.h"
+#include "common/stats.h"
 namespace cache {
 
   Index::Index(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
@@ -71,6 +72,7 @@ namespace cache {
   {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
+    Stats::get_instance()->add_lba_index_bucket_hit(bucket_id);
     return get_lba_bucket(bucket_id)->lookup(signature, ca_hash) != ~((uint32_t)0);
   }
 
@@ -86,19 +88,21 @@ namespace cache {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
     get_lba_bucket(bucket_id)->update(signature, ca_hash, _ca_index);
+
+    Stats::get_instance()->add_lba_index_bucket_update(bucket_id);
   }
 
   CAIndex::CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
       uint32_t n_slots_per_bucket, uint32_t n_buckets) :
     Index(n_bits_per_key, n_bits_per_value, n_slots_per_bucket, n_buckets)
   {
-    set_cache_policy(std::move(std::make_unique<CAClock>(n_slots_per_bucket, n_buckets)));
+    _cache_policy = std::move(std::make_unique<CAClock>(n_slots_per_bucket, n_buckets));
   }
 
-  uint32_t CAIndex::compute_ssd_location(uint32_t bucket_id, uint32_t slot_id)
+  uint64_t CAIndex::compute_ssd_location(uint32_t bucket_id, uint32_t slot_id)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucket_id * _n_slots_per_bucket + slot_id) *
+    return (bucket_id * _n_slots_per_bucket + slot_id) * 1LL *
       (Config::get_configuration().get_sector_size() + 
        Config::get_configuration().get_metadata_size());
   }
@@ -114,6 +118,7 @@ namespace cache {
     compressibility_level = n_slots_occupied - 1;
     ssd_location = compute_ssd_location(bucket_id, index);
 
+    Stats::get_instance()->add_ca_index_bucket_hit(bucket_id);
     return true;
   }
 
@@ -130,6 +135,7 @@ namespace cache {
              signature = ca_hash & ((1 << _n_bits_per_key) - 1),
              n_slots_to_occupy = compressibility_level + 1;
 
+    Stats::get_instance()->add_ca_index_bucket_update(bucket_id);
     uint32_t slot_id = get_ca_bucket(bucket_id)->update(signature, n_slots_to_occupy);
     ssd_location = compute_ssd_location(bucket_id, slot_id);
   }

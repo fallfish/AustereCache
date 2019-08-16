@@ -1,7 +1,13 @@
 #include "cache_policy.h"
 #include "bucket.h"
 #include "index.h"
+#include "common/stats.h"
+#include "manage/dirty_list.h"
+
 #include <memory>
+#include <csignal>
+
+
 
 namespace cache {
   CachePolicyExecutor::CachePolicyExecutor(Bucket *bucket) :
@@ -12,11 +18,15 @@ namespace cache {
     CachePolicyExecutor(bucket)
   {}
 
-  CAClockExecutor::CAClockExecutor(Bucket *bucket, std::unique_ptr<Bucket> clock, uint32_t *clock_ptr) :
+  CAClockExecutor::CAClockExecutor(Bucket *bucket, std::shared_ptr<Bucket> clock, uint32_t *clock_ptr) :
     CachePolicyExecutor(bucket),
     _clock(std::move(clock)),
     _clock_ptr(clock_ptr)
   {}
+
+  CAClockExecutor::~CAClockExecutor()
+  {
+  }
 
   void LRUExecutor::promote(uint32_t slot_id, uint32_t n_slots_to_occupy)
   {
@@ -88,6 +98,7 @@ namespace cache {
         uint32_t k = _bucket->get_k(slot_id);
         while (slot_id < n_slots
             && _bucket->get_k(slot_id) == k) {
+          Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();
           _bucket->set_invalid(slot_id);
           _bucket->set_k(slot_id, 0);
           _bucket->set_v(slot_id, 0);
@@ -101,6 +112,7 @@ namespace cache {
 
   void CAClockExecutor::promote(uint32_t slot_id, uint32_t n_slots_occupied)
   {
+
     for (uint32_t slot_id_ = slot_id;
         slot_id_ < slot_id + n_slots_occupied;
         ++slot_id_) {
@@ -131,6 +143,18 @@ namespace cache {
     if (n_slots_available < n_slots_to_occupy) {
       // No contiguous space, need to evict previous slot
       slot_id = *_clock_ptr;
+      // adjust the pointer to the head of an object (chunk) rather than in the middle
+      // E.g., a previous compressibility-3 chunk was evicted, and a compressibility-4 chunk
+      //       was inserted in-place, which leaves pointer the middle of compressibility-4 chunk
+      //       and cause a false clock deference.
+      if (slot_id > 0 && _bucket->is_valid(slot_id)
+          && _bucket->get_k(slot_id - 1) == _bucket->get_k(slot_id)) {
+        uint32_t k = _bucket->get_k(slot_id);
+        while (slot_id < n_slots 
+            && k == _bucket->get_k(slot_id)) {
+          ++slot_id;
+        }
+      }
       n_slots_available = 0;
 
       while (1) {
@@ -146,17 +170,35 @@ namespace cache {
         }
         // to allocate
         uint32_t k = _bucket->get_k(slot_id);
+        uint32_t c = get_clock(slot_id);
+        bool evicted = false;
+        uint32_t slot_id_begin = slot_id;
         while (slot_id < n_slots
             && k == _bucket->get_k(slot_id)) {
           if (get_clock(slot_id) == 0) {
+            evicted = true;
             _bucket->set_invalid(slot_id);
             ++n_slots_available;
           } else {
             dec_clock(slot_id);
+            n_slots_available = 0;
           }
           ++slot_id;
         }
-        n_slots_available = 0;
+        if (evicted) {
+#ifdef WRITE_BACK_CACHE
+          DirtyList::get_instance()->add_evicted_block(
+              /* Compute ssd location of the evicted data */
+              /* Actually, full CA and address is sufficient. */
+                0,  
+                (_bucket->get_bucket_id() * _bucket->get_n_slots() + slot_id_begin) * 1LL *
+                (Config::get_configuration().get_sector_size() + 
+                 Config::get_configuration().get_metadata_size()),
+                slot_id - slot_id_begin
+              );
+#endif
+          Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
+        }
       }
       *_clock_ptr = slot_id;
     }
@@ -165,7 +207,6 @@ namespace cache {
         slot_id_ < slot_id; ++slot_id_) {
       init_clock(slot_id_);
     }
-
 
     return slot_id - n_slots_to_occupy;
   }
@@ -200,15 +241,15 @@ namespace cache {
     _clock_ptr = 0;
   }
 
-  CachePolicyExecutor* LRU::get_executor(Bucket *bucket)
+  std::shared_ptr<CachePolicyExecutor> LRU::get_executor(Bucket *bucket)
   { 
-    return new LRUExecutor(bucket);
+    return std::make_shared<LRUExecutor>(bucket);
   }
 
   // TODO: Check whether there is memory leak when destructing
-  CachePolicyExecutor* CAClock::get_executor(Bucket *bucket)
+  std::shared_ptr<CachePolicyExecutor> CAClock::get_executor(Bucket *bucket)
   { 
-    return new CAClockExecutor(
+    return std::make_shared<CAClockExecutor>(
           bucket, std::move(get_bucket(bucket->get_bucket_id())),
           &_clock_ptr);
   }

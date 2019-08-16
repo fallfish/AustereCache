@@ -11,6 +11,7 @@
 #include <algorithm>
 #include "common/env.h"
 #include "common/common.h"
+#include "common/stats.h"
 #include "device/device.h"
 #include "utils/thread_pool.h"
 

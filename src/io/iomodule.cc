@@ -60,38 +60,50 @@ uint32_t IOModule::read(uint32_t device, uint64_t addr, void *buf, uint32_t len)
 {
   uint32_t ret = 0;
   if (device == 0) {
+    BEGIN_TIMER();
     ret = _primary_device->read(addr, (uint8_t*)buf, len);
+    END_TIMER(io_hdd);
     Stats::get_instance()->add_bytes_read_from_primary_disk(len);
   } else if (device == 1) {
+    BEGIN_TIMER();
     if (_write_buffer != nullptr) {
       ret = _write_buffer->read(addr, (uint8_t*)buf, len);
     } else {
       ret = _cache_device->read(addr, (uint8_t*)buf, len);
+      Stats::get_instance()->add_bytes_read_from_cache_disk(len);
     }
+    END_TIMER(io_ssd);
 #if defined(CDARC)
   } else if (device == 2) {
     _weu.read(addr, (uint8_t*)buf, len);
 #endif
   }
+  Stats::get_instance()->add_io_request(device, 1, len);
   return ret;
 }
 
 uint32_t IOModule::write(uint32_t device, uint64_t addr, void *buf, uint32_t len)
 {
   if (device == 0) {
+    BEGIN_TIMER();
     _primary_device->write(addr, (uint8_t*)buf, len);
     Stats::get_instance()->add_bytes_written_to_primary_disk(len);
+    END_TIMER(io_hdd);
   } else if (device == 1) {
+    BEGIN_TIMER();
     if (_write_buffer != nullptr) {
       _write_buffer->write(addr, (uint8_t*)buf, len);
     } else {
       _cache_device->write(addr, (uint8_t*)buf, len);
+      Stats::get_instance()->add_bytes_written_to_cache_disk(len);
     }
+    END_TIMER(io_ssd);
 #if defined(CDARC)
   } else if (device == 2) {
     _weu.write(addr, (uint8_t*)buf, len);
 #endif
   }
+  Stats::get_instance()->add_io_request(device, 0, len);
 }
 
 void IOModule::flush(uint64_t addr)

@@ -87,8 +87,8 @@ class Config
     _metadata_size = 512;
     _ca_length = 16;
     _strong_ca_length = 20;
-    _primary_device_size = 1024 * 1024 * 512;
-    _cache_device_size = 1024 * 1024 * 600;
+    _primary_device_size = 1024 * 1024 * 1024LL * 20;
+    _cache_device_size = 1024 * 1024 * 1024LL * 20;
 
     // Each bucket has 32 slots. Each index has _n_buckets buckets,
     // Each slot represents one chunk 32K.
@@ -149,6 +149,10 @@ class Config
   // 0 - Strong hash, 1 - Weak hash + memcmp, 2 - Weak hash + Strong hash
   // If computation_method is set to 1 or 2, the _fingerprint_algorithm field must be 1
   uint32_t _fingerprint_computation_method;
+
+  // Used when replaying FIU trace, for each request, we would fill in the fingerprint value
+  // specified in the trace rather than the computed one.
+  char current_fingerprint[20];
 };
 
 }

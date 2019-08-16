@@ -6,6 +6,9 @@
 #include "bucket.h"
 #include "index.h"
 #include "cache_policy.h"
+#include "common/stats.h"
+#include "manage/dirty_list.h"
+#include <csignal>
 
 namespace cache {
 
@@ -16,14 +19,15 @@ namespace cache {
     _n_bits_per_slot(n_bits_per_key + n_bits_per_value), _n_slots(n_slots),
     _data(data), _valid(valid), _bucket_id(bucket_id)
   {
-    if (cache_policy != nullptr)
-      _cache_policy = cache_policy->get_executor(this);
+    if (cache_policy != nullptr) {
+      _cache_policy = std::move(cache_policy->get_executor(this));
+    } else {
+      _cache_policy = nullptr;
+    }
   }
 
   Bucket::~Bucket()
   {
-    if (_cache_policy != nullptr)
-      delete _cache_policy;
   }
 
   uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &ca_hash) {
@@ -53,6 +57,7 @@ namespace cache {
         promote(lba_sig);
         return ;
       }
+      Stats::get_instance()->add_lba_index_eviction_caused_by_collision();
       set_v(slot_id, ca_hash);
       set_invalid(slot_id);
     }
@@ -113,10 +118,20 @@ namespace cache {
     uint32_t n_slots_occupied = 0, value = 0;
     uint32_t slot_id = lookup(ca_sig, n_slots_occupied);
     if (slot_id != ~((uint32_t)0)) {
-      if (n_slots_occupied == n_slots_to_occupy) {
-        promote(slot_id);
-        return slot_id;
-      }
+      // TODO: Add it into the evicted data of dirty list 
+      Stats::get_instance()->add_ca_index_eviction_caused_by_collision();
+#ifdef WRITE_BACK_CACHE
+      DirtyList::get_instance()->add_evicted_block(
+            /* Compute ssd location of the evicted data */
+            /* Actually, full CA and address is sufficient. */
+            0,  
+            (_bucket_id * _n_slots + slot_id) * 1LL *
+            (Config::get_configuration().get_sector_size() + 
+             Config::get_configuration().get_metadata_size()),
+            n_slots_occupied
+          );
+#endif
+          
       for (uint32_t slot_id_ = slot_id;
           slot_id_ < slot_id + n_slots_occupied;
           ++slot_id_) {

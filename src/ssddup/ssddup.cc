@@ -2,11 +2,14 @@
 #include "common/env.h"
 #include "common/config.h"
 
+#include "manage/dirty_list.h"
+
 #include <unistd.h>
 
 #include <vector>
 #include <thread>
 #include <cassert>
+#include <csignal>
 #include <chrono>
 
 namespace cache {
@@ -26,6 +29,11 @@ namespace cache {
     _manage_module = std::make_unique<ManageModule>(io_module, metadata_module);
     _stats = Stats::get_instance();
     _thread_pool = std::make_unique<ThreadPool>(Config::get_configuration().get_max_num_global_threads());
+
+#ifdef WRITE_BACK_CACHE
+    DirtyList::get_instance()->set_io_module(io_module);
+    DirtyList::get_instance()->set_compression_module(_compression_module);
+#endif
 
     std::cout << sizeof(Metadata) << std::endl;
   }
@@ -80,8 +88,6 @@ namespace cache {
     alignas(512) Chunk c;
     while (chunker.next(c)) {
       alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
-      _stats->add_read_request();
-      _stats->add_read_bytes(c._len);
       if (!c.is_aligned()) {
         c.preprocess_unaligned(temp_buffer);
         internal_read(c, true);
@@ -102,9 +108,6 @@ namespace cache {
     alignas(512) Chunk c;
 
     while ( chunker.next(c) ) {
-      //std::cout << c._addr << " " << c._len << std::endl;
-      _stats->add_write_request();
-      _stats->add_write_bytes(c._len);
       // this read_buffer resides in the application stack
       // and will be wrapped by read_chunk
       // to avoid memory allocation overhead
@@ -128,10 +131,8 @@ namespace cache {
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
   void SSDDup::internal_read(Chunk &c, bool update_metadata)
   {
-    _stats->add_internal_read_request();
-    _stats->add_internal_read_bytes(c._len);
-
     _deduplication_module->lookup(c);
+    Stats::get_instance()->add_read_stat(c);
     _manage_module->read(c);
 
     if (update_metadata) {
@@ -142,31 +143,22 @@ namespace cache {
         if (c._dedup_result == NOT_DUP) {
           _manage_module->write(c);
         }
+
+        Stats::get_instance()->add_read_post_dedup_stat(c);
       } else {
         _manage_module->update_metadata(c);
       }
     }
-
-    if (c._lookup_result == HIT) {
-      _stats->add_cache_data_read();
-    } else {
-      _stats->add_primary_data_read();
-    }
-
-    _stats->add_compress_level(c._compress_level);
-    _stats->add_lookup_result(c._lookup_result);
-    _stats->add_lba_hit(c._lba_hit);
-    _stats->add_ca_hit(c._ca_hit);
   }
+
   void SSDDup::internal_write(Chunk &c)
   {
-    _stats->add_lba_hit(c._lba_hit);
-    _stats->add_ca_hit(c._ca_hit);
     c.fingerprinting();
     _deduplication_module->dedup(c);
     _manage_module->update_metadata(c);
     _manage_module->write(c);
-    _stats->add_dedup_result(c._dedup_result);
+
+    Stats::get_instance()->add_write_stat(c);
   }
 #else
 // ACDC or CDARC 
@@ -174,9 +166,6 @@ namespace cache {
 // Will deal with it in compression module
   void SSDDup::internal_read(Chunk &c, bool update_metadata)
   {
-    _stats->add_internal_read_request();
-    _stats->add_internal_read_bytes(c._len);
-
     {
       // construct compressed buffer for chunk c
       // When the cache is hit, this is used to store the data
@@ -186,16 +175,19 @@ namespace cache {
 
       // look up index
       _deduplication_module->lookup(c);
+      // record status
+      Stats::get_instance()->add_read_stat(c);
       // read from ssd or hdd according to the lookup result
+      if (c._addr == 38502400 + 32768) {
+        //::raise(SIGTRAP);
+      }
       _manage_module->read(c);
 
+      std::cout << c._lookup_result << std::endl;
       if (c._lookup_result == HIT) {
         // hit the cache
         _compression_module->decompress(c);
       }
-
-      if (c._verification_result != VERIFICATION_UNKNOWN)
-        _stats->add_metadata_read();
 
       // In the read-modify-write path, we don't
       // re-dedup the data read from HDD or update metadata
@@ -208,41 +200,27 @@ namespace cache {
           c.fingerprinting();
           _deduplication_module->dedup(c);
           _manage_module->update_metadata(c);
+#if defined(WRITE_BACK_CACHE)
+          DirtyList::get_instance()->flush();
+#endif
           if (c._dedup_result == NOT_DUP) {
             // write compressed data into cache device
             _manage_module->write(c);
-            _stats->add_cache_data_write();
           }
+          Stats::get_instance()->add_read_post_dedup_stat(c);
         } else {
           _manage_module->update_metadata(c);
-        }
-
-        if (c._lookup_result == NOT_HIT) {
-          _stats->add_metadata_read();
-          if (c._verification_result == ONLY_CA_VALID)
-            _stats->add_metadata_write();
         }
       }
     }
 
-    if (c._lookup_result == HIT) {
-      _stats->add_cache_data_read();
-    } else {
-      _stats->add_primary_data_read();
-    }
-
-    _stats->add_compress_level(c._compress_level);
-    _stats->add_lookup_result(c._lookup_result);
-    _stats->add_lba_hit(c._lba_hit);
-    _stats->add_ca_hit(c._ca_hit);
   }
+
   void SSDDup::internal_write(Chunk &c)
   {
     c._lookup_result = LOOKUP_UNKNOWN;
     alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
     c._compressed_buf = temp_buffer;
-    _stats->add_internal_write_request();
-    _stats->add_internal_write_bytes(c._len);
 
     {
       c.fingerprinting();
@@ -251,14 +229,15 @@ namespace cache {
         _compression_module->compress(c);
       }
       _manage_module->update_metadata(c);
+#if defined(WRITE_BACK_CACHE)
+      DirtyList::get_instance()->flush();
+      DirtyList::get_instance()->add_latest_update(c._addr, c._ssd_location, c._compress_level + 1);
+#endif
       _manage_module->write(c);
-    }
 
-    if (c._dedup_result == NOT_DUP || c._dedup_result == DUP_CONTENT)
-      _stats->add_primary_data_write();
-    _stats->add_lba_hit(c._lba_hit);
-    _stats->add_ca_hit(c._ca_hit);
-    _stats->add_dedup_result(c._dedup_result);
+
+      Stats::get_instance()->add_write_stat(c);
+    }
   }
 #endif
 }

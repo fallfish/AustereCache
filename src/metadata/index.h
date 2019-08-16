@@ -89,7 +89,7 @@ namespace cache {
             _cache_policy.get(), bucket_id));
       }
     private:
-      uint32_t compute_ssd_location(uint32_t bucket_no, uint32_t index);
+      uint64_t compute_ssd_location(uint32_t bucket_no, uint32_t index);
   };
 
 }

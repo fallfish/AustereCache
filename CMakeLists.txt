@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.15)
 project (SSDDup)
  
 set(CMAKE_CXX_STANDARD 14)
@@ -20,6 +20,9 @@ endif()
 if (CDARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DCDARC)
+endif()
+if (ENABLE_WRITE_BACK)
+  add_definitions(-DWRITE_BACK_CACHE)
 endif()
 
 add_library(cache
@@ -43,6 +46,7 @@ add_library(cache
   src/io/iomodule.cc
 
   src/manage/managemodule.cc
+  src/manage/dirty_list.cc
 
   src/utils/MurmurHash3.cpp
   )
