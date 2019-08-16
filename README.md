@@ -24,7 +24,7 @@ cd ..
 git clone https://github.com/openssl/openssl.git
 cd openssl
 ./config && make -j4
-cd ..
+cd ../..
 ```
 
 #### Build SSDDup
@@ -39,15 +39,19 @@ cd ..
 #### Generate traces
 ```
 cd build
-cp scripts/generate_trace.sh ./
+cp ../scripts/generate_trace.sh ./
 bash generate_trace.sh
 ```
 
 #### Run Microbenchmarks
 ```
 cd build
-./benchmark/run_ssddup --help
-example: ./microbenchmarks/run_ssddup --trace ../trace/compressibility_3/dup-1 --ca-bits 11 --multi-thread 0 --num-workers 1
-Default primary device is ./primary_device, cache device is ./cache_device
-For details, please refer to src/benchmarks/run_ssddup.cc and other micro benchmarks
+./microbenchmarks/run_ssddup --help
 ```
+
+An example:
+```
+./microbenchmarks/run_ssddup --trace ../trace/compressibility_3/dup-1 --ca-bits 11 --multi-thread 0 --num-workers 1
+```
+Default primary device is `./primary_device`, cache device is `./cache_device`
+For details, please refer to `src/benchmarks/run_ssddup.cc` and other micro benchmarks.
