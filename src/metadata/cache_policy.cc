@@ -190,7 +190,6 @@ namespace cache {
           DirtyList::get_instance()->add_evicted_block(
               /* Compute ssd location of the evicted data */
               /* Actually, full CA and address is sufficient. */
-                0,  
                 (_bucket->get_bucket_id() * _bucket->get_n_slots() + slot_id_begin) * 1LL *
                 (Config::get_configuration().get_sector_size() + 
                  Config::get_configuration().get_metadata_size()),

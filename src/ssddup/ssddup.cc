@@ -157,6 +157,9 @@ namespace cache {
     _deduplication_module->dedup(c);
     _manage_module->update_metadata(c);
     _manage_module->write(c);
+#if defined(WRITE_BACK_CACHE)
+    DirtyList::get_instance()->add_latest_update(c._addr, c._ssd_location, c._len);
+#endif
 
     Stats::get_instance()->add_write_stat(c);
   }
@@ -178,12 +181,7 @@ namespace cache {
       // record status
       Stats::get_instance()->add_read_stat(c);
       // read from ssd or hdd according to the lookup result
-      if (c._addr == 38502400 + 32768) {
-        //::raise(SIGTRAP);
-      }
       _manage_module->read(c);
-
-      std::cout << c._lookup_result << std::endl;
       if (c._lookup_result == HIT) {
         // hit the cache
         _compression_module->decompress(c);
@@ -200,9 +198,6 @@ namespace cache {
           c.fingerprinting();
           _deduplication_module->dedup(c);
           _manage_module->update_metadata(c);
-#if defined(WRITE_BACK_CACHE)
-          DirtyList::get_instance()->flush();
-#endif
           if (c._dedup_result == NOT_DUP) {
             // write compressed data into cache device
             _manage_module->write(c);
@@ -230,7 +225,6 @@ namespace cache {
       }
       _manage_module->update_metadata(c);
 #if defined(WRITE_BACK_CACHE)
-      DirtyList::get_instance()->flush();
       DirtyList::get_instance()->add_latest_update(c._addr, c._ssd_location, c._compress_level + 1);
 #endif
       _manage_module->write(c);

@@ -19,14 +19,13 @@ namespace cache {
       static DirtyList* get_instance();
 
       struct EvictedBlock {
-        uint8_t  _fingerprint[20];
         uint64_t _ssd_data_location;
         uint32_t _len;
       };
 
 
       void add_latest_update(uint64_t lba, uint64_t ssd_data_location, uint32_t len);
-      void add_evicted_block(uint8_t *fingerprint, uint64_t addr, uint32_t len);
+      void add_evicted_block(uint64_t addr, uint32_t len);
       void flush();
 
     private:

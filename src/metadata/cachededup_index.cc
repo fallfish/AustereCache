@@ -1,6 +1,7 @@
 #include "cachededup_index.h"
 #include "common/config.h"
 #include "common/stats.h"
+#include "manage/dirty_list.h"
 
 #include <iostream>
 #include <cassert>
@@ -116,6 +117,8 @@ namespace cache {
       _list.pop_back();
       // assign the evicted free ssd location to the newly inserted data
       _space_allocator.recycle(_mp[ca_]._ssd_data_pointer);
+      DirtyList::get_instance()->add_evicted_block(_mp[ca_]._ssd_data_pointer,
+          Config::get_configuration().get_chunk_size());
       _mp.erase(ca_);
       Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
     }
@@ -462,6 +465,8 @@ namespace cache {
       _zero_reference_list.pop_back();
 
       _space_allocator.recycle(_mp[ca_]._ssd_data_pointer);
+      DirtyList::get_instance()->add_evicted_block(_mp[ca_]._ssd_data_pointer,
+          Config::get_configuration().get_chunk_size());
       _mp.erase(ca_);
 
       memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());

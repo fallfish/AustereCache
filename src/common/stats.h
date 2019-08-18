@@ -3,6 +3,7 @@
 #include <atomic>
 #include "common/common.h"
 #include <iomanip>
+#include <map>
 namespace cache {
   /*
    * class Stats is used to statistic in the data path.
@@ -319,12 +320,68 @@ namespace cache {
                 << "                Num read not hit not dup caused by ca not match: " << _n_read_not_hit_not_dup_ca_not_match << std::endl
                 << std::endl;
 
-      std::cout << "Index eviction statistics: " << std::endl
+      std::cout << "Index statistics: " << std::endl
                 << "    LBA Index eviction caused by hash collision: " << _n_lba_index_eviction_caused_by_collision << std::endl
                 << "    LBA Index eviction caused by full capacity: " << _n_lba_index_eviction_caused_by_capacity << std::endl
                 << "    CA Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
                 << "    CA Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
                 << std::endl;
+
+#if !defined(CACHE_DEDUP)
+      uint32_t n_lba_bucket = 1 << Config::get_configuration().get_lba_bucket_no_len();
+      uint32_t n_ca_bucket = 1 << Config::get_configuration().get_ca_bucket_no_len();
+      std::map<uint32_t, uint32_t> lba_bucket_update;
+      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
+        if (lba_bucket_update.find(_n_updates_lba_buckets[i])
+            == lba_bucket_update.end()) {
+          lba_bucket_update[_n_updates_lba_buckets[i]] = 0;
+        }
+        lba_bucket_update[_n_updates_lba_buckets[i]] += 1;
+      }
+      std::cout << "    LBA Index update: " << std::endl;
+      for (auto pr : lba_bucket_update) {
+        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+      }
+
+      std::map<uint32_t, uint32_t> lba_bucket_hit;
+      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
+        if (lba_bucket_hit.find(_n_hits_lba_buckets[i])
+            == lba_bucket_hit.end()) {
+          lba_bucket_hit[_n_hits_lba_buckets[i]] = 0;
+        }
+        lba_bucket_hit[_n_hits_lba_buckets[i]] += 1;
+      }
+      std::cout << "    LBA Index hit: " << std::endl;
+      for (auto pr : lba_bucket_hit) {
+        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+      }
+
+      std::map<uint32_t, uint32_t> ca_bucket_update;
+      for (uint32_t i = 0; i < n_ca_bucket; ++i) {
+        if (ca_bucket_update.find(_n_updates_ca_buckets[i])
+            == ca_bucket_update.end()) {
+          ca_bucket_update[_n_updates_ca_buckets[i]] = 0;
+        }
+        ca_bucket_update[_n_updates_ca_buckets[i]] += 1;
+      }
+      std::cout << "    CA Index update: " << std::endl;
+      for (auto pr : ca_bucket_update) {
+        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+      }
+
+      std::map<uint32_t, uint32_t> ca_bucket_hit;
+      for (uint32_t i = 0; i < n_ca_bucket; ++i) {
+        if (ca_bucket_hit.find(_n_hits_ca_buckets[i])
+            == ca_bucket_hit.end()) {
+          ca_bucket_hit[_n_hits_ca_buckets[i]] = 0;
+        }
+        ca_bucket_hit[_n_hits_ca_buckets[i]] += 1;
+      }
+      std::cout << "    CA Index hit: " << std::endl;
+      for (auto pr : ca_bucket_hit) {
+        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+      }
+#endif
 
       std::cout << "IO statistics: " << std::endl
                 << "    Num bytes metadata written to ssd: " <<          _n_metadata_bytes_written_to_ssd << std::endl
@@ -345,6 +402,7 @@ namespace cache {
                 << "    Time elpased for io_ssd: " << _time_elapsed_io_ssd << std::endl
                 << "    Time elpased for io_hdd: " << _time_elapsed_io_hdd << std::endl
                 << std::endl;
+
 
       std::cout << std::setprecision(2) << "Overall Stats: " << std::endl
                 << "    Hit ratio: " << _n_read_hit * 1.0 / (_n_read_hit + _n_read_not_hit) * 100.0 << "%" << std::endl;
