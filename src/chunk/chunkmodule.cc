@@ -128,6 +128,11 @@ namespace cache {
     return true;
   }
 
+  /**
+   * (Commeted by jhli)
+   * 1. Return the address of the next chunk;
+   * 2. Move _addr, _buf to the next chunk, and decrease _len
+   */
   bool Chunker::next(uint64_t &addr, uint8_t *&buf, uint32_t &len)
   {
     if (_len == 0) return false;
@@ -148,6 +153,10 @@ namespace cache {
     return true;
   }
 
+  /**
+   * (Commented by jhli)
+   * A factory of class "Chunker". Used to create a Chunker class
+   */
   ChunkModule::ChunkModule() {}
   Chunker ChunkModule::create_chunker(uint64_t addr, void *buf, uint32_t len)
   {

@@ -54,6 +54,10 @@ namespace cache {
     }
   }
 
+  /**
+   * (Commented by jhli)
+   * Read using multi-thread
+   */
   void SSDDup::read_mt(uint64_t addr, void *buf, uint32_t len)
   {
     Chunker chunker = _chunk_module->create_chunker(addr, buf, len);
@@ -81,6 +85,10 @@ namespace cache {
   }
 
 
+  /**
+   * (Commented by jhli)
+   * Read using single-thread
+   */
   void SSDDup::read_singlethread(uint64_t addr, void *buf, uint32_t len)
   {
     Chunker chunker = _chunk_module->create_chunker(addr, buf, len);

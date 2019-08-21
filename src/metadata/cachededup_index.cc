@@ -24,6 +24,9 @@ namespace cache {
     _capacity = capacity;
   }
 
+  /**
+   * (Comment by jhli) Check whether the address/index is stored in the cache
+   */
   bool DLRU_SourceIndex::lookup(uint64_t lba, uint8_t *ca) {
     auto it = _mp.find(lba);
     if (it == _mp.end()) return false;
@@ -33,6 +36,9 @@ namespace cache {
     }
   }
 
+  /**
+   * (Comment by jhli) move the accessed index to the front
+   */
   void DLRU_SourceIndex::promote(uint64_t lba) {
     auto it = _mp.find(lba)->second._it;
     _list.erase(it);
@@ -41,6 +47,9 @@ namespace cache {
     _mp[lba]._it = _list.begin();
   }
 
+  /**
+   * (Comment by jhli) move 
+   */
   void DLRU_SourceIndex::update(uint64_t lba, uint8_t *ca) {
     CA ca_;
     if (lookup(lba, ca_._v)) {

@@ -21,6 +21,10 @@ namespace cache {
     uint32_t _chunk_size;
   };
 
+  /**
+   * (Commented by jhli)
+   * A factory of class "Chunker"
+   */
   class ChunkModule {
    public:
      ChunkModule();

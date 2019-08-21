@@ -16,6 +16,13 @@ ManageModule::ManageModule(
 #endif
 }
 
+/**
+ * Device number: 
+ * 0 - Primary disk (HDD) 
+ * 1 - Cache disk (SSD) 
+ * 2 - WEU (in memory)
+ */
+
 void ManageModule::preprocess_read(Chunk &c, uint32_t &device_no, uint64_t &addr, uint8_t *&buf, uint32_t &len)
 {
   if (c._lookup_result == HIT) {

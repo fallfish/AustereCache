@@ -123,6 +123,9 @@ namespace cache {
         }
 
         uint8_t _v[20];
+        /**
+         * list_id: 
+         */
         uint8_t _list_id;
         std::list<uint64_t>::iterator _it;
       };
@@ -138,6 +141,9 @@ namespace cache {
       void manage_metadata_cache(uint64_t lba);
       void replace_in_metadata_cache(uint64_t lba);
 
+      /**
+       * Check if the list id is correct
+       */
       void check_list_id_consistency() {
         std::vector<uint64_t> lbas2;
         for (auto lba : _t1) {
@@ -158,6 +164,10 @@ namespace cache {
           assert(0);
         }
       }
+
+      /**
+       * Check if there is no reference (HIT) of CA in T_1 and T_2
+       */
       void check_zero_reference(uint8_t *ca) {
         std::vector<uint64_t> lbas;
         std::vector<uint64_t> lbas2;
