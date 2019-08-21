@@ -24,6 +24,9 @@ endif()
 if (ENABLE_WRITE_BACK)
   add_definitions(-DWRITE_BACK_CACHE)
 endif()
+if (REPLAY_FIU)
+  add_definitions(-DREPLAY_FIU)
+endif()
 
 add_library(cache
   src/metadata/bucket.cc
@@ -74,6 +77,10 @@ target_link_libraries(access_pattern_gen cache)
 add_executable(run_ssddup src/benchmark/run_ssddup.cc)
 set_target_properties(run_ssddup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_ssddup cache)
+
+add_executable(run_fiu src/benchmark/run_fiu.cc)
+set_target_properties(run_fiu PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(run_fiu cache)
 
 add_executable(run_dedup src/benchmark/run_dedup.cc)
 set_target_properties(run_dedup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")

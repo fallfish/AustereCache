@@ -37,7 +37,7 @@ namespace cache {
       MurmurHash3_x64_128(_buf, _len, 0, _ca);
     }
 #ifdef REPLAY_FIU
-    memcpy(_ca, CurrentFingerprintFIU, conf.get_ca_length());
+    memcpy(_ca, conf.get_current_fingerprint(), conf.get_ca_length());
 #endif
     _has_ca = true;
 

@@ -339,9 +339,15 @@ namespace cache {
         lba_bucket_update[_n_updates_lba_buckets[i]] += 1;
       }
       std::cout << "    LBA Index update: " << std::endl;
+      int cnt = 0;
       for (auto pr : lba_bucket_update) {
-        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+        printf("(%d,%d) ", pr.first, pr.second);
+        cnt++;
+        if (cnt == 8) printf("\n"), cnt=0;
+//        std::cout << "(" << pr.first << "," << pr.second << ") ";
       }
+      std::cout << std::endl;
+      cnt = 0;
 
       std::map<uint32_t, uint32_t> lba_bucket_hit;
       for (uint32_t i = 0; i < n_lba_bucket; ++i) {
@@ -353,8 +359,13 @@ namespace cache {
       }
       std::cout << "    LBA Index hit: " << std::endl;
       for (auto pr : lba_bucket_hit) {
-        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+        printf("(%d,%d) ", pr.first, pr.second);
+        cnt++;
+        if (cnt == 8) printf("\n"), cnt=0;
+        //std::cout << "        " << pr.first << " " << pr.second << std::endl;
       }
+      cnt=0;
+      printf("\n");
 
       std::map<uint32_t, uint32_t> ca_bucket_update;
       for (uint32_t i = 0; i < n_ca_bucket; ++i) {
@@ -366,8 +377,12 @@ namespace cache {
       }
       std::cout << "    CA Index update: " << std::endl;
       for (auto pr : ca_bucket_update) {
-        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+        printf("(%d,%d) ", pr.first, pr.second);
+        cnt++;
+        if (cnt == 8) printf("\n"), cnt=0;
+        //std::cout << "        " << pr.first << " " << pr.second << std::endl;
       }
+      printf("\n");
 
       std::map<uint32_t, uint32_t> ca_bucket_hit;
       for (uint32_t i = 0; i < n_ca_bucket; ++i) {
@@ -379,8 +394,12 @@ namespace cache {
       }
       std::cout << "    CA Index hit: " << std::endl;
       for (auto pr : ca_bucket_hit) {
-        std::cout << "        " << pr.first << " " << pr.second << std::endl;
+        printf("(%d,%d) ", pr.first, pr.second);
+        cnt++;
+        if (cnt == 8) printf("\n"), cnt=0;
+        //std::cout << "        " << pr.first << " " << pr.second << std::endl;
       }
+      printf("\n");
 #endif
 
       std::cout << "IO statistics: " << std::endl

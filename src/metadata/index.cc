@@ -31,9 +31,15 @@ namespace cache {
       }
       counters[count] += 1;
     }
+
+    int cnt = 0;
     for (auto p : counters) {
-      std::cout << p.first << " " << p.second << std::endl;
+      cnt++;
+      printf("(%d,%d) ", p.first, p.second);
+      if (cnt == 8) printf("\n"), cnt=0;
+//      std::cout << p.first << " " << p.second << std::endl;
     }
+    printf("\n");
   }
   CAIndex::~CAIndex() {
     std::cout << "~CAIndex: " << std::endl;
@@ -50,9 +56,19 @@ namespace cache {
       }
       counters[count] += 1;
     }
+    /*
     for (auto p : counters) {
       std::cout << (p.first / 4) << " " << p.second << std::endl;
     }
+    */
+    int cnt = 0;
+    for (auto p : counters) {
+      cnt++;
+      printf("(%d,%d) ", p.first, p.second);
+      if (cnt == 8) printf("\n"), cnt=0;
+//      std::cout << p.first << " " << p.second << std::endl;
+    }
+    printf("\n");
   }
   void Index::set_cache_policy(std::unique_ptr<CachePolicy> cache_policy)
   { 

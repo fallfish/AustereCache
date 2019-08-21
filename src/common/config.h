@@ -1,6 +1,7 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__ 
 #include <cstdint>
+#include <cstring>
 namespace cache {
 
 class Config
@@ -77,6 +78,12 @@ class Config
     else set_fingerprint_algorithm(1);
     _fingerprint_computation_method = v;
   }
+  char *get_current_fingerprint() {
+    return _current_fingerprint;
+  }
+  void set_current_fingerprint(char *fingerprint) {
+    memcpy(_current_fingerprint, fingerprint, _ca_length);
+  }
 
  private:
   Config() {
@@ -152,7 +159,7 @@ class Config
 
   // Used when replaying FIU trace, for each request, we would fill in the fingerprint value
   // specified in the trace rather than the computed one.
-  char current_fingerprint[20];
+  char _current_fingerprint[20];
 };
 
 }
