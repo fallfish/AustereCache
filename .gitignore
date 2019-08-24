@@ -5,3 +5,5 @@ tags
 cmake-build-debug
 trace
 .vscode
+
+.DS_Store
