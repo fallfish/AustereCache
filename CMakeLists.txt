@@ -27,6 +27,9 @@ endif()
 if (REPLAY_FIU)
   add_definitions(-DREPLAY_FIU)
 endif()
+if (FAKE_IO)
+  add_definitions(-DFAKE_IO)
+endif()
 
 add_library(cache
   src/metadata/bucket.cc
