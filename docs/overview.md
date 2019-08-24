@@ -12,6 +12,10 @@
 
 (Sorted by alphabetical order)
 
++ Slot size: 8KiB + 512B
++ Bucket size: 32 \* (8KiB + 512B) = 272KiB
++ If CA Bits are 11, then the minimum cache (SSD) size should be (2^11) * 272KiB = 544MiB
+
 ### src/benchmark
 
 Deals with tests & benchmarks for different modules.
