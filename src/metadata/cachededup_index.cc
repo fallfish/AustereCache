@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <cassert>
+#include <csignal>
 
 namespace cache {
   DLRU_SourceIndex DLRU_SourceIndex::instance;
@@ -188,6 +189,11 @@ namespace cache {
   {
     CA ca_;
     auto it = _mp.find(lba);
+
+    //if (lba == 215351296LL || lba == 3722575872LL) {
+      //std::cout << "???" << std::endl;
+      //::raise(SIGTRAP);
+    //}
     if (it == _mp.end()) {
       check_metadata_cache(lba);
 
@@ -203,10 +209,8 @@ namespace cache {
 #else
       DARC_FingerprintIndex::get_instance().reference(lba, ca);
 #endif
-      check_list_id_consistency();
       return ;
     }
-
 
     if (it->second._list_id >= 0 && it->second._list_id <= 3) {
       if (it->second._list_id == 0) {
@@ -240,11 +244,16 @@ namespace cache {
           // entry is in B2, move to T2
           _b2.erase(it->second._it);
         }
-        // add reference count
+      }
+
+      // If the request is a write, and the content has been changed,
+      // we must deference the old fingerprint
+      //if (Stats::get_instance()->get_current_request_type() == 1
+      if ((it->second._list_id == 0 || it->second._list_id == 1)) {
 #ifdef CDARC
-        CDARC_FingerprintIndex::get_instance().reference(lba, ca);
+        CDARC_FingerprintIndex::get_instance().deference(lba, it->second._v);
 #else
-        DARC_FingerprintIndex::get_instance().reference(lba, ca);
+        DARC_FingerprintIndex::get_instance().deference(lba, it->second._v);
 #endif
       }
 
@@ -258,6 +267,7 @@ namespace cache {
       _t1.push_front(lba);
       _mp[lba]._list_id = 0;
       _mp[lba]._it = _t1.begin();
+    }
 
       // add reference count
 #ifdef CDARC
@@ -265,9 +275,6 @@ namespace cache {
 #else
       DARC_FingerprintIndex::get_instance().reference(lba, ca);
 #endif
-    }
-    check_list_id_consistency();
-
     memcpy(_mp[lba]._v, ca, Config::get_configuration().get_ca_length());
   }
 
@@ -452,7 +459,7 @@ namespace cache {
     }
     if ((it->second._reference_count -= 1) == 0) {
       _zero_reference_list.push_front(ca_);
-      DARC_SourceIndex::get_instance().check_zero_reference(ca_._v);
+      //DARC_SourceIndex::get_instance().check_zero_reference(ca_._v);
     }
     // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
     Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();

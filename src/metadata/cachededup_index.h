@@ -173,7 +173,6 @@ namespace cache {
         std::vector<uint64_t> lbas2;
         for (auto lba : _t1) {
           if (memcmp(_mp[lba]._v, ca, Config::get_configuration().get_ca_length()) == 0) {
-            assert(0);
             lbas.push_back(lba);
           }
           if (_mp[lba]._list_id != 0) {
@@ -182,7 +181,6 @@ namespace cache {
         }
         for (auto lba : _t2) {
           if (memcmp(_mp[lba]._v, ca, Config::get_configuration().get_ca_length()) == 0) {
-            assert(0);
             lbas.push_back(lba);
           }
           if (_mp[lba]._list_id != 1) {

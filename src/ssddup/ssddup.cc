@@ -95,6 +95,7 @@ namespace cache {
 
     alignas(512) Chunk c;
     while (chunker.next(c)) {
+      Stats::get_instance()->set_current_request_type(0);
       alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
       if (!c.is_aligned()) {
         c.preprocess_unaligned(temp_buffer);
@@ -116,6 +117,7 @@ namespace cache {
     alignas(512) Chunk c;
 
     while ( chunker.next(c) ) {
+      Stats::get_instance()->set_current_request_type(1);
       // this read_buffer resides in the application stack
       // and will be wrapped by read_chunk
       // to avoid memory allocation overhead

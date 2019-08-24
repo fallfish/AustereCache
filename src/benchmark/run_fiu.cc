@@ -232,7 +232,7 @@ namespace cache {
         char sha1[23];
         for (uint32_t i = 0; i < _reqs.size(); i++) {
           if (i == 5000000) break;
-          if (i % 400000 == 0) printf("req %d\n", i); // , num of unique sha1 = %d\n", i, sets.size());
+          if (i % 100000 == 0) printf("req %d\n", i); // , num of unique sha1 = %d\n", i, sets.size());
           LL begin;
           int len;
 

@@ -11,6 +11,15 @@ namespace cache {
    * thread-safety.
    */
   struct Stats {
+
+    int _current_request_type;
+    inline void set_current_request_type(bool is_write) {
+      if (is_write) _current_request_type = 1;
+      else _current_request_type = 0;
+    }
+    inline int get_current_request_type() {
+      return _current_request_type;
+    }
     /*
      * Write - consist -- dup_Write   - cause - ca hit and ca match, lba hit and match
      *                 |
@@ -148,7 +157,10 @@ namespace cache {
      *   2. cachededup.cc:(XX)AddressIndex::allocate
      */
     inline void add_lba_index_eviction_caused_by_capacity() {
-      _n_lba_index_eviction_caused_by_capacity.fetch_add(1, std::memory_order_relaxed);
+      // If current request is write, and the corresponding mapping is modified,
+      // possibly the previous mapping is the same lba but with modified content.
+      if (_current_request_type == 0)
+        _n_lba_index_eviction_caused_by_capacity.fetch_add(1, std::memory_order_relaxed);
     }
 
     /* 
