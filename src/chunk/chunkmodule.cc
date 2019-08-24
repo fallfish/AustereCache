@@ -31,13 +31,14 @@ namespace cache {
     Config &conf = Config::get_configuration();
     assert(_len == conf.get_chunk_size());
     assert(_addr % conf.get_chunk_size() == 0);
+#ifdef REPLAY_FIU
+    memcpy(_ca, conf.get_current_fingerprint(), conf.get_ca_length());
+#else
     if (conf.get_fingerprint_algorithm() == 0) {
       SHA1(_buf, _len, _ca);
     } else if (conf.get_fingerprint_algorithm() == 1) {
       MurmurHash3_x64_128(_buf, _len, 0, _ca);
     }
-#ifdef REPLAY_FIU
-    memcpy(_ca, conf.get_current_fingerprint(), conf.get_ca_length());
 #endif
     _has_ca = true;
 

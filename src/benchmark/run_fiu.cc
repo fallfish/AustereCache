@@ -19,8 +19,9 @@ typedef struct req_rec_t {
   LL addr;
   int len;
   bool r;
-  char sha1[50];
+  char sha1[42];
 } req_rec; 
+
 
 namespace cache {
 
@@ -28,18 +29,21 @@ namespace cache {
     public:
       RunSystem() {
         _multi_thread = 0;
-        _num_workers = 1;
         genzipf::rand_val(2);
       }
       ~RunSystem() {
         free(_workload_chunks);
-        printf("Freeing RunSystem...\n");
       }
 
       void parse_argument(int argc, char **argv)
       {
         bool has_ini_stat = false, has_config = false, has_access_pattern = false;
         char *param, *value;
+        Config::get_configuration().set_cache_device_size(4LL * 1024 * 1024 * 1024);
+        printf("cache device size: %lld\n", Config::get_configuration().get_cache_device_size());
+        Config::get_configuration().set_primary_device_size(300LL * 1024 * 1024 * 1024);
+        printf("primary device size: %lld\n", Config::get_configuration().get_primary_device_size());
+
         for (int i = 1; i < argc; i += 2) {
           param = argv[i];
           value = argv[i + 1];
@@ -52,8 +56,6 @@ namespace cache {
             Config::get_configuration().set_lba_bucket_no_len(atoi(value));
           } else if (strcmp(param, "--multi-thread") == 0) {
             _multi_thread = atoi(value);
-          } else if (strcmp(param, "--num-workers") == 0) {
-            _num_workers = atoi(value);
           } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
             Config::get_configuration().set_fingerprint_algorithm(atoi(value));
           } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
@@ -63,14 +65,15 @@ namespace cache {
           } else if (strcmp(param, "--direct-io") == 0) {
             Config::get_configuration().set_direct_io(atoi(value));
           } else if (strcmp(param, "--access-pattern") == 0) {
+            printf("now\n");
             has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
+            printf("now 2\n");
           }
         }
 
-        Config::get_configuration().set_cache_device_size(600 * 1024 * 1024);
-        Config::get_configuration().set_primary_device_size(300 * 1024 * 1024 * 1024);
         Config::get_configuration().set_cache_device_name("./cache_device");
         Config::get_configuration().set_primary_device_name("./primary_device");
+        printf("%d\n", Config::get_configuration().get_lba_bucket_no_len());
         //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
         //Config::get_configuration().set_primary_device_name("./primary_device");
         //Config::get_configuration().set_primary_device_name("./ramdisk/primary_device");
@@ -196,7 +199,10 @@ namespace cache {
         LL cnt = 0;
         while (fscanf(f, "%lld %d %s %s", &req.addr, &req.len, op, req.sha1) != -1) {
           cnt++;
-          if (req.addr >= Config::get_configuration().get_primary_device_size()) continue;
+          if (req.addr >= Config::get_configuration().get_primary_device_size()) {
+            continue;
+          }
+
           req.r = (op[0] == 'r' || op[0] == 'R');
           _reqs.push_back(req);
         }
@@ -221,23 +227,23 @@ namespace cache {
         char* rwdata;
         rwdata = (char*)malloc(32768 + 10);
         std::string s;
-        std::set<std::string> sets;
 
         std::cout << _reqs.size() << std::endl;
         char sha1[23];
         for (uint32_t i = 0; i < _reqs.size(); i++) {
           if (i == 5000000) break;
-          if (i % 40000 == 0) printf("%d, num of unique sha1 = %d\n", i, sets.size());
+          if (i % 400000 == 0) printf("req %d\n", i); // , num of unique sha1 = %d\n", i, sets.size());
           LL begin;
           int len;
 
           begin = _reqs[i].addr;
           len = _reqs[i].len;
 
+          //Zero hit ratio test
+          //sprintf(_reqs[i].sha1, "0000_0000_0000_0000_0000_0000_00_%07d", i);
           s = std::string(_reqs[i].sha1);
           convertStr2Sha1(_reqs[i].sha1, sha1);
           Config::get_configuration().set_current_fingerprint(sha1);
-          sets.insert(s);
 
           total_bytes.fetch_add(len, std::memory_order_relaxed);
           if (_reqs[i].r) {
@@ -279,7 +285,6 @@ namespace cache {
       float _skewness;
 
       bool _multi_thread;
-      int _num_workers;
       double _wr_ratio;
 
       std::unique_ptr<SSDDup> _ssddup;
@@ -293,6 +298,23 @@ int main(int argc, char **argv)
   setbuf(stdout, NULL);
   setbuf(stderr, NULL);
 
+#ifdef REPLAY_FIU
+  printf("defined: REPLAY_FIU\n");
+#endif
+
+#if defined(WRITE_BACK_CACHE)
+  printf("defined: WRITE_BACK_CACHE\n");
+#endif
+
+#if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
+  printf("defined: CACHE_DEDUP\n");
+#if defined(DLRU)
+  printf(" -- DLRU\n");
+#endif
+#if defined(DARC)
+  printf(" -- DARC\n");
+#endif
+#endif
   srand(0);
   cache::RunSystem run_system;
 

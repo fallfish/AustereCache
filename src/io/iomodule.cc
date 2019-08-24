@@ -2,6 +2,7 @@
 #include "device/device.h"
 #include "common/config.h"
 #include "utils/utils.h"
+#include <csignal>
 #include <memory>
 
 namespace cache {

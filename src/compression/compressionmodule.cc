@@ -18,6 +18,7 @@ void CompressionModule::compress(Chunk &c)
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
       c._len, c._len - 1);
+  c._compressed_len = 0;
   if (c._compressed_len == 0) {
     c._compressed_len = c._len;
     c._compressed_buf = c._buf;
@@ -26,6 +27,7 @@ void CompressionModule::compress(Chunk &c)
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
       c._len, c._len * 0.75);
+  c._compressed_len = 0;
   double compress_ratio = c._compressed_len * 1.0 / c._len;
   if (compress_ratio > 0.75 || c._compressed_len == 0) {
     c._compress_level = 3;

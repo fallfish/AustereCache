@@ -126,8 +126,10 @@ namespace cache {
       _list.pop_back();
       // assign the evicted free ssd location to the newly inserted data
       _space_allocator.recycle(_mp[ca_]._ssd_data_pointer);
+#if defined(WRITE_BACK_CACHE)
       DirtyList::get_instance()->add_evicted_block(_mp[ca_]._ssd_data_pointer,
           Config::get_configuration().get_chunk_size());
+#endif
       _mp.erase(ca_);
       Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
     }
@@ -201,6 +203,7 @@ namespace cache {
 #else
       DARC_FingerprintIndex::get_instance().reference(lba, ca);
 #endif
+      check_list_id_consistency();
       return ;
     }
 
@@ -263,6 +266,7 @@ namespace cache {
       DARC_FingerprintIndex::get_instance().reference(lba, ca);
 #endif
     }
+    check_list_id_consistency();
 
     memcpy(_mp[lba]._v, ca, Config::get_configuration().get_ca_length());
   }
@@ -448,6 +452,7 @@ namespace cache {
     }
     if ((it->second._reference_count -= 1) == 0) {
       _zero_reference_list.push_front(ca_);
+      DARC_SourceIndex::get_instance().check_zero_reference(ca_._v);
     }
     // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
     Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();
@@ -470,12 +475,13 @@ namespace cache {
         DARC_SourceIndex::get_instance().manage_metadata_cache(lba);
       }
       ca_ = _zero_reference_list.back();
-      DARC_SourceIndex::get_instance().check_zero_reference(ca_._v);
       _zero_reference_list.pop_back();
 
       _space_allocator.recycle(_mp[ca_]._ssd_data_pointer);
+#if defined(WRITE_BACK_CACHE)
       DirtyList::get_instance()->add_evicted_block(_mp[ca_]._ssd_data_pointer,
           Config::get_configuration().get_chunk_size());
+#endif
       _mp.erase(ca_);
 
       memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());

@@ -139,6 +139,9 @@ namespace cache {
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
   void SSDDup::internal_read(Chunk &c, bool update_metadata)
   {
+#ifdef REPLAY_FIU
+    c.fingerprinting();
+#endif
     _deduplication_module->lookup(c);
     Stats::get_instance()->add_read_stat(c);
     _manage_module->read(c);
@@ -184,6 +187,9 @@ namespace cache {
       alignas(512) uint8_t compressed_buf[Config::get_configuration().get_chunk_size()];
       c._compressed_buf = compressed_buf;
 
+#ifdef REPLAY_FIU
+    c.fingerprinting();
+#endif
       // look up index
       _deduplication_module->lookup(c);
       // record status
