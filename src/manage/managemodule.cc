@@ -167,7 +167,9 @@ int ManageModule::write(Chunk &c)
 
 void ManageModule::update_metadata(Chunk &c)
 {
+  BEGIN_TIMER();
   _metadata_module->update(c);
+  END_TIMER(update_index);
 }
 
 }

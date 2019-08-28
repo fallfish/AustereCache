@@ -190,10 +190,6 @@ namespace cache {
     CA ca_;
     auto it = _mp.find(lba);
 
-    //if (lba == 215351296LL || lba == 3722575872LL) {
-      //std::cout << "???" << std::endl;
-      //::raise(SIGTRAP);
-    //}
     if (it == _mp.end()) {
       check_metadata_cache(lba);
 
@@ -211,6 +207,7 @@ namespace cache {
 #endif
       return ;
     }
+
 
     if (it->second._list_id >= 0 && it->second._list_id <= 3) {
       if (it->second._list_id == 0) {
@@ -271,9 +268,9 @@ namespace cache {
 
       // add reference count
 #ifdef CDARC
-      CDARC_FingerprintIndex::get_instance().reference(lba, ca);
+    CDARC_FingerprintIndex::get_instance().reference(lba, ca);
 #else
-      DARC_FingerprintIndex::get_instance().reference(lba, ca);
+    DARC_FingerprintIndex::get_instance().reference(lba, ca);
 #endif
     memcpy(_mp[lba]._v, ca, Config::get_configuration().get_ca_length());
   }
@@ -442,7 +439,10 @@ namespace cache {
       exit(0);
     }
     if ( (it->second._reference_count += 1) == 1) {
-      _zero_reference_list.remove(ca_);
+      if (it->second._zero_reference_list_it != _zero_reference_list.end()) {
+        _zero_reference_list.erase(it->second._zero_reference_list_it);
+        it->second._zero_reference_list_it = _zero_reference_list.end();
+      }
     }
   }
 
@@ -457,10 +457,13 @@ namespace cache {
       std::cout << "deference an empty entry" << std::endl;
       exit(0);
     }
+    BEGIN_TIMER();
     if ((it->second._reference_count -= 1) == 0) {
       _zero_reference_list.push_front(ca_);
+      it->second._zero_reference_list_it = _zero_reference_list.begin();
       //DARC_SourceIndex::get_instance().check_zero_reference(ca_._v);
     }
+    END_TIMER(debug);
     // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
     Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();
   }
@@ -497,6 +500,7 @@ namespace cache {
 
     dp_._ssd_data_pointer = _space_allocator.allocate();
     dp_._reference_count = 0;
+    dp_._zero_reference_list_it = _zero_reference_list.end();
 
     _mp[ca_] = dp_;
     ssd_data_pointer = dp_._ssd_data_pointer;
