@@ -48,24 +48,34 @@ void CompressionModule::compress(Chunk &c)
 
 void CompressionModule::decompress(Chunk &c)
 {
+  static int k = 0;
   BEGIN_TIMER();
 #if defined(CDARC)
-  if (c._compressed_len != c._len)
+  if (c._compressed_len != c._len) {
 #else
   if (c._compressed_len != 0) {
+#endif
+
+#if defined(NORMAL_DIST_COMPRESSION)
+    c._compressed_len = Config::get_configuration().get_current_compressed_len();
+    memcpy(c._compressed_buf, Config::get_configuration().get_current_data(), c._compressed_len);
+    // printf("%s: ", __func__);
+    // print_SHA1((char*)c._compressed_buf, c._compressed_len);
 #endif
     LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
         c._compressed_len, c._len);
   }
+  // printf("%s: clen = %d \n", __func__, c._compressed_len), k = 1;
   END_TIMER(decompression);
   return ;
 }
 
+// Not used now
 void CompressionModule::decompress(uint8_t *compressed_buf, uint8_t *buf, uint32_t compressed_len, uint32_t original_len)
 {
   BEGIN_TIMER();
 #if defined(CDARC)
-  if (compressed_len != original_len)
+  if (compressed_len != original_len) {
 #else
   if (compressed_len != 0) {
 #endif

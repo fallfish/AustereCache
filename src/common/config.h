@@ -2,6 +2,7 @@
 #define __CONFIG_H__ 
 #include <cstdint>
 #include <cstring>
+#include <cstdlib>
 namespace cache {
 
 class Config
@@ -84,6 +85,19 @@ class Config
   void set_current_fingerprint(char *fingerprint) {
     memcpy(_current_fingerprint, fingerprint, _ca_length);
   }
+  char *get_current_data() {
+    return _current_data;
+  }
+  void set_current_data(char *data, int len) {
+    if (len > _chunk_size) len = _chunk_size;
+    memcpy(_current_data, data, len);
+  }
+  int get_current_compressed_len() {
+    return _current_compressed_len;
+  }
+  void set_current_compressed_len(int compressed_len) {
+    _current_compressed_len = compressed_len;
+  }
 
  private:
   Config() {
@@ -116,6 +130,8 @@ class Config
     _cache_device_name = "./cache_device";
     _primary_device_name = "./primary_device";
 
+    // NORMAL_DIST_COMPRESSION related
+    _current_data = (char*)malloc(sizeof(char) * _chunk_size);
     set_fingerprint_computation_method(0);
     set_fingerprint_algorithm(1);
   }
@@ -160,6 +176,10 @@ class Config
   // Used when replaying FIU trace, for each request, we would fill in the fingerprint value
   // specified in the trace rather than the computed one.
   char _current_fingerprint[20];
+
+  // Used when using NORMAL_DIST_COMPRESSION
+  char* _current_data;
+  int _current_compressed_len;
 };
 
 }

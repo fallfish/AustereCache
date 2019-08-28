@@ -30,6 +30,9 @@ endif()
 if (FAKE_IO)
   add_definitions(-DFAKE_IO)
 endif()
+if (NORMAL_DIST_COMPRESSION)
+  add_definitions(-DNORMAL_DIST_COMPRESSION)
+endif()
 
 add_library(cache
   src/metadata/bucket.cc
@@ -84,6 +87,10 @@ target_link_libraries(run_ssddup cache)
 add_executable(run_fiu src/benchmark/run_fiu.cc)
 set_target_properties(run_fiu PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_fiu cache)
+
+add_executable(test_lz4 src/benchmark/test_lz4.cc)
+set_target_properties(test_lz4 PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
+target_link_libraries(test_lz4 cache)
 
 add_executable(run_dedup src/benchmark/run_dedup.cc)
 set_target_properties(run_dedup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")

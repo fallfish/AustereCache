@@ -8,20 +8,29 @@
 #include "ssddup/ssddup.h"
 #include "workload_conf.h"
 
+// For compression tests
+#include "lz4.h"
+#include <random>
+#include <climits>
+#include <algorithm>
+#include <functional>
+#include <inttypes.h>
+
 #include <vector>
 #include <set>
 #include <thread>
 #include <atomic>
+
 #define DIRECT_IO
 
-typedef uint64_t LL;
+typedef long long int LL;
 typedef struct req_rec_t {
   LL addr;
   int len;
   bool r;
   char sha1[42];
+  int compressed_len;
 } req_rec; 
-
 
 namespace cache {
 
@@ -30,19 +39,28 @@ namespace cache {
       RunSystem() {
         _multi_thread = 0;
         genzipf::rand_val(2);
+
+#ifdef NORMAL_DIST_COMPRESSION
+        generateCompression();
+#endif
       }
       ~RunSystem() {
         free(_workload_chunks);
+        for (auto it : comp_data) free(it.second); 
+        for (auto it : comp_original_data) free(it.second); 
+        comp_data.clear();
+        comp_original_data.clear();
       }
+
 
       void parse_argument(int argc, char **argv)
       {
         bool has_ini_stat = false, has_config = false, has_access_pattern = false;
         char *param, *value;
         Config::get_configuration().set_cache_device_size(4LL * 1024 * 1024 * 1024);
-        printf("cache device size: %lld\n", Config::get_configuration().get_cache_device_size());
+        printf("cache device size: %" PRId64 " MiB\n", Config::get_configuration().get_cache_device_size() / 1024 / 1024);
         Config::get_configuration().set_primary_device_size(300LL * 1024 * 1024 * 1024);
-        printf("primary device size: %lld\n", Config::get_configuration().get_primary_device_size());
+        printf("primary device size: %" PRId64 " GiB\n", Config::get_configuration().get_primary_device_size() / 1024 / 1024 / 1024);
 
         for (int i = 1; i < argc; i += 2) {
           param = argv[i];
@@ -65,15 +83,12 @@ namespace cache {
           } else if (strcmp(param, "--direct-io") == 0) {
             Config::get_configuration().set_direct_io(atoi(value));
           } else if (strcmp(param, "--access-pattern") == 0) {
-            printf("now\n");
             has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
-            printf("now 2\n");
           }
         }
 
         Config::get_configuration().set_cache_device_name("./cache_device");
         Config::get_configuration().set_primary_device_name("./primary_device");
-        printf("%d\n", Config::get_configuration().get_lba_bucket_no_len());
         //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
         //Config::get_configuration().set_primary_device_name("./primary_device");
         //Config::get_configuration().set_primary_device_name("./ramdisk/primary_device");
@@ -160,6 +175,7 @@ namespace cache {
       }
 
       int readFIUaps(int* i, int argc, char** argv) {
+        printf("start reading access patterns ...\n");
         int begin, end;
         if (strstr(argv[*i+1],"%02d")) {
           if (*i+3 < argc) {
@@ -178,6 +194,7 @@ namespace cache {
         }
         else
           readFIUap(argv[*i+1]);
+        printf("end reading access patterns ...\n");
 
         return 0;
       }
@@ -192,16 +209,28 @@ namespace cache {
         uint32_t len;
         char sha1[50];
         char op[2];
+        Config &conf = Config::get_configuration();
+        int chunk_size = conf.get_chunk_size();
 
         int chunk_id, length;
         assert(f != nullptr);
         req_rec req;
         LL cnt = 0;
-        while (fscanf(f, "%lld %d %s %s", &req.addr, &req.len, op, req.sha1) != -1) {
+
+        double compressibility;
+
+        while (fscanf(f, "%lld %d %s %s %lf", &req.addr, &req.len, op, req.sha1, &compressibility) != -1) {
           cnt++;
           if (req.addr >= Config::get_configuration().get_primary_device_size()) {
             continue;
           }
+
+#ifdef NORMAL_DIST_COMPRESSION
+          int clen = (double)chunk_size / compressibility; 
+          if (clen >= chunk_size) clen = chunk_size;
+          while (!comp_data.count(clen) && clen < chunk_size) clen++;
+          req.compressed_len = clen;
+#endif
 
           req.r = (op[0] == 'r' || op[0] == 'R');
           _reqs.push_back(req);
@@ -233,12 +262,16 @@ namespace cache {
         char* rwdata;
         rwdata = (char*)malloc(32768 + 10);
         std::string s;
+        Config& conf = Config::get_configuration();
+        int chunk_size = conf.get_chunk_size();
 
         std::cout << _reqs.size() << std::endl;
         char sha1[23];
         for (uint32_t i = 0; i < _reqs.size(); i++) {
           if (i == 5000000) break;
           if (i % 100000 == 0) printf("req %d\n", i); // , num of unique sha1 = %d\n", i, sets.size());
+          //if (_reqs[i].r) printf("req %d\n", i);
+
           LL begin;
           int len;
 
@@ -249,20 +282,103 @@ namespace cache {
           //sprintf(_reqs[i].sha1, "0000_0000_0000_0000_0000_0000_00_%07d", i);
           s = std::string(_reqs[i].sha1);
           convertStr2Sha1(_reqs[i].sha1, sha1);
-          Config::get_configuration().set_current_fingerprint(sha1);
+
+#if defined(REPLAY_FIU)
+          conf.set_current_fingerprint(sha1);
+#endif
 
           total_bytes.fetch_add(len, std::memory_order_relaxed);
+#if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
+          if (_reqs[i].r) {
+            //printf("compressed len: %d\n", _reqs[i].compressed_len);
+            conf.set_current_data(comp_data[_reqs[i].compressed_len], _reqs[i].compressed_len);
+            conf.set_current_compressed_len(_reqs[i].compressed_len);
+          }
+          else 
+            memcpy(rwdata, comp_data[_reqs[i].compressed_len], chunk_size); 
+#else
+          if (!_reqs[i].r)
+            memcpy40Bto32K(rwdata, _reqs[i].sha1);
+#endif
+
           if (_reqs[i].r) {
             _ssddup->read(begin, rwdata, len);
-            //fprintf(writefd, "read, addr %d\n", begin);
           } else {
-            memcpy40Bto32K(rwdata, _reqs[i].sha1);
             _ssddup->write(begin, rwdata, len);
-            //fprintf(writefd, "write, addr %d\n", begin);
           }
+
+          // Debug
+#if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
+          if (false && _reqs[i].r) {
+            printf("TEST: addr = %" PRId64 ", i = %d\n", _reqs[i].addr, i);
+            if (!memcmp(rwdata, comp_original_data[_reqs[i].compressed_len], chunk_size)) printf("OK, same\n");
+            else {
+              printf("not ok, not same\nOriginal data: ");
+              print_SHA1(comp_original_data[_reqs[i].compressed_len], chunk_size);
+              printf("Read data: ");
+              print_SHA1(rwdata, chunk_size);
+            }
+          }
+#endif
         }
         sync();
       }
+
+    void generateCompression() {
+
+      static int ok = 0;
+
+      if (ok == 0) {
+        comp_original_data = {};
+        comp_data = {};
+
+        using random_bytes_engine = std::independent_bits_engine<
+          std::default_random_engine, CHAR_BIT, unsigned char>;
+
+        random_bytes_engine rbe;
+
+        char* data_a, *comp_data_a; 
+        Config& conf = Config::get_configuration();
+        int chunk_size = conf.get_chunk_size();
+
+        data_a = (char*)malloc(sizeof(char) * chunk_size);
+        comp_data_a = (char*)malloc(sizeof(char) * chunk_size);
+
+        memset(data_a, 1, sizeof(data_a));
+        memset(comp_data_a, 1, sizeof(comp_data_a));
+
+        for (int i = 0; i < chunk_size; i+=4) {
+
+          if (i) std::generate(data_a, data_a + i, std::ref(rbe));
+          int clen = LZ4_compress_default(data_a, comp_data_a, chunk_size, chunk_size-1);
+
+          /*
+          if (clen == 13451) {
+            printf("clen = 13451:  ");
+
+            print_SHA1(comp_data_a, clen);
+            print_SHA1(data_a, chunk_size);
+          }
+          */
+
+          if (clen && !comp_data.count(clen) && !comp_original_data.count(clen)) {
+            comp_data[clen] = (char*)malloc(sizeof(char) * chunk_size);
+            comp_original_data[clen] = (char*)malloc(sizeof(char) * chunk_size);
+            memcpy(comp_data[clen], comp_data_a, sizeof(char) * clen);
+            memcpy(comp_original_data[clen], data_a, sizeof(char) * chunk_size);
+          }
+
+          if (clen == 0 && !comp_data.count(chunk_size) && !comp_original_data.count(clen)) {
+            comp_data[chunk_size] = (char*)malloc(sizeof(char) * chunk_size);
+            comp_original_data[chunk_size] = (char*)malloc(sizeof(char) * chunk_size);
+            memcpy(comp_data[chunk_size], data_a, sizeof(char) * chunk_size);
+            memcpy(comp_original_data[chunk_size], data_a, sizeof(char) * chunk_size);
+          }
+        }
+      }
+
+      ok = 1;
+    }
 
     private: 
       void print_help()
@@ -295,9 +411,14 @@ namespace cache {
 
       std::unique_ptr<SSDDup> _ssddup;
       std::vector<req_rec> _reqs;
+
+      // for compression
+      std::map<int, char*> comp_data;
+      std::map<int, char*> comp_original_data;
   };
 
 }
+
 int main(int argc, char **argv)
 {
   // debug

@@ -99,9 +99,11 @@ namespace cache {
       alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
       if (!c.is_aligned()) {
         c.preprocess_unaligned(temp_buffer);
+        //printf("TEST: %s, not aligned, addr = %lld, len = %d\n", __func__, addr, len);
         internal_read(c, true);
         c.merge_read();
       } else {
+        //printf("TEST: %s, aligned\n", __func__);
         internal_read(c, true);
       }
       c._ca_bucket_lock.reset();
@@ -146,6 +148,7 @@ namespace cache {
 #endif
     _deduplication_module->lookup(c);
     Stats::get_instance()->add_read_stat(c);
+    // printf("TEST: %s, _manage_module read\n", __func__);
     _manage_module->read(c);
 
     if (update_metadata) {
