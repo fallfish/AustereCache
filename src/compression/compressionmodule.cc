@@ -15,9 +15,11 @@ void CompressionModule::compress(Chunk &c)
 {
   BEGIN_TIMER();
 #if defined(CDARC)
+#if !defined(FAKE_IO)
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
       c._len, c._len - 1);
+#endif
   c._compressed_len = 0;
   if (c._compressed_len == 0) {
     c._compressed_len = c._len;
@@ -54,8 +56,10 @@ void CompressionModule::decompress(Chunk &c)
 #else
   if (c._compressed_len != 0) {
 #endif
+#if !defined(FAKE_IO)
     LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
         c._compressed_len, c._len);
+#endif
   }
   END_TIMER(decompression);
   return ;
@@ -69,9 +73,10 @@ void CompressionModule::decompress(uint8_t *compressed_buf, uint8_t *buf, uint32
 #else
   if (compressed_len != 0) {
 #endif
+#if !defined(FAKE_IO)
     int res = LZ4_decompress_safe((const char*)compressed_buf, (char*)buf,
         compressed_len, original_len);
-    std::cout << res << std::endl;
+#endif
   } else {
     memcpy(buf, compressed_buf, original_len);
   }

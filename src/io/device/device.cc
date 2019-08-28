@@ -44,7 +44,8 @@ namespace cache {
       len -= addr + len - _size;
     }
 #if defined(FAKE_IO)
-    return len;
+    if (len != 512)
+      return len;
 #endif
 
     int n_written_bytes = 0;
@@ -78,7 +79,8 @@ namespace cache {
     }
 
 #if defined(FAKE_IO)
-    return len;
+    if (len != 512)
+      return len;
 #endif
 
     int n_read_bytes = 0;

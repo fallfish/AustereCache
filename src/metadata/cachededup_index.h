@@ -225,6 +225,7 @@ namespace cache {
       struct DP {
         uint64_t _ssd_data_pointer;
         uint32_t _reference_count;
+        std::list<CA>::iterator _zero_reference_list_it;
       };
 
       DARC_FingerprintIndex();

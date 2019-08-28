@@ -146,7 +146,8 @@ namespace cache {
      *   CA signature, if not match, a collision is bound to happen.
      */
     inline void add_lba_index_eviction_caused_by_collision() {
-      _n_lba_index_eviction_caused_by_collision.fetch_add(1, std::memory_order_relaxed);
+      if (_current_request_type == 0)
+        _n_lba_index_eviction_caused_by_collision.fetch_add(1, std::memory_order_relaxed);
     }
 
     /* 
@@ -159,8 +160,7 @@ namespace cache {
     inline void add_lba_index_eviction_caused_by_capacity() {
       // If current request is write, and the corresponding mapping is modified,
       // possibly the previous mapping is the same lba but with modified content.
-      if (_current_request_type == 0)
-        _n_lba_index_eviction_caused_by_capacity.fetch_add(1, std::memory_order_relaxed);
+      _n_lba_index_eviction_caused_by_capacity.fetch_add(1, std::memory_order_relaxed);
     }
 
     /* 
@@ -245,8 +245,8 @@ namespace cache {
      * Time Elapsed. Time consumed by each part of the system
      */
 #define _(str) \
-    double _time_elapsed_##str; \
-    inline void add_time_elapsed_##str(double v) {\
+    uint64_t _time_elapsed_##str; \
+    inline void add_time_elapsed_##str(uint64_t v) {\
       _time_elapsed_##str += v; \
     }
     //std::atomic<double> _time_elapsed_##str;
@@ -259,6 +259,7 @@ namespace cache {
     _(update_index);
     _(io_ssd);
     _(io_hdd);
+    _(debug);
 #undef _
 
     // compression level
@@ -432,6 +433,7 @@ namespace cache {
                 << "    Time elpased for update_index: " << _time_elapsed_update_index << std::endl
                 << "    Time elpased for io_ssd: " << _time_elapsed_io_ssd << std::endl
                 << "    Time elpased for io_hdd: " << _time_elapsed_io_hdd << std::endl
+                << "    Time elpased for debug: " << _time_elapsed_debug << std::endl
                 << std::endl;
 
 
