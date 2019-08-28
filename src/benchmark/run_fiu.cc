@@ -218,7 +218,13 @@ namespace cache {
       void convertStr2Sha1(char* s, char* sha1) {
         assert(strlen(s) >= 40);
         for (int i = 0; i < 40; i += 2) {
-          sha1[i/2] = (s[i] << 4) + s[i+1];
+          sha1[i/2] = 0;
+          if (s[i] <= '9') sha1[i/2] += ((s[i] - '0') << 4);
+          else if (s[i] <= 'F') sha1[i/2] += ((s[i] - 'A' + 10) << 4);
+          else if (s[i] <= 'f') sha1[i/2] += ((s[i] - 'a' + 10) << 4);
+          if (s[i+1] <= '9') sha1[i/2] += s[i+1]; 
+          else if (s[i+1] <= 'F') sha1[i/2] += s[i+1] - 'A' + 10; 
+          else if (s[i+1] <= 'f') sha1[i/2] += s[i+1] - 'a' + 10; 
         }
       }
 
