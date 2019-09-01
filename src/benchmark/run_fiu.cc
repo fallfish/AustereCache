@@ -268,7 +268,7 @@ namespace cache {
         std::cout << _reqs.size() << std::endl;
         char sha1[23];
         for (uint32_t i = 0; i < _reqs.size(); i++) {
-          if (i == 5000000) break;
+          //if (i == 5000000) break;
           if (i % 100000 == 0) printf("req %d\n", i); // , num of unique sha1 = %d\n", i, sets.size());
           //if (_reqs[i].r) printf("req %d\n", i);
 
@@ -347,19 +347,10 @@ namespace cache {
         memset(data_a, 1, sizeof(data_a));
         memset(comp_data_a, 1, sizeof(comp_data_a));
 
-        for (int i = 0; i < chunk_size; i+=4) {
+        for (int i = 0; i < chunk_size; i+=8) {
 
           if (i) std::generate(data_a, data_a + i, std::ref(rbe));
           int clen = LZ4_compress_default(data_a, comp_data_a, chunk_size, chunk_size-1);
-
-          /*
-          if (clen == 13451) {
-            printf("clen = 13451:  ");
-
-            print_SHA1(comp_data_a, clen);
-            print_SHA1(data_a, chunk_size);
-          }
-          */
 
           if (clen && !comp_data.count(clen) && !comp_original_data.count(clen)) {
             comp_data[clen] = (char*)malloc(sizeof(char) * chunk_size);

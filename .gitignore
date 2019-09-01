@@ -2,6 +2,7 @@ build
 third_party
 tags
 .idea
+*.swp
 cmake-build-debug
 trace
 .vscode
