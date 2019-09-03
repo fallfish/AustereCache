@@ -1,10 +1,10 @@
 /* File: metadata/bucket.h
  * Description:
- *   This file contains declarations of our designed LBABucket and CABucket.
+ *   This file contains declarations of our designed LBABucket and FPBucket.
  *
  *   1. A base class Bucket holds bit-level manipulators to the bucket data (slots)
  *      and valid bits, and contains a cache policy implementations.
- *   2. LBABucket and CABucket expose bucket-level lookup, promote, and lookup
+ *   2. LBABucket and FPBucket expose bucket-level lookup, promote, and lookup
  *      to the caller.
  */
 #ifndef __BUCKET_H__
@@ -17,7 +17,7 @@
 namespace cache {
   // Bucket is an abstraction of multiple key-value pairs (mapping)
   // bit level bucket
-  class CAIndex;
+  class FPIndex;
   class CachePolicy;
   class CachePolicyExecutor;
   class Bucket {
@@ -52,10 +52,20 @@ namespace cache {
         uint32_t b, e; init_v(index, b, e);
         return _data.get_bits(b, e);
       }
+      inline uint64_t get_v_64(uint32_t index)
+      {
+        uint32_t b, e; init_v(index, b, e);
+        return _data.get_bits_64(b, e);
+      }
       inline void set_v(uint32_t index, uint32_t v)
       {
         uint32_t b, e; init_v(index, b, e);
         _data.store_bits(b, e, v);
+      }
+      inline void set_v_64(uint32_t index, uint32_t v)
+      {
+        uint32_t b, e; init_v(index, b, e);
+        _data.store_bits_64(b, e, v);
       }
       inline uint32_t get_data_32bits(uint32_t index)
       {
@@ -70,7 +80,7 @@ namespace cache {
         return _valid.get(index);
       }
       inline void set_valid(uint32_t index) { _valid.set(index); }
-      inline void set_invalid(uint32_t index) { _valid.clear(index); }
+      inline void set_invalid(uint32_t index) { set_v(index, (uint32_t)(~0)); set_k(index, (uint32_t)(~0)); _valid.clear(index); }
       inline uint32_t get_valid_32bits(uint32_t index) { return _valid.get_32bits(index); }
       inline void set_valid_32bits(uint32_t index, uint32_t v) { _valid.set_32bits(index, v); }
 
@@ -105,14 +115,14 @@ namespace cache {
       {
       }
       /**
-       * @brief Lookup the given lba signature and store the ca hash result into ca_hash
+       * @brief Lookup the given lba signature and store the ca hash result into fp_hash
        *
        * @param lba_sig, lba signature, default 12 bit to achieve < 1% error rate
-       * @param ca_hash, ca hash, used to lookup ca index
+       * @param fp_hash, ca hash, used to lookup ca index
        *
        * @return ~0 if the lba signature does not exist, otherwise the corresponding index
        */
-      uint32_t lookup(uint32_t lba_sig, uint32_t &ca_hash);
+      uint32_t lookup(uint32_t lba_sig, uint32_t &fp_hash);
       void promote(uint32_t lba_sig);
       /**
        * @brief Update the lba index structure
@@ -121,14 +131,14 @@ namespace cache {
        *        LRU evict kicks in only after evicting old obsolete mappings.
        *
        * @param lba_sig
-       * @param ca_hash
+       * @param fp_hash
        * @param ca_index used to evict obselete entries that has been evicted in ca_index
        */
-      void update(uint32_t lba_sig, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index);
+      void update(uint32_t lba_sig, uint32_t fp_hash, std::shared_ptr<FPIndex> ca_index);
   };
 
   /**
-   * @brief CABucket: store multiple (ca signature -> cache device data pointer) pair
+   * @brief FPBucket: store multiple (ca signature -> cache device data pointer) pair
    *          Note: data pointer is computed according to alignment rather than a value
    *                to save memory usage and meantime nicely align with cache device blocks
    *        
@@ -141,9 +151,9 @@ namespace cache {
    *          --------------------
    *        2. valid bits - _valid (Bitmap) 32 bits
    */
-  class CABucket : public Bucket {
+  class FPBucket : public Bucket {
     public:
-      CABucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots,
+      FPBucket(uint32_t n_bits_per_key, uint32_t n_bits_per_value, uint32_t n_slots,
           uint8_t *data, uint8_t *valid, CachePolicy *cache_policy, uint32_t bucket_id) :
         Bucket(n_bits_per_key, n_bits_per_value, n_slots, data, valid, cache_policy, bucket_id)
       {
@@ -152,24 +162,24 @@ namespace cache {
       /**
        * @brief Lookup the given ca signature and store the space (compression level) to size
        *
-       * @param ca_sig
+       * @param fp_sig
        * @param size
        *
        * @return ~0 if the lba signature does not exist, otherwise the corresponding index
        */
-      uint32_t lookup(uint32_t ca_sig, uint32_t &n_slots_occupied);
+      uint32_t lookup(uint32_t fp_sig, uint32_t &n_slots_occupied);
 
-      void promote(uint32_t ca_sig);
+      void promote(uint32_t fp_sig);
       /**
        * @brief Update the lba index structure
        *
        * @param lba_sig
        * @param size
        */
-      uint32_t update(uint32_t ca_sig, uint32_t n_slots_to_occupy);
+      uint32_t update(uint32_t fp_sig, uint32_t n_slots_to_occupy);
       // Delete an entry for a certain ca signature
       // This is required for hit but verification-failed chunk.
-      void erase(uint32_t ca_sig);
+      void erase(uint32_t fp_sig);
   };
   
   /**
@@ -208,12 +218,12 @@ namespace cache {
       /**
        * @brief Lookup the given ca signature and store the space (compression level) to size
        *
-       * @param ca_sig
+       * @param fp_sig
        * @param size
        *
        * @return ~0 if the lba signature does not exist, otherwise the corresponding index
        */
-      //int lookup(uint32_t ca_sig, uint32_t &size);
+      //int lookup(uint32_t fp_sig, uint32_t &size);
 
       /**
        * @brief Update the lba index structure
@@ -221,7 +231,7 @@ namespace cache {
        * @param lba_sig
        * @param size
        */
-      //void update(uint32_t ca_sig, uint32_t size);
+      //void update(uint32_t fp_sig, uint32_t size);
     //private:
       //// An in-memory buffer for one block updates
 

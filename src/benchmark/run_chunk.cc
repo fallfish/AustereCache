@@ -58,7 +58,7 @@ class RunChunkModule {
       } else if (strcmp(param, "--wr-ratio") == 0) {
         wr_ratio = atof(value);
       } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::get_configuration().set_ca_bucket_no_len(atoi(value));
+        Config::get_configuration()->set_fp_bucket_no_len(atoi(value));
       } else if (strcmp(param, "--multi-thread") == 0) {
         _multi_thread = atoi(value);
       } else if (strcmp(param, "--num-workers") == 0) {
@@ -81,7 +81,7 @@ class RunChunkModule {
 
   void work()
   {
-    Config::get_configuration().set_fingerprint_algorithm(1);
+    Config::get_configuration()->set_fingerprint_algorithm(1);
     Chunker chunker = _chunk_module->create_chunker(0, _original_data, _workload_conf._working_set_size);
     Chunk chunk;
     while (chunker.next(chunk)) {

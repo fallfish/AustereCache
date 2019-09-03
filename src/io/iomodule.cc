@@ -10,13 +10,13 @@ namespace cache {
 IOModule::IOModule()
 {
 #if defined(CDARC)
-  _weu._buf = new uint8_t[Config::get_configuration().get_write_buffer_size()];
-  _weu._len = Config::get_configuration().get_write_buffer_size();
+  _weu._buf = new uint8_t[Config::get_configuration()->get_write_buffer_size()];
+  _weu._len = Config::get_configuration()->get_write_buffer_size();
   _write_buffer = nullptr;
 #else
-  if (Config::get_configuration().get_write_buffer_size() != 0) {
-    _write_buffer = new WriteBuffer(Config::get_configuration().get_write_buffer_size());
-    _write_buffer->_thread_pool = std::make_unique<ThreadPool>(Config::get_configuration().get_max_num_global_threads());
+  if (Config::get_configuration()->get_write_buffer_size() != 0) {
+    _write_buffer = new WriteBuffer(Config::get_configuration()->get_write_buffer_size());
+    _write_buffer->_thread_pool = std::make_unique<ThreadPool>(Config::get_configuration()->get_max_num_global_threads());
   } else {
     _write_buffer = nullptr;
   }
@@ -37,9 +37,9 @@ uint32_t IOModule::add_cache_device(char *filename)
 {
   // a temporary size for cache device
   // 32 MiB cache device
-  uint64_t size = Config::get_configuration().get_cache_device_size();
+  uint64_t size = Config::get_configuration()->get_cache_device_size();
   _cache_device = std::make_unique<BlockDevice>();
-  _cache_device->_direct_io = Config::get_configuration().get_direct_io();
+  _cache_device->_direct_io = Config::get_configuration()->get_direct_io();
   _cache_device->open(filename, size);
   if (_write_buffer != nullptr)
     _write_buffer->_cache_device = _cache_device.get();
@@ -50,9 +50,9 @@ uint32_t IOModule::add_primary_device(char *filename)
 {
   // a temporary size for primary device
   // 128 MiB primary device
-  uint64_t size = Config::get_configuration().get_primary_device_size();
+  uint64_t size = Config::get_configuration()->get_primary_device_size();
   _primary_device = std::make_unique<BlockDevice>();
-  _primary_device->_direct_io = Config::get_configuration().get_direct_io();
+  _primary_device->_direct_io = Config::get_configuration()->get_direct_io();
   _primary_device->open(filename, size);
   return 0;
 }

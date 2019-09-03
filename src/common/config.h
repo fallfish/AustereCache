@@ -8,9 +8,17 @@ namespace cache {
 class Config
 {
  public:
-  static Config& get_configuration() {
-    static Config instance;
+  static Config* instance;
+  static Config* get_configuration() {
+    if (instance == nullptr) {
+      instance = new Config();
+    }
     return instance;
+  }
+  static void release() {
+    if (instance != nullptr) {
+      delete instance;
+    }
   }
 
   // getters
@@ -25,9 +33,10 @@ class Config
   uint32_t get_lba_signature_len() { return _lba_signature_len; }
   uint32_t get_lba_bucket_no_len() { return _lba_bucket_no_len; }
   uint32_t get_lba_slots_per_bucket() { return _lba_slots_per_bucket; }
-  uint32_t get_ca_signature_len() { return _ca_signature_len; }
-  uint32_t get_ca_bucket_no_len() { return _ca_bucket_no_len; }
+  uint32_t get_fp_signature_len() { return _fp_signature_len; }
+  uint32_t get_fp_bucket_no_len() { return _fp_bucket_no_len; }
   uint32_t get_ca_slots_per_bucket() { return _ca_slots_per_bucket; }
+  uint32_t get_clock_bits() { return _clock_bits; }
 
   uint32_t get_max_num_global_threads() { return _max_num_global_threads; }
   uint32_t get_max_num_local_threads() { return _max_num_local_threads; }
@@ -55,9 +64,10 @@ class Config
   void set_lba_signature_len(uint32_t lba_signature_len) { _lba_signature_len = lba_signature_len; }
   void set_lba_bucket_no_len(uint32_t lba_bucket_no_len) { _lba_bucket_no_len = lba_bucket_no_len; }
   void set_lba_slots_per_bucket(uint32_t lba_slots_per_bucket) { _lba_slots_per_bucket = lba_slots_per_bucket; }
-  void set_ca_signature_len(uint32_t ca_signature_len) { _ca_signature_len = ca_signature_len; }
-  void set_ca_bucket_no_len(uint32_t ca_bucket_no_len) { _ca_bucket_no_len = ca_bucket_no_len; }
+  void set_fp_signature_len(uint32_t fp_signature_len) { _fp_signature_len = fp_signature_len; }
+  void set_fp_bucket_no_len(uint32_t fp_bucket_no_len) { _fp_bucket_no_len = fp_bucket_no_len; }
   void set_ca_slots_per_bucket(uint32_t ca_slots_per_bucket) { _ca_slots_per_bucket = ca_slots_per_bucket; }
+  void set_clock_bits(uint32_t v) { _clock_bits = v; }
 
   void set_max_num_global_threads(uint32_t max_num_global_threads) { _max_num_global_threads = max_num_global_threads; }
   void set_max_num_local_threads(uint32_t max_num_local_threads) { _max_num_local_threads = max_num_local_threads; }
@@ -118,9 +128,10 @@ class Config
     _lba_signature_len = 12;
     _lba_bucket_no_len = 11;
     _lba_slots_per_bucket = 32;
-    _ca_signature_len = 12;
-    _ca_bucket_no_len = 10;
+    _fp_signature_len = 16;
+    _fp_bucket_no_len = 10;
     _ca_slots_per_bucket = 32;
+    _clock_bits = 2;
 
     _multi_thread = false;
     _max_num_global_threads = 32;
@@ -149,9 +160,10 @@ class Config
   uint32_t _lba_signature_len;
   uint32_t _lba_bucket_no_len;
   uint32_t _lba_slots_per_bucket;
-  uint32_t _ca_signature_len;
-  uint32_t _ca_bucket_no_len;
+  uint32_t _fp_signature_len;
+  uint32_t _fp_bucket_no_len;
   uint32_t _ca_slots_per_bucket;
+  uint32_t _clock_bits;
 
   // Multi threading related
   uint32_t _max_num_global_threads;

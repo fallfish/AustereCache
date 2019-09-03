@@ -10,7 +10,7 @@ ManageModule::ManageModule(
   _io_module(io_module), _metadata_module(metadata_module)
 {
 #if defined(CDARC)
-  _weu_size = Config::get_configuration().get_write_buffer_size();
+  _weu_size = Config::get_configuration()->get_write_buffer_size();
   _current_ssd_location = 0;
   _current_weu_id = 0;
 #endif
@@ -57,8 +57,8 @@ void ManageModule::preprocess_read(Chunk &c, uint32_t &device_no, uint64_t &addr
     } else {
       buf = c._buf;
     }
-    addr = c._ssd_location + Config::get_configuration().get_metadata_size();
-    len = (c._compress_level + 1) * Config::get_configuration().get_sector_size();
+    addr = c._ssd_location;
+    len = (c._compress_level + 1) * Config::get_configuration()->get_sector_size();
 #endif
   } else {
     device_no = 0;
@@ -135,9 +135,9 @@ bool ManageModule::preprocess_write_cache(
 #endif
 
 #else  // ACDC
-    addr = c._ssd_location + Config::get_configuration().get_metadata_size();
+    addr = c._ssd_location;
     buf = c._compressed_buf;
-    len = (c._compress_level + 1) * Config::get_configuration().get_sector_size();
+    len = (c._compress_level + 1) * Config::get_configuration()->get_sector_size();
 #endif
     return true;
   }

@@ -143,7 +143,7 @@ class ClockCache {
     //std::cout << "ClockCache::update" << std::endl;
     //for (uint32_t i = 0; i < _size; i++) {
       //if (_data[i]._clock != 0) {
-        //std::cout << "index: " << i << " ca_sig: " << _data[i]._key
+        //std::cout << "index: " << i << " fp_sig: " << _data[i]._key
           //<< " size: " << _data[i]._value << " clock: " << _data[i]._clock
           //<< std::endl;
       //}
@@ -192,61 +192,61 @@ TEST(Index, LBABucket)
 {
   srand(0);
   uint32_t n_bits_lba_sig = 12;
-  uint32_t n_bits_ca_hash = 22;
-  cache::LBABucket bucket(n_bits_lba_sig, n_bits_ca_hash, 32);
+  uint32_t n_bits_fp_hash = 22;
+  cache::LBABucket bucket(n_bits_lba_sig, n_bits_fp_hash, 32);
   LRUCache cache(32);
   std::map<uint32_t, uint32_t> map_bucket;
   for (uint32_t i = 0; i < 0; i++) {
     uint32_t op = rand() % 2;
     if (op == 1) {
       uint32_t lba_sig = rand() & ((1 << n_bits_lba_sig) - 1);
-      uint32_t ca_hash = rand() % ((1 << n_bits_ca_hash) - 1);
-      bucket.update(lba_sig, ca_hash, nullptr);
-      cache.update(lba_sig, ca_hash);
-      map_bucket[lba_sig] = ca_hash;
+      uint32_t fp_hash = rand() % ((1 << n_bits_fp_hash) - 1);
+      bucket.update(lba_sig, fp_hash, nullptr);
+      cache.update(lba_sig, fp_hash);
+      map_bucket[lba_sig] = fp_hash;
     } else {
       uint32_t lba_sig = rand() & ((1 << n_bits_lba_sig) - 1);
-      uint32_t ca_hash = 0, ca_hash_lru = 0;
+      uint32_t fp_hash = 0, fp_hash_lru = 0;
       uint32_t lookup_bucket = -1, lookup_lru = -1;
-      lookup_bucket = bucket.lookup(lba_sig, ca_hash);
-      lookup_lru = cache.lookup(lba_sig, ca_hash_lru);
+      lookup_bucket = bucket.lookup(lba_sig, fp_hash);
+      lookup_lru = cache.lookup(lba_sig, fp_hash_lru);
       EXPECT_EQ(lookup_bucket, lookup_lru);
-      EXPECT_EQ(ca_hash, ca_hash_lru);
+      EXPECT_EQ(fp_hash, fp_hash_lru);
       if (lookup_bucket != -1 && lookup_lru != -1) {
-        EXPECT_EQ(ca_hash, map_bucket[lba_sig]);
+        EXPECT_EQ(fp_hash, map_bucket[lba_sig]);
       }
     }
   }
 }
 
-TEST(Index, CABucket)
+TEST(Index, FPBucket)
 {
   srand(0);
-  uint32_t n_bits_ca_sig = 12;
-  cache::CABucket ca_bucket(n_bits_ca_sig, 4, 32);
+  uint32_t n_bits_fp_sig = 12;
+  cache::FPBucket fp_bucket(n_bits_fp_sig, 4, 32);
   ClockCache cache(32);
   std::map<uint32_t, uint32_t> map_bucket;
   for (uint32_t i = 0; i < 0; i++) {
     uint32_t op = rand() % 2;
     if (op == 0) {
-      uint32_t ca_sig = rand() % ((1 << n_bits_ca_sig) - 1);
+      uint32_t fp_sig = rand() % ((1 << n_bits_fp_sig) - 1);
       uint32_t size = (rand() & 3) + 1;
-      //std::cout << "update: " << ca_sig << " " << size << std::endl;
-      ca_bucket.update(ca_sig, size);
-      cache.update(ca_sig, size);
-      map_bucket[ca_sig] = size;
+      //std::cout << "update: " << fp_sig << " " << size << std::endl;
+      fp_bucket.update(fp_sig, size);
+      cache.update(fp_sig, size);
+      map_bucket[fp_sig] = size;
     } else {
-      uint32_t ca_sig = rand() % ((1 << n_bits_ca_sig) - 1);
+      uint32_t fp_sig = rand() % ((1 << n_bits_fp_sig) - 1);
       uint32_t size_ca = 0, size_cache = 0;
       uint32_t lookup_ca = -1, lookup_clock = -1;
-      lookup_ca = ca_bucket.lookup(ca_sig, size_ca);
-      lookup_clock = cache.lookup(ca_sig, size_cache);
-      //std::cout << "lookup: " << ca_sig << " " << size_ca 
-        //<< " " << size_cache << " " << map_bucket[ca_sig] << std::endl;
+      lookup_ca = fp_bucket.lookup(fp_sig, size_ca);
+      lookup_clock = cache.lookup(fp_sig, size_cache);
+      //std::cout << "lookup: " << fp_sig << " " << size_ca 
+        //<< " " << size_cache << " " << map_bucket[fp_sig] << std::endl;
       EXPECT_EQ(lookup_ca, lookup_clock);
       EXPECT_EQ(size_ca, size_cache);
       if (lookup_ca != -1) {
-        EXPECT_EQ(size_ca, map_bucket[ca_sig]);
+        EXPECT_EQ(size_ca, map_bucket[fp_sig]);
       }
     }
   }
@@ -266,18 +266,18 @@ class LRUIndex {
     }
   }
 
-  bool lookup(uint32_t lba_hash, uint32_t &ca_hash)
+  bool lookup(uint32_t lba_hash, uint32_t &fp_hash)
   {
     uint32_t bucket_no = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
-    return _buckets[bucket_no].lookup(signature, ca_hash) != ~((uint32_t)0);
+    return _buckets[bucket_no].lookup(signature, fp_hash) != ~((uint32_t)0);
   }
 
-  void update(uint32_t lba_hash, uint32_t ca_hash)
+  void update(uint32_t lba_hash, uint32_t fp_hash)
   {
     uint32_t bucket_no = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
-    _buckets[bucket_no].update(signature, ca_hash, _clock_index);
+    _buckets[bucket_no].update(signature, fp_hash, _clock_index);
   }
 
 
@@ -306,10 +306,10 @@ class ClockIndex {
     return (bucket_no * _n_items_per_bucket + index) * (8192 + 512);
   }
 
-  bool lookup(uint32_t ca_hash, uint32_t &size, uint32_t &ssd_location)
+  bool lookup(uint32_t fp_hash, uint32_t &size, uint32_t &ssd_location)
   {
-    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
-    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+    uint32_t bucket_no = fp_hash >> _n_bits_per_key;
+    uint32_t signature = fp_hash & ((1 << _n_bits_per_key) - 1);
     uint32_t value;
     uint32_t index = _buckets[bucket_no].lookup(signature, value);
     if (index == ~((uint32_t)0)) return false;
@@ -318,10 +318,10 @@ class ClockIndex {
     return true;
   }
 
-  void update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location)
+  void update(uint32_t fp_hash, uint32_t size, uint64_t &ssd_location)
   {
-    uint32_t bucket_no = ca_hash >> _n_bits_per_key;
-    uint32_t signature = ca_hash & ((1 << _n_bits_per_key) - 1);
+    uint32_t bucket_no = fp_hash >> _n_bits_per_key;
+    uint32_t signature = fp_hash & ((1 << _n_bits_per_key) - 1);
 
 //     find contiguous spaces size can fit in
     _buckets[bucket_no].update(signature, size);
@@ -368,8 +368,8 @@ void LRUCache::update(uint32_t key, uint32_t value,
 
 TEST(Index, Index) {
   uint32_t n_buckets = 1024;
-  std::shared_ptr<cache::CAIndex> ca_index =
-    std::make_shared<cache::CAIndex>(12, 4, n_buckets, 32);
+  std::shared_ptr<cache::FPIndex> ca_index =
+    std::make_shared<cache::FPIndex>(12, 4, n_buckets, 32);
   std::unique_ptr<cache::LBAIndex> lba_index =
     std::make_unique<cache::LBAIndex>(12, 22, n_buckets, 32, ca_index);
   std::shared_ptr<ClockIndex> clock_index =
@@ -383,36 +383,36 @@ TEST(Index, Index) {
     uint32_t op = rand() % 2;
     if (op == 0) {
       uint32_t lba_sig = rand() & ((1 << 22) - 1);
-      uint32_t ca_sig = rand() & ((1 << 22) - 1);
+      uint32_t fp_sig = rand() & ((1 << 22) - 1);
       uint32_t size = (rand() & 3) + 1;
       uint64_t ssd_location_ca = 0;
       uint64_t ssd_location_clock = 0;
       {
-        clock_index->update(ca_sig, size, ssd_location_clock);
-        lru_index->update(lba_sig, ca_sig);
+        clock_index->update(fp_sig, size, ssd_location_clock);
+        lru_index->update(lba_sig, fp_sig);
       }
       {
-        ca_index->update(ca_sig, size, ssd_location_ca);
-        lba_index->update(lba_sig, ca_sig);
+        ca_index->update(fp_sig, size, ssd_location_ca);
+        lba_index->update(lba_sig, fp_sig);
       }
       EXPECT_EQ(ssd_location_ca, ssd_location_clock);
-//      std::cout << "lba_sig: " << lba_sig << " ca_sig: " << ca_sig << std::endl;
+//      std::cout << "lba_sig: " << lba_sig << " fp_sig: " << fp_sig << std::endl;
     } else {
       uint32_t lba_sig = rand() & ((1 << 22) - 1);
 //      std::cout << "lba_sig: " << lba_sig << std::endl;
-      uint32_t ca_sig_clock = 0, ca_sig_ca = 0;
+      uint32_t fp_sig_clock = 0, fp_sig_ca = 0;
       uint32_t size_ca = 0, size_clock = 0;
       uint64_t ssd_location_ca = 0;
       uint64_t ssd_location_clock = 0;
       {
-        lru_index->lookup(lba_sig, ca_sig_clock);
-        ca_index->lookup(ca_sig_clock, size_clock, ssd_location_clock);
+        lru_index->lookup(lba_sig, fp_sig_clock);
+        ca_index->lookup(fp_sig_clock, size_clock, ssd_location_clock);
       }
       {
-        lba_index->lookup(lba_sig, ca_sig_ca);
-        ca_index->lookup(ca_sig_ca, size_ca, ssd_location_ca);
+        lba_index->lookup(lba_sig, fp_sig_ca);
+        ca_index->lookup(fp_sig_ca, size_ca, ssd_location_ca);
       }
-      EXPECT_EQ(ca_sig_ca, ca_sig_clock);
+      EXPECT_EQ(fp_sig_ca, fp_sig_clock);
       EXPECT_EQ(size_ca, size_clock);
       EXPECT_EQ(ssd_location_ca, ssd_location_clock);
     }

@@ -89,7 +89,7 @@ struct Chunk {
     uint8_t  _ca[20];
     uint8_t  _strong_ca[20];
     uint32_t _lba_hash;
-    uint32_t _ca_hash;
+    uint32_t _fp_hash;
     bool     _has_ca;
 
     uint64_t _ssd_location;
@@ -104,7 +104,7 @@ struct Chunk {
     // For multithreading, indexing update must be serialized
     // Bucket-level locks are used to guarantee the consistency of index
     std::unique_ptr<std::lock_guard<std::mutex>> _lba_bucket_lock;
-    std::unique_ptr<std::lock_guard<std::mutex>> _ca_bucket_lock;
+    std::unique_ptr<std::lock_guard<std::mutex>> _fp_bucket_lock;
 
 #ifdef CDARC
     uint32_t _weu_id;
@@ -138,10 +138,10 @@ struct Chunk {
     inline bool is_end() { return _len == 0; }
     inline bool is_aligned() { 
 #ifdef DIRECT_IO
-      return _len == Config::get_configuration().get_chunk_size()
+      return _len == Config::get_configuration()->get_chunk_size()
         && (long long)_buf % 512 == 0;
 #else
-      return _len == Config::get_configuration().get_chunk_size();
+      return _len == Config::get_configuration()->get_chunk_size();
 #endif
     }
     

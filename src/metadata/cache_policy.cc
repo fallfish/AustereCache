@@ -2,12 +2,11 @@
 #include "bucket.h"
 #include "index.h"
 #include "common/stats.h"
+#include "common/config.h"
 #include "manage/dirty_list.h"
 
 #include <memory>
 #include <csignal>
-
-
 
 namespace cache {
   CachePolicyExecutor::CachePolicyExecutor(Bucket *bucket) :
@@ -55,16 +54,16 @@ namespace cache {
   // Only LBA Index would call this function
   // LBA signature only takes one slot.
   // So there is no need to care about the entry may take contiguous slots.
-  void LRUExecutor::clear_obsoletes(std::shared_ptr<CAIndex> ca_index)
+  void LRUExecutor::clear_obsoletes(std::shared_ptr<FPIndex> ca_index)
   {
     for (uint32_t slot_id = 0; slot_id < _bucket->get_n_slots(); ++slot_id) {
       if (!_bucket->is_valid(slot_id)) continue;
 
-      uint32_t size; uint64_t ssd_location; // useless variables
+      uint32_t size; uint64_t ssd_location, metadata_location;// useless variables
       bool valid = false;
-      uint32_t ca_hash = _bucket->get_v(slot_id);
+      uint32_t fp_hash = _bucket->get_v(slot_id);
       if (ca_index != nullptr)
-        valid = ca_index->lookup(ca_hash, size, ssd_location);
+        valid = ca_index->lookup(fp_hash, size, ssd_location, metadata_location);
       // if the slot has no mappings in ca index, it is an empty slot
       if (!valid) {
         _bucket->set_k(slot_id, 0), _bucket->set_v(slot_id, 0);
@@ -120,7 +119,7 @@ namespace cache {
     }
   }
 
-  void CAClockExecutor::clear_obsoletes(std::shared_ptr<CAIndex> ca_index)
+  void CAClockExecutor::clear_obsoletes(std::shared_ptr<FPIndex> ca_index)
   {
   }
 
@@ -191,8 +190,8 @@ namespace cache {
               /* Compute ssd location of the evicted data */
               /* Actually, full CA and address is sufficient. */
                 (_bucket->get_bucket_id() * _bucket->get_n_slots() + slot_id_begin) * 1LL *
-                (Config::get_configuration().get_sector_size() + 
-                 Config::get_configuration().get_metadata_size()),
+                (Config::get_configuration()->get_sector_size() + 
+                 Config::get_configuration()->get_metadata_size()),
                 slot_id - slot_id_begin
               );
 #endif
@@ -218,7 +217,7 @@ namespace cache {
   }
   inline void CAClockExecutor::inc_clock(uint32_t index) {
     uint32_t v = _clock->get_v(index);
-    if (v != 3) {
+    if (v != (1 << Config::get_configuration()->get_clock_bits()) - 1) {
       _clock->set_v(index, v + 1);
     }
   }
@@ -235,7 +234,7 @@ namespace cache {
 
   CAClock::CAClock(uint32_t n_slots_per_bucket, uint32_t n_buckets) : CachePolicy() {
     _n_slots_per_bucket = n_slots_per_bucket;
-    _n_bytes_per_bucket = (2 * n_slots_per_bucket + 7) / 8;
+    _n_bytes_per_bucket = (Config::get_configuration()->get_clock_bits() * n_slots_per_bucket + 7) / 8;
     _clock = std::make_unique< uint8_t[] >(_n_bytes_per_bucket * n_buckets);
     _clock_ptr = 0;
   }

@@ -57,10 +57,10 @@ namespace cache {
       {
         bool has_ini_stat = false, has_config = false, has_access_pattern = false;
         char *param, *value;
-        Config::get_configuration().set_cache_device_size(4LL * 1024 * 1024 * 1024);
-        printf("cache device size: %" PRId64 " MiB\n", Config::get_configuration().get_cache_device_size() / 1024 / 1024);
-        Config::get_configuration().set_primary_device_size(300LL * 1024 * 1024 * 1024);
-        printf("primary device size: %" PRId64 " GiB\n", Config::get_configuration().get_primary_device_size() / 1024 / 1024 / 1024);
+        Config::get_configuration()->set_cache_device_size(16LL * 1024 * 1024 * 1024);
+        printf("cache device size: %" PRId64 " MiB\n", Config::get_configuration()->get_cache_device_size() / 1024 / 1024);
+        Config::get_configuration()->set_primary_device_size(300LL * 1024 * 1024 * 1024);
+        printf("primary device size: %" PRId64 " GiB\n", Config::get_configuration()->get_primary_device_size() / 1024 / 1024 / 1024);
 
         for (int i = 1; i < argc; i += 2) {
           param = argv[i];
@@ -69,32 +69,32 @@ namespace cache {
           if (strcmp(param, "--wr-ratio") == 0) {
             _wr_ratio = atof(value);
           } else if (strcmp(param, "--ca-bits") == 0) {
-            Config::get_configuration().set_ca_bucket_no_len(atoi(value));
+            Config::get_configuration()->set_fp_bucket_no_len(atoi(value));
           } else if (strcmp(param, "--lba-bits") == 0) {
-            Config::get_configuration().set_lba_bucket_no_len(atoi(value));
+            Config::get_configuration()->set_lba_bucket_no_len(atoi(value));
           } else if (strcmp(param, "--multi-thread") == 0) {
             _multi_thread = atoi(value);
           } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
-            Config::get_configuration().set_fingerprint_algorithm(atoi(value));
+            Config::get_configuration()->set_fingerprint_algorithm(atoi(value));
           } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
-            Config::get_configuration().set_fingerprint_computation_method(atoi(value));
+            Config::get_configuration()->set_fingerprint_computation_method(atoi(value));
           } else if (strcmp(param, "--write-buffer-size") == 0) {
-            Config::get_configuration().set_write_buffer_size(atoi(value));
+            Config::get_configuration()->set_write_buffer_size(atoi(value));
           } else if (strcmp(param, "--direct-io") == 0) {
-            Config::get_configuration().set_direct_io(atoi(value));
+            Config::get_configuration()->set_direct_io(atoi(value));
           } else if (strcmp(param, "--access-pattern") == 0) {
             has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
           }
         }
 
-        Config::get_configuration().set_cache_device_name("./cache_device");
-        Config::get_configuration().set_primary_device_name("./primary_device");
-        //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
-        //Config::get_configuration().set_primary_device_name("./primary_device");
-        //Config::get_configuration().set_primary_device_name("./ramdisk/primary_device");
-        //Config::get_configuration().set_cache_device_name("./ramdisk/cache_device");
-        //Config::get_configuration().set_primary_device_name("/dev/sdb");
-        //Config::get_configuration().set_cache_device_name("/dev/sda");
+        //Config::get_configuration()->set_cache_device_name("./cache_device");
+        Config::get_configuration()->set_primary_device_name("./primary_device");
+        //Config::get_configuration()->set_cache_device_name("./ramdisk/cache_device");
+        //Config::get_configuration()->set_primary_device_name("./primary_device");
+        //Config::get_configuration()->set_primary_device_name("./ramdisk/primary_device");
+        Config::get_configuration()->set_cache_device_name("./ramdisk/cache_device");
+        //Config::get_configuration()->set_primary_device_name("/dev/sdb");
+        //Config::get_configuration()->set_cache_device_name("/dev/sda");
         assert(has_access_pattern);
 
         _ssddup = std::make_unique<SSDDup>();
@@ -209,8 +209,8 @@ namespace cache {
         uint32_t len;
         char sha1[50];
         char op[2];
-        Config &conf = Config::get_configuration();
-        int chunk_size = conf.get_chunk_size();
+        Config *conf = Config::get_configuration();
+        int chunk_size = conf->get_chunk_size();
 
         int chunk_id, length;
         assert(f != nullptr);
@@ -221,7 +221,7 @@ namespace cache {
 
         while (fscanf(f, "%lld %d %s %s %lf", &req.addr, &req.len, op, req.sha1, &compressibility) != -1) {
           cnt++;
-          if (req.addr >= Config::get_configuration().get_primary_device_size()) {
+          if (req.addr >= Config::get_configuration()->get_primary_device_size()) {
             continue;
           }
 
@@ -260,10 +260,11 @@ namespace cache {
       void work(std::atomic<uint64_t> &total_bytes)
       {
         char* rwdata;
-        rwdata = (char*)malloc(32768 + 10);
+        rwdata = (char*)aligned_alloc(512, 32768 + 10);
+        //rwdata = (char*)malloc(32768 + 10);
         std::string s;
-        Config& conf = Config::get_configuration();
-        int chunk_size = conf.get_chunk_size();
+        Config* conf = Config::get_configuration();
+        int chunk_size = conf->get_chunk_size();
 
         std::cout << _reqs.size() << std::endl;
         char sha1[23];
@@ -284,15 +285,15 @@ namespace cache {
           convertStr2Sha1(_reqs[i].sha1, sha1);
 
 #if defined(REPLAY_FIU)
-          conf.set_current_fingerprint(sha1);
+          conf->set_current_fingerprint(sha1);
 #endif
 
           total_bytes.fetch_add(len, std::memory_order_relaxed);
 #if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
           if (_reqs[i].r) {
             //printf("compressed len: %d\n", _reqs[i].compressed_len);
-            conf.set_current_data(comp_data[_reqs[i].compressed_len], _reqs[i].compressed_len);
-            conf.set_current_compressed_len(_reqs[i].compressed_len);
+            conf->set_current_data(comp_data[_reqs[i].compressed_len], _reqs[i].compressed_len);
+            conf->set_current_compressed_len(_reqs[i].compressed_len);
           }
           else 
             memcpy(rwdata, comp_data[_reqs[i].compressed_len], chunk_size); 
@@ -338,8 +339,8 @@ namespace cache {
         random_bytes_engine rbe;
 
         char* data_a, *comp_data_a; 
-        Config& conf = Config::get_configuration();
-        int chunk_size = conf.get_chunk_size();
+        Config* conf = Config::get_configuration();
+        int chunk_size = conf->get_chunk_size();
 
         data_a = (char*)malloc(sizeof(char) * chunk_size);
         comp_data_a = (char*)malloc(sizeof(char) * chunk_size);

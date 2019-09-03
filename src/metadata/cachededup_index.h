@@ -134,7 +134,7 @@ namespace cache {
       void init(uint32_t cap, uint32_t p, uint32_t x);
 
       bool lookup(uint64_t lba, uint8_t *ca);
-      void adjust_adaptive_factor(uint32_t lba);
+      void adjust_adaptive_factor(uint64_t lba);
       void promote(uint64_t lba);
       void update(uint64_t lba, uint8_t *ca);
       void check_metadata_cache(uint64_t lba);
@@ -172,7 +172,7 @@ namespace cache {
         std::vector<uint64_t> lbas;
         std::vector<uint64_t> lbas2;
         for (auto lba : _t1) {
-          if (memcmp(_mp[lba]._v, ca, Config::get_configuration().get_ca_length()) == 0) {
+          if (memcmp(_mp[lba]._v, ca, Config::get_configuration()->get_ca_length()) == 0) {
             lbas.push_back(lba);
           }
           if (_mp[lba]._list_id != 0) {
@@ -180,7 +180,7 @@ namespace cache {
           }
         }
         for (auto lba : _t2) {
-          if (memcmp(_mp[lba]._v, ca, Config::get_configuration().get_ca_length()) == 0) {
+          if (memcmp(_mp[lba]._v, ca, Config::get_configuration()->get_ca_length()) == 0) {
             lbas.push_back(lba);
           }
           if (_mp[lba]._list_id != 1) {
@@ -253,7 +253,7 @@ namespace cache {
     void init()
     {
       // 2 MiB weu size
-      _weu_size = Config::get_configuration().get_write_buffer_size();
+      _weu_size = Config::get_configuration()->get_write_buffer_size();
       _current_offset = 0;
     }
     

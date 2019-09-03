@@ -13,38 +13,43 @@ namespace cache {
   //Chunk::Chunk() {}
 
   void Chunk::TEST_fingerprinting() {
-    Config &conf = Config::get_configuration();
-    assert(_len == conf.get_chunk_size());
-    assert(_addr % conf.get_chunk_size() == 0);
+    Config *conf = Config::get_configuration();
+    assert(_len == conf->get_chunk_size());
+    assert(_addr % conf->get_chunk_size() == 0);
     MurmurHash3_x64_128(_buf, _len, 0, _ca);
-    MurmurHash3_x86_32(_ca, conf.get_ca_length(), 2, &_ca_hash);
+    MurmurHash3_x86_32(_ca, conf->get_ca_length(), 2, &_fp_hash);
     _has_ca = true;
   }
   void Chunk::TEST_compute_lba_hash()
   {
-    Config &conf = Config::get_configuration();
+    Config *conf = Config::get_configuration();
     MurmurHash3_x86_32(&_addr, 8, 1, &_lba_hash);
   }
 
   void Chunk::fingerprinting() {
     BEGIN_TIMER();
-    Config &conf = Config::get_configuration();
-    assert(_len == conf.get_chunk_size());
-    assert(_addr % conf.get_chunk_size() == 0);
+    Config *conf = Config::get_configuration();
+    assert(_len == conf->get_chunk_size());
+    assert(_addr % conf->get_chunk_size() == 0);
 #ifdef REPLAY_FIU
-    memcpy(_ca, conf.get_current_fingerprint(), conf.get_ca_length());
+    memcpy(_ca, conf->get_current_fingerprint(), conf->get_ca_length());
 #else
-    if (conf.get_fingerprint_algorithm() == 0) {
+    if (conf->get_fingerprint_algorithm() == 0) {
       SHA1(_buf, _len, _ca);
-    } else if (conf.get_fingerprint_algorithm() == 1) {
+    } else if (conf->get_fingerprint_algorithm() == 1) {
       MurmurHash3_x64_128(_buf, _len, 0, _ca);
     }
 #endif
     _has_ca = true;
 
     // compute ca hash
-    MurmurHash3_x86_32(_ca, conf.get_ca_length(), 2, &_ca_hash);
-    _ca_hash >>= 32 - (conf.get_ca_signature_len() + conf.get_ca_bucket_no_len());
+    //uint64_t tmp[2];
+    //MurmurHash3_x64_128(_ca, conf->get_ca_length(), 2, tmp);
+    //_fp_hash = tmp[0];
+    //_fp_hash >>= 64 - (conf->get_fp_signature_len() + conf->get_fp_bucket_no_len());
+    _fp_hash = 0;
+    MurmurHash3_x86_32(_ca, conf->get_ca_length(), 2, &_fp_hash);
+    _fp_hash >>= 32 - (conf->get_fp_signature_len() + conf->get_fp_bucket_no_len());
     END_TIMER(fingerprinting);
   }
 
@@ -54,22 +59,27 @@ namespace cache {
 
   void Chunk::compute_lba_hash()
   {
-    Config &conf = Config::get_configuration();
-    MurmurHash3_x86_32(&_addr, 8, 1, &_lba_hash);
-    _lba_hash >>= 32 - (conf.get_lba_signature_len() + conf.get_lba_bucket_no_len());
+    Config *conf = Config::get_configuration();
+    //uint64_t tmp[2];
+    //MurmurHash3_x64_128(_addr, 8, 2, tmp);
+    //_lba_hash = tmp[0];
+    //_lba_hash >>= 64 - (conf->get_lba_signature_len() + conf->get_lba_bucket_no_len());
+    _lba_hash = 0;
+    MurmurHash3_x86_32(&_addr, 8, 2, &_lba_hash);
+    _lba_hash >>= 32 - (conf->get_lba_signature_len() + conf->get_lba_bucket_no_len());
   }
 
   void Chunk::preprocess_unaligned(uint8_t *buf) {
-    Config &conf = Config::get_configuration();
+    Config *conf = Config::get_configuration();
     _original_addr = _addr;
     _original_len = _len;
     _original_buf = _buf;
 
-    _addr = _addr - _addr % conf.get_chunk_size();
-    _len = conf.get_chunk_size();
+    _addr = _addr - _addr % conf->get_chunk_size();
+    _len = conf->get_chunk_size();
     _buf = buf;
 
-    memset(buf, 0, conf.get_chunk_size());
+    memset(buf, 0, conf->get_chunk_size());
     compute_lba_hash();
   }
 
@@ -77,8 +87,8 @@ namespace cache {
   // the base chunk is an unaligned write chunk
   // the delta chunk is a read chunk
   void Chunk::merge_write() {
-    Config &conf = Config::get_configuration();
-    uint32_t chunk_size = conf.get_chunk_size();
+    Config *conf = Config::get_configuration();
+    uint32_t chunk_size = conf->get_chunk_size();
     assert(_addr - _addr % chunk_size == _original_addr - _original_addr % chunk_size);
 
     memcpy(_buf + _original_addr % chunk_size, _original_buf, _original_len);
@@ -92,12 +102,12 @@ namespace cache {
   }
 
   void Chunk::merge_read() {
-    Config &conf = Config::get_configuration();
-    memcpy(_original_buf, _buf + _original_addr % conf.get_chunk_size(), _original_len);
+    Config *conf = Config::get_configuration();
+    memcpy(_original_buf, _buf + _original_addr % conf->get_chunk_size(), _original_len);
   }
 
   Chunker::Chunker(uint64_t addr, void *buf, uint32_t len) :
-    _chunk_size(Config::get_configuration().get_chunk_size()),
+    _chunk_size(Config::get_configuration()->get_chunk_size()),
     _addr(addr), _len(len), _buf((uint8_t*)buf)
   {}
 

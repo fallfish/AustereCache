@@ -50,7 +50,7 @@ class RunDeduplicationModule {
           exit(1);
         }
       } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::get_configuration().set_ca_bucket_no_len(atoi(value));
+        Config::get_configuration()->set_fp_bucket_no_len(atoi(value));
       }
     }
     _io_module = std::make_shared<IOModule>();
@@ -62,16 +62,16 @@ class RunDeduplicationModule {
 
   void warm_up()
   {
-    Config &conf = Config::get_configuration();
+    Config *conf = Config::get_configuration();
     for (int i = 0; i < _n_chunks; i++) {
     alignas(512) Chunk c;
       // the lba hash and ca hash should be adapted to the metadata configuration
       // in the trace, the hash value is all full 32 bit hash
       // while in the metadata module, we will have (signature + bucket_no) format
       _chunks[i]._lba_hash >>= 32 - 
-        (conf.get_lba_signature_len() + conf.get_lba_bucket_no_len());
-      _chunks[i]._ca_hash >>= 32 - 
-        (conf.get_ca_signature_len() + conf.get_ca_bucket_no_len());
+        (conf->get_lba_signature_len() + conf->get_lba_bucket_no_len());
+      _chunks[i]._fp_hash >>= 32 - 
+        (conf->get_fp_signature_len() + conf->get_fp_bucket_no_len());
       memcpy(&c, _chunks + i, sizeof(Chunk));
       _deduplication_module->dedup(c);
       _metadata_module->update(c);
@@ -100,7 +100,7 @@ class RunDeduplicationModule {
             _deduplication_module->lookup(c);
             if (c._lookup_result == NOT_HIT) {
               memcpy(c._ca, _chunks[j]._ca, 16);
-              c._ca_hash = _chunks[j]._ca_hash;
+              c._fp_hash = _chunks[j]._fp_hash;
               c._compress_level = _chunks[j]._compress_level;
               c._has_ca = true;
             } else if (c._lookup_result == HIT) {

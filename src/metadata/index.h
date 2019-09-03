@@ -1,6 +1,6 @@
 /* File: metadata/index.h
  * Description:
- *   This file contains declarations of our designed LBAIndex and CAIndex.
+ *   This file contains declarations of our designed LBAIndex and FPIndex.
  *
  *   1. Each Index instance manages the memory of bucket slots mappings, bucket valid bits,
  *      and mutexes, and corresponding cache policy functions.
@@ -45,15 +45,15 @@ namespace cache {
       std::unique_ptr< std::mutex[] > _mutexes;
   };
 
-  class CAIndex;
+  class FPIndex;
   class LBAIndex : Index {
     public:
       LBAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
-          uint32_t n_buckets, uint32_t n_slots_per_bucket, std::shared_ptr<CAIndex> ca_index);
+          uint32_t n_buckets, uint32_t n_slots_per_bucket, std::shared_ptr<FPIndex> ca_index);
       ~LBAIndex();
-      bool lookup(uint32_t lba_hash, uint32_t &ca_hash);
+      bool lookup(uint32_t lba_hash, uint32_t &fp_hash);
       void promote(uint32_t lba_hash);
-      void update(uint32_t lba_hash, uint32_t ca_hash);
+      void update(uint32_t lba_hash, uint32_t fp_hash);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t lba_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
@@ -66,23 +66,23 @@ namespace cache {
             _cache_policy.get(), bucket_id));
       }
     private:
-      std::shared_ptr<CAIndex> _ca_index;
+      std::shared_ptr<FPIndex> _ca_index;
   };
 
-  class CAIndex : Index {
+  class FPIndex : Index {
     public:
       // n_bits_per_key = 12, n_bits_per_value = 4
-      CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
+      FPIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_slots_per_bucket);
-      ~CAIndex();
-      bool lookup(uint32_t ca_hash, uint32_t &size, uint64_t &ssd_location);
-      void promote(uint32_t ca_hash);
-      void update(uint32_t ca_hash, uint32_t size, uint64_t &ssd_location);
-      std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t ca_hash);
+      ~FPIndex();
+      bool lookup(uint32_t fp_hash, uint32_t &size, uint64_t &ssd_location, uint64_t &metadata_location);
+      void promote(uint32_t fp_hash);
+      void update(uint32_t fp_hash, uint32_t size, uint64_t &ssd_location, uint64_t &metadata_location);
+      std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t fp_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
-      std::unique_ptr<CABucket> get_ca_bucket(uint32_t bucket_id) {
-        return std::move(std::make_unique<CABucket>(
+      std::unique_ptr<FPBucket> get_fp_bucket(uint32_t bucket_id) {
+        return std::move(std::make_unique<FPBucket>(
             _n_bits_per_key, _n_bits_per_value, _n_slots_per_bucket,
             _data.get() + _n_data_bytes_per_bucket * bucket_id, 
             _valid.get() + _n_valid_bytes_per_bucket * bucket_id,
@@ -90,6 +90,9 @@ namespace cache {
       }
     private:
       uint64_t compute_ssd_location(uint32_t bucket_no, uint32_t index);
+      uint64_t compute_metadata_location(uint32_t bucket_no, uint32_t index);
+
+      //std::map< uint8_t [], std::pair<uint32_t> > collide_fingeprints;
   };
 
 }

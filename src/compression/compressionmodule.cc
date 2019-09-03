@@ -59,8 +59,8 @@ void CompressionModule::decompress(Chunk &c)
 #endif
 
 #if defined(NORMAL_DIST_COMPRESSION)
-    c._compressed_len = Config::get_configuration().get_current_compressed_len();
-    memcpy(c._compressed_buf, Config::get_configuration().get_current_data(), c._compressed_len);
+    c._compressed_len = Config::get_configuration()->get_current_compressed_len();
+    memcpy(c._compressed_buf, Config::get_configuration()->get_current_data(), c._compressed_len);
     // printf("%s: ", __func__);
     // print_SHA1((char*)c._compressed_buf, c._compressed_len);
 #endif

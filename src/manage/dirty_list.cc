@@ -22,8 +22,15 @@ namespace cache {
   }
 
   DirtyList* DirtyList::get_instance() {
-    static DirtyList instance;
-    return &instance;
+    if (instance == nullptr) {
+      instance = new DirtyList();
+    }
+    return instance;
+  }
+  void DirtyList::release() {
+    if (instance != nullptr) {
+      delete instance;
+    }
   }
 
   void DirtyList::add_latest_update(uint64_t lba, uint64_t ssd_data_location, uint32_t len)
@@ -66,7 +73,7 @@ namespace cache {
    */
 #if defined(DLRU) || defined(DARC)
   void DirtyList::flush() {
-    alignas(512) uint8_t data[Config::get_configuration().get_chunk_size()];
+    alignas(512) uint8_t data[Config::get_configuration()->get_chunk_size()];
     while (_evicted_blocks.size() != 0) {
       uint64_t ssd_data_location = _evicted_blocks.front()._ssd_data_location;
       uint32_t len = _evicted_blocks.front()._len;
@@ -81,10 +88,10 @@ namespace cache {
         }
       }
       // Read cached data
-      _io_module->read(1, ssd_data_location, data, Config::get_configuration().get_chunk_size());
+      _io_module->read(1, ssd_data_location, data, Config::get_configuration()->get_chunk_size());
 
       for (auto lba : lbas_to_flush) {
-        _io_module->write(0, lba, data, Config::get_configuration().get_chunk_size());
+        _io_module->write(0, lba, data, Config::get_configuration()->get_chunk_size());
         _latest_updates.erase(lba);
       }
     }
@@ -94,18 +101,18 @@ namespace cache {
         uint64_t lba = pr.first;
         uint64_t ssd_data_location = pr.second.first;
         // Read cached data
-        _io_module->read(1, ssd_data_location, data, Config::get_configuration().get_chunk_size());
-        _io_module->write(0, lba, data, Config::get_configuration().get_chunk_size());
+        _io_module->read(1, ssd_data_location, data, Config::get_configuration()->get_chunk_size());
+        _io_module->write(0, lba, data, Config::get_configuration()->get_chunk_size());
       }
       _latest_updates.clear();
     }
   }
 #else
   void DirtyList::flush() {
-    alignas(512) uint8_t compressed_data[Config::get_configuration().get_chunk_size()];
-    alignas(512) uint8_t uncompressed_data[Config::get_configuration().get_chunk_size()];
+    alignas(512) uint8_t compressed_data[Config::get_configuration()->get_chunk_size()];
+    alignas(512) uint8_t uncompressed_data[Config::get_configuration()->get_chunk_size()];
     alignas(512) Metadata metadata;
-    uint32_t sector_size = Config::get_configuration().get_sector_size();
+    uint32_t sector_size = Config::get_configuration()->get_sector_size();
 
     // Case 1: We have a newly evicted block.
     while (_evicted_blocks.size() != 0) {
@@ -124,18 +131,18 @@ namespace cache {
       }
       // Read cached metadata (compressed length)
       _io_module->read(1, ssd_data_location, 
-          &metadata, Config::get_configuration().get_metadata_size());
+          &metadata, Config::get_configuration()->get_metadata_size());
       // Read cached data
-      _io_module->read(1, ssd_data_location + Config::get_configuration().get_metadata_size(),
-          compressed_data, len * Config::get_configuration().get_sector_size());
+      _io_module->read(1, ssd_data_location + Config::get_configuration()->get_metadata_size(),
+          compressed_data, len * Config::get_configuration()->get_sector_size());
       // Decompress cached data
       memset(uncompressed_data, 0, 32768);
       _compression_module->decompress(compressed_data, uncompressed_data, 
-          metadata._compressed_len, Config::get_configuration().get_chunk_size());
+          metadata._compressed_len, Config::get_configuration()->get_chunk_size());
 
       for (auto lba : lbas_to_flush) {
         _io_module->write(0, lba, uncompressed_data,
-            Config::get_configuration().get_chunk_size());
+            Config::get_configuration()->get_chunk_size());
         _latest_updates.erase(lba);
       }
     }
@@ -148,16 +155,16 @@ namespace cache {
 
         // Read cached metadata (compressed length)
         _io_module->read(1, ssd_data_location, 
-            &metadata, Config::get_configuration().get_metadata_size());
+            &metadata, Config::get_configuration()->get_metadata_size());
         // Read cached data
-        _io_module->read(1, ssd_data_location + Config::get_configuration().get_metadata_size(),
-            compressed_data, pr.second.second * Config::get_configuration().get_sector_size());
+        _io_module->read(1, ssd_data_location + Config::get_configuration()->get_metadata_size(),
+            compressed_data, pr.second.second * Config::get_configuration()->get_sector_size());
         // Decompress cached data
         _compression_module->decompress(compressed_data, uncompressed_data, 
-            metadata._compressed_len, Config::get_configuration().get_chunk_size());
+            metadata._compressed_len, Config::get_configuration()->get_chunk_size());
         // Write uncompressed data into HDD
         _io_module->write(0, lba, uncompressed_data,
-            Config::get_configuration().get_chunk_size());
+            Config::get_configuration()->get_chunk_size());
       }
       _latest_updates.clear();
     }

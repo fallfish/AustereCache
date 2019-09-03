@@ -32,7 +32,7 @@ namespace cache {
     auto it = _mp.find(lba);
     if (it == _mp.end()) return false;
     else {
-      memcpy(ca, it->second._v, Config::get_configuration().get_ca_length());
+      memcpy(ca, it->second._v, Config::get_configuration()->get_ca_length());
       return true;
     }
   }
@@ -54,11 +54,16 @@ namespace cache {
   void DLRU_SourceIndex::update(uint64_t lba, uint8_t *ca) {
     CA ca_;
     if (lookup(lba, ca_._v)) {
-      promote(lba);
+      auto it = _mp.find(lba)->second._it;
+      memcpy(_mp[lba]._v, ca, Config::get_configuration()->get_ca_length());
+      _list.erase(it);
+      _list.push_front(lba);
+      // renew the iterator stored in the mapping
+      _mp[lba]._it = _list.begin();
       return ;
     }
 
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
     if (_list.size() == _capacity) {
       uint64_t lba_ = _list.back();
       _list.pop_back();
@@ -79,15 +84,15 @@ namespace cache {
   void DLRU_FingerprintIndex::init(uint32_t cap)
   {
     _capacity = cap;
-    _space_allocator._capacity = cap * Config::get_configuration().get_chunk_size();
+    _space_allocator._capacity = cap * Config::get_configuration()->get_chunk_size();
     _space_allocator._current_location = 0;
-    _space_allocator._chunk_size = Config::get_configuration().get_chunk_size();
+    _space_allocator._chunk_size = Config::get_configuration()->get_chunk_size();
   }
 
   bool DLRU_FingerprintIndex::lookup(uint8_t *ca, uint64_t &ssd_data_pointer)
   {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
     auto it = _mp.find(ca_);
 
     if (it == _mp.end()) {
@@ -101,7 +106,7 @@ namespace cache {
   void DLRU_FingerprintIndex::promote(uint8_t *ca)
   {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
     auto it = _mp.find(ca_);
     assert(it != _mp.end());
     _list.erase(it->second._it);
@@ -129,14 +134,14 @@ namespace cache {
       _space_allocator.recycle(_mp[ca_]._ssd_data_pointer);
 #if defined(WRITE_BACK_CACHE)
       DirtyList::get_instance()->add_evicted_block(_mp[ca_]._ssd_data_pointer,
-          Config::get_configuration().get_chunk_size());
+          Config::get_configuration()->get_chunk_size());
 #endif
       _mp.erase(ca_);
       Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
     }
     dp_._ssd_data_pointer = _space_allocator.allocate();
 
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
     _list.push_front(ca_);
     dp_._it = _list.begin();
 
@@ -164,12 +169,12 @@ namespace cache {
     if (it == _mp.end()) {
       return false;
     } else {
-      memcpy(ca, it->second._v, Config::get_configuration().get_ca_length());
+      memcpy(ca, it->second._v, Config::get_configuration()->get_ca_length());
       return true;
     }
   }
 
-  void DARC_SourceIndex::adjust_adaptive_factor(uint32_t lba)
+  void DARC_SourceIndex::adjust_adaptive_factor(uint64_t lba)
   {
     auto it = _mp.find(lba);
     if (it == _mp.end()) return ;
@@ -194,7 +199,7 @@ namespace cache {
       check_metadata_cache(lba);
 
       _t1.push_front(lba);
-      memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+      memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
       ca_._it = _t1.begin();
       ca_._list_id = 0;
 
@@ -222,7 +227,7 @@ namespace cache {
         if (it == _mp.end()) {
           // if check metadata cache remove current lba from the mp
           _t1.push_front(lba);
-          memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+          memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
           ca_._it = _t1.begin();
           ca_._list_id = 0;
 
@@ -272,7 +277,7 @@ namespace cache {
 #else
     DARC_FingerprintIndex::get_instance().reference(lba, ca);
 #endif
-    memcpy(_mp[lba]._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(_mp[lba]._v, ca, Config::get_configuration()->get_ca_length());
   }
 
   void DARC_SourceIndex::check_metadata_cache(uint64_t lba)
@@ -410,14 +415,14 @@ namespace cache {
   void DARC_FingerprintIndex::init(uint32_t cap)
   {
     _capacity = cap;
-    _space_allocator._capacity = cap * Config::get_configuration().get_chunk_size();
+    _space_allocator._capacity = cap * Config::get_configuration()->get_chunk_size();
     _space_allocator._current_location = 0;
-    _space_allocator._chunk_size = Config::get_configuration().get_chunk_size();
+    _space_allocator._chunk_size = Config::get_configuration()->get_chunk_size();
   }
 
   bool DARC_FingerprintIndex::lookup(uint8_t *ca, uint64_t &ssd_data_pointer) {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
 
     auto it = _mp.find(ca_);
     if (it == _mp.end()) {
@@ -431,7 +436,7 @@ namespace cache {
   void DARC_FingerprintIndex::reference(uint64_t lba, uint8_t *ca)
   {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
 
     auto it = _mp.find(ca_);
     if (it == _mp.end()) {
@@ -449,7 +454,7 @@ namespace cache {
   void DARC_FingerprintIndex::deference(uint64_t lba, uint8_t *ca)
   {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
 
     auto it = _mp.find(ca_);
     if (it == _mp.end()) {
@@ -473,7 +478,7 @@ namespace cache {
     int _ = _capacity;
     CA ca_;
     DP dp_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
     if (_mp.find(ca_) != _mp.end()) {
       return ;
     }
@@ -490,11 +495,11 @@ namespace cache {
       _space_allocator.recycle(_mp[ca_]._ssd_data_pointer);
 #if defined(WRITE_BACK_CACHE)
       DirtyList::get_instance()->add_evicted_block(_mp[ca_]._ssd_data_pointer,
-          Config::get_configuration().get_chunk_size());
+          Config::get_configuration()->get_chunk_size());
 #endif
       _mp.erase(ca_);
 
-      memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+      memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
       Stats::get_instance()->add_ca_index_eviction_caused_by_capacity();
     }
 
@@ -523,7 +528,7 @@ namespace cache {
   // or a sweep and clean procedure.
   bool CDARC_FingerprintIndex::lookup(uint8_t *ca, uint32_t &weu_id, uint32_t &offset, uint32_t &len) {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
 
     auto it = _mp.find(ca_);
     if (it == _mp.end()) {
@@ -543,7 +548,7 @@ namespace cache {
   void CDARC_FingerprintIndex::reference(uint64_t lba, uint8_t *ca)
   {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
 
     auto it = _mp.find(ca_);
     if (it == _mp.end()) {
@@ -568,7 +573,7 @@ namespace cache {
   void CDARC_FingerprintIndex::deference(uint64_t lba, uint8_t *ca)
   {
     CA ca_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
 
     auto it = _mp.find(ca_);
     if (it == _mp.end()) {
@@ -591,7 +596,7 @@ namespace cache {
     uint32_t evicted_weu_id = ~0;
     CA ca_;
     DP dp_;
-    memcpy(ca_._v, ca, Config::get_configuration().get_ca_length());
+    memcpy(ca_._v, ca, Config::get_configuration()->get_ca_length());
     if (_mp.find(ca_) != _mp.end()) {
       return evicted_weu_id;
     }

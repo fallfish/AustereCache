@@ -13,6 +13,9 @@
 #include <chrono>
 
 namespace cache {
+  Config *Config::instance = nullptr;
+  Stats *Stats::instance = nullptr;
+  DirtyList *DirtyList::instance = nullptr;
   SSDDup::SSDDup()
   {
     double vm, rss;
@@ -20,15 +23,15 @@ namespace cache {
     std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
     _chunk_module = std::make_unique<ChunkModule>();
     std::shared_ptr<IOModule> io_module = std::make_shared<IOModule>();
-    io_module->add_cache_device(Config::get_configuration().get_cache_device_name());
-    io_module->add_primary_device(Config::get_configuration().get_primary_device_name());
+    io_module->add_cache_device(Config::get_configuration()->get_cache_device_name());
+    io_module->add_primary_device(Config::get_configuration()->get_primary_device_name());
     _compression_module = std::make_shared<CompressionModule>();
     std::shared_ptr<MetadataModule> metadata_module =
       std::make_shared<MetadataModule>(io_module, _compression_module);
     _deduplication_module = std::make_unique<DeduplicationModule>(metadata_module);
     _manage_module = std::make_unique<ManageModule>(io_module, metadata_module);
     _stats = Stats::get_instance();
-    _thread_pool = std::make_unique<ThreadPool>(Config::get_configuration().get_max_num_global_threads());
+    _thread_pool = std::make_unique<ThreadPool>(Config::get_configuration()->get_max_num_global_threads());
 
 #ifdef WRITE_BACK_CACHE
     DirtyList::get_instance()->set_io_module(io_module);
@@ -40,6 +43,9 @@ namespace cache {
 
   SSDDup::~SSDDup() {
     _stats->dump();
+    Stats::release();
+    Config::release();
+    DirtyList::release();
     double vm, rss;
     process_mem_usage(vm, rss);
     std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
@@ -47,7 +53,7 @@ namespace cache {
 
   void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
   {
-    if (Config::get_configuration().get_multi_thread()) {
+    if (Config::get_configuration()->get_multi_thread()) {
       read_mt(addr, buf, len);
     } else {
       read_singlethread(addr, buf, len);
@@ -69,7 +75,7 @@ namespace cache {
     int thread_id;
 
     while (chunker.next(tmp_addr, tmp_buf, tmp_len)) {
-      if (threads.size() == Config::get_configuration().get_max_num_local_threads()) {
+      if (threads.size() == Config::get_configuration()->get_max_num_local_threads()) {
         _thread_pool->wait_and_return_threads(threads);
       }
       while ( (thread_id = _thread_pool->allocate_thread()) == -1) {
@@ -96,7 +102,7 @@ namespace cache {
     alignas(512) Chunk c;
     while (chunker.next(c)) {
       Stats::get_instance()->set_current_request_type(0);
-      alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
+      alignas(512) uint8_t temp_buffer[Config::get_configuration()->get_chunk_size()];
       if (!c.is_aligned()) {
         c.preprocess_unaligned(temp_buffer);
         //printf("TEST: %s, not aligned, addr = %lld, len = %d\n", __func__, addr, len);
@@ -106,7 +112,7 @@ namespace cache {
         //printf("TEST: %s, aligned\n", __func__);
         internal_read(c, true);
       }
-      c._ca_bucket_lock.reset();
+      c._fp_bucket_lock.reset();
       c._lba_bucket_lock.reset();
     }
   }
@@ -124,7 +130,7 @@ namespace cache {
       // and will be wrapped by read_chunk
       // to avoid memory allocation overhead
       // it is small 8K/32K memory overhead
-      alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
+      alignas(512) uint8_t temp_buffer[Config::get_configuration()->get_chunk_size()];
       if (!c.is_aligned()) {
         // read-modify-write is introduced
         c.preprocess_unaligned(temp_buffer);
@@ -135,7 +141,7 @@ namespace cache {
         c.merge_write();
       }
       internal_write(c);
-      c._ca_bucket_lock.reset();
+      c._fp_bucket_lock.reset();
       c._lba_bucket_lock.reset();
     }
   }
@@ -143,9 +149,6 @@ namespace cache {
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
   void SSDDup::internal_read(Chunk &c, bool update_metadata)
   {
-#ifdef REPLAY_FIU
-    c.fingerprinting();
-#endif
     _deduplication_module->lookup(c);
     Stats::get_instance()->add_read_stat(c);
     // printf("TEST: %s, _manage_module read\n", __func__);
@@ -189,12 +192,9 @@ namespace cache {
       // construct compressed buffer for chunk c
       // When the cache is hit, this is used to store the data
       // retrieved from ssd 
-      alignas(512) uint8_t compressed_buf[Config::get_configuration().get_chunk_size()];
+      alignas(512) uint8_t compressed_buf[Config::get_configuration()->get_chunk_size()];
       c._compressed_buf = compressed_buf;
 
-#ifdef REPLAY_FIU
-    c.fingerprinting();
-#endif
       // look up index
       _deduplication_module->lookup(c);
       // record status
@@ -233,7 +233,7 @@ namespace cache {
   void SSDDup::internal_write(Chunk &c)
   {
     c._lookup_result = LOOKUP_UNKNOWN;
-    alignas(512) uint8_t temp_buffer[Config::get_configuration().get_chunk_size()];
+    alignas(512) uint8_t temp_buffer[Config::get_configuration()->get_chunk_size()];
     c._compressed_buf = temp_buffer;
 
     {

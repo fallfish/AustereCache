@@ -4,14 +4,14 @@
 #include <memory>
 #include "bucket.h"
 namespace cache {
-  class CAIndex;
+  class FPIndex;
 
   struct CachePolicyExecutor {
     CachePolicyExecutor(Bucket *bucket);
 
     virtual void promote(uint32_t slot_id, uint32_t n_slots_to_occupy = 1) = 0;
     virtual uint32_t allocate(uint32_t n_slots_to_occupy = 1) = 0;
-    virtual void clear_obsoletes(std::shared_ptr<CAIndex> ca_index) = 0;
+    virtual void clear_obsoletes(std::shared_ptr<FPIndex> ca_index) = 0;
 
     Bucket *_bucket;
   };
@@ -23,7 +23,7 @@ namespace cache {
     // Only LBA Index would call this function
     // LBA signature only takes one slot.
     // So there is no need to care about the entry may take contiguous slots.
-    void clear_obsoletes(std::shared_ptr<CAIndex> ca_index);
+    void clear_obsoletes(std::shared_ptr<FPIndex> ca_index);
     uint32_t allocate(uint32_t n_slots_to_occupy = 1);
   };
 
@@ -32,7 +32,7 @@ namespace cache {
     ~CAClockExecutor();
 
     void promote(uint32_t slot_id, uint32_t n_slots_occupied = 1);
-    void clear_obsoletes(std::shared_ptr<CAIndex> ca_index);
+    void clear_obsoletes(std::shared_ptr<FPIndex> ca_index);
     uint32_t allocate(uint32_t n_slots_to_occupy = 1);
 
     inline void init_clock(uint32_t index);

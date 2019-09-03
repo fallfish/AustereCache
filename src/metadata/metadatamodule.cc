@@ -11,40 +11,40 @@
 namespace cache {
   MetadataModule::MetadataModule(std::shared_ptr<IOModule> io_module,
       std::shared_ptr<CompressionModule> compression_module) {
-    Config &config = Config::get_configuration();
-    uint32_t ca_signature_len = config.get_ca_signature_len(), 
-             ca_bucket_no_len = config.get_ca_bucket_no_len(),
-             lba_signature_len = config.get_lba_signature_len(),
-             lba_bucket_no_len = config.get_lba_bucket_no_len();
-    uint32_t ca_slots_per_bucket = config.get_ca_slots_per_bucket(),
-             lba_slots_per_bucket = config.get_lba_slots_per_bucket();
-    _ca_index = std::make_shared<CAIndex>(
-      ca_signature_len, 4, ca_slots_per_bucket, (1 << ca_bucket_no_len));
+    Config *config = Config::get_configuration();
+    uint32_t fp_signature_len = config->get_fp_signature_len(), 
+             fp_bucket_no_len = config->get_fp_bucket_no_len(),
+             lba_signature_len = config->get_lba_signature_len(),
+             lba_bucket_no_len = config->get_lba_bucket_no_len();
+    uint32_t ca_slots_per_bucket = config->get_ca_slots_per_bucket(),
+             lba_slots_per_bucket = config->get_lba_slots_per_bucket();
+    _ca_index = std::make_shared<FPIndex>(
+      fp_signature_len, 4, ca_slots_per_bucket, (1 << fp_bucket_no_len));
     _lba_index = std::make_unique<LBAIndex>(
-      lba_signature_len, (ca_signature_len + ca_bucket_no_len),
+      lba_signature_len, (fp_signature_len + fp_bucket_no_len),
       lba_slots_per_bucket, (1 << lba_bucket_no_len), _ca_index);
     // _meta_verification and _meta_journal should
     // hold a shared_ptr to _io_module
     _meta_verification = std::make_unique<MetaVerification>(io_module, compression_module);
     _meta_journal = std::make_unique<MetaJournal>(io_module);
     std::cout << "Number of LBA buckets: " << (1 << lba_bucket_no_len) << std::endl;
-    std::cout << "Number of CA buckets: " << (1 << ca_bucket_no_len) << std::endl;
+    std::cout << "Number of CA buckets: " << (1 << fp_bucket_no_len) << std::endl;
 #ifdef CACHE_DEDUP
 #if defined(DLRU)
     DLRU_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len));
-    DLRU_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << ca_bucket_no_len));
+    DLRU_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
     std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << ca_bucket_no_len)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << fp_bucket_no_len)) << std::endl;
 #elif defined(DARC)
     DARC_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
-    DARC_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << ca_bucket_no_len));
+    DARC_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
     std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << ca_bucket_no_len)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << fp_bucket_no_len)) << std::endl;
 #elif defined(CDARC)
     DARC_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
-    CDARC_FingerprintIndex::get_instance().init((1 << ca_bucket_no_len));
+    CDARC_FingerprintIndex::get_instance().init((1 << fp_bucket_no_len));
     std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (1 << ca_bucket_no_len) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (1 << fp_bucket_no_len) << std::endl;
 #endif
 #endif
   }
@@ -140,16 +140,16 @@ namespace cache {
 
   void MetadataModule::dedup(Chunk &c)
   {
-    uint32_t ca_hash = ~0;
+    uint32_t fp_hash = ~0;
     if (c._lba_bucket_lock.get() == nullptr) {
       c._lba_bucket_lock = std::move(_lba_index->lock(c._lba_hash));
     }
-    c._lba_hit = _lba_index->lookup(c._lba_hash, ca_hash) && (ca_hash == c._ca_hash);
+    c._lba_hit = _lba_index->lookup(c._lba_hash, fp_hash) && (fp_hash == c._fp_hash);
 
-    if (c._ca_bucket_lock.get() == nullptr) {
-      c._ca_bucket_lock = std::move(_ca_index->lock(c._ca_hash));
+    if (c._fp_bucket_lock.get() == nullptr) {
+      c._fp_bucket_lock = std::move(_ca_index->lock(c._fp_hash));
     }
-    c._ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
+    c._ca_hit = _ca_index->lookup(c._fp_hash, c._compress_level, c._ssd_location, c._metadata_location);
 
     if (c._ca_hit) {
       c._verification_result = _meta_verification->verify(c);
@@ -175,10 +175,10 @@ namespace cache {
     bool lba_hit = false, ca_hit = false;
 
     c._lba_bucket_lock = std::move(_lba_index->lock(c._lba_hash));
-    c._lba_hit = _lba_index->lookup(c._lba_hash, c._ca_hash);
+    c._lba_hit = _lba_index->lookup(c._lba_hash, c._fp_hash);
     if (c._lba_hit) {
-      c._ca_bucket_lock = std::move(_ca_index->lock(c._ca_hash));
-      c._ca_hit = _ca_index->lookup(c._ca_hash, c._compress_level, c._ssd_location);
+      c._fp_bucket_lock = std::move(_ca_index->lock(c._fp_hash));
+      c._ca_hit = _ca_index->lookup(c._fp_hash, c._compress_level, c._ssd_location, c._metadata_location);
       if (c._ca_hit) {
         c._verification_result = _meta_verification->verify(c);
       }
@@ -187,8 +187,8 @@ namespace cache {
     if (c._verification_result == VerificationResult::ONLY_LBA_VALID) {
       c._lookup_result = HIT;
     } else {
-      c._ca_bucket_lock.reset();
-      assert(c._ca_bucket_lock.get() == nullptr);
+      c._fp_bucket_lock.reset();
+      assert(c._fp_bucket_lock.get() == nullptr);
       c._lookup_result = NOT_HIT;
     }
   }
@@ -201,19 +201,19 @@ namespace cache {
 
     BEGIN_TIMER();
     if (c._lookup_result == HIT) {
-      _ca_index->promote(c._ca_hash);
+      _ca_index->promote(c._fp_hash);
       _lba_index->promote(c._lba_hash);
     } else {
       if (c._dedup_result == DUP_CONTENT) {
-        _ca_index->promote(c._ca_hash);
+        _ca_index->promote(c._fp_hash);
         if (c._lba_hit) {
           _lba_index->promote(c._lba_hash);
         } else {
-          _lba_index->update(c._lba_hash, c._ca_hash);
+          _lba_index->update(c._lba_hash, c._fp_hash);
         }
       } else {
-        _ca_index->update(c._ca_hash, c._compress_level, c._ssd_location);
-        _lba_index->update(c._lba_hash, c._ca_hash);
+        _ca_index->update(c._fp_hash, c._compress_level, c._ssd_location, c._metadata_location);
+        _lba_index->update(c._lba_hash, c._fp_hash);
       }
     }
 

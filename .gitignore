@@ -9,3 +9,4 @@ trace
 
 .DS_Store
 results
+*.csv

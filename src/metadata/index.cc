@@ -41,13 +41,13 @@ namespace cache {
     }
     printf("\n");
   }
-  CAIndex::~CAIndex() {
-    std::cout << "~CAIndex: " << std::endl;
+  FPIndex::~FPIndex() {
+    std::cout << "~FPIndex: " << std::endl;
     std::map<uint32_t, uint32_t> counters;
     for (int i = 0; i < _n_buckets; ++i) {
       uint32_t count = 0;
       for (int j = 0; j < 32; ++j) {
-        if (get_ca_bucket(i)->is_valid(j)) {
+        if (get_fp_bucket(i)->is_valid(j)) {
           count += 1;
         }
       }
@@ -77,19 +77,19 @@ namespace cache {
 
   LBAIndex::LBAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
       uint32_t n_slots_per_bucket, uint32_t n_buckets,
-      std::shared_ptr<CAIndex> ca_index) :
+      std::shared_ptr<FPIndex> ca_index) :
     Index(n_bits_per_key, n_bits_per_value, n_slots_per_bucket, n_buckets),
     _ca_index(ca_index)
   {
     set_cache_policy(std::move(std::make_unique<LRU>()));
   }
 
-  bool LBAIndex::lookup(uint32_t lba_hash, uint32_t &ca_hash)
+  bool LBAIndex::lookup(uint32_t lba_hash, uint32_t &fp_hash)
   {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
     Stats::get_instance()->add_lba_index_bucket_hit(bucket_id);
-    return get_lba_bucket(bucket_id)->lookup(signature, ca_hash) != ~((uint32_t)0);
+    return get_lba_bucket(bucket_id)->lookup(signature, fp_hash) != ~((uint32_t)0);
   }
 
   void LBAIndex::promote(uint32_t lba_hash)
@@ -99,61 +99,68 @@ namespace cache {
     get_lba_bucket(bucket_id)->promote(signature);
   }
 
-  void LBAIndex::update(uint32_t lba_hash, uint32_t ca_hash)
+  void LBAIndex::update(uint32_t lba_hash, uint32_t fp_hash)
   {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
-    get_lba_bucket(bucket_id)->update(signature, ca_hash, _ca_index);
+    get_lba_bucket(bucket_id)->update(signature, fp_hash, _ca_index);
 
     Stats::get_instance()->add_lba_index_bucket_update(bucket_id);
   }
 
-  CAIndex::CAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
+  FPIndex::FPIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
       uint32_t n_slots_per_bucket, uint32_t n_buckets) :
     Index(n_bits_per_key, n_bits_per_value, n_slots_per_bucket, n_buckets)
   {
     _cache_policy = std::move(std::make_unique<CAClock>(n_slots_per_bucket, n_buckets));
   }
 
-  uint64_t CAIndex::compute_ssd_location(uint32_t bucket_id, uint32_t slot_id)
+  uint64_t FPIndex::compute_ssd_location(uint32_t bucket_id, uint32_t slot_id)
   {
     // 8192 is chunk size, while 512 is the metadata size
     return (bucket_id * _n_slots_per_bucket + slot_id) * 1LL *
-      (Config::get_configuration().get_sector_size() + 
-       Config::get_configuration().get_metadata_size());
+      Config::get_configuration()->get_sector_size() + (uint64_t)_n_buckets *
+      _n_slots_per_bucket * Config::get_configuration()->get_metadata_size();
   }
 
-  bool CAIndex::lookup(uint32_t ca_hash, uint32_t &compressibility_level, uint64_t &ssd_location)
+  uint64_t FPIndex::compute_metadata_location(uint32_t bucket_id, uint32_t slot_id)
   {
-    uint32_t bucket_id = ca_hash >> _n_bits_per_key,
-             signature = ca_hash & ((1 << _n_bits_per_key) - 1),
+    return (bucket_id * _n_slots_per_bucket + slot_id) * 1LL * Config::get_configuration()->get_metadata_size();
+  }
+
+  bool FPIndex::lookup(uint32_t fp_hash, uint32_t &compressibility_level, uint64_t &ssd_location, uint64_t &metadata_location)
+  {
+    uint32_t bucket_id = fp_hash >> _n_bits_per_key,
+             signature = fp_hash & ((1 << _n_bits_per_key) - 1),
              n_slots_occupied = 0;
-    uint32_t index = get_ca_bucket(bucket_id)->lookup(signature, n_slots_occupied);
+    uint32_t index = get_fp_bucket(bucket_id)->lookup(signature, n_slots_occupied);
     if (index == ~((uint32_t)0)) return false;
 
     compressibility_level = n_slots_occupied - 1;
     ssd_location = compute_ssd_location(bucket_id, index);
+    metadata_location = compute_metadata_location(bucket_id, index);
 
     Stats::get_instance()->add_ca_index_bucket_hit(bucket_id);
     return true;
   }
 
-  void CAIndex::promote(uint32_t ca_hash)
+  void FPIndex::promote(uint32_t fp_hash)
   {
-    uint32_t bucket_id = ca_hash >> _n_bits_per_key,
-             signature = ca_hash & ((1 << _n_bits_per_key) - 1);
-    get_ca_bucket(bucket_id)->promote(signature);
+    uint32_t bucket_id = fp_hash >> _n_bits_per_key,
+             signature = fp_hash & ((1 << _n_bits_per_key) - 1);
+    get_fp_bucket(bucket_id)->promote(signature);
   }
 
-  void CAIndex::update(uint32_t ca_hash, uint32_t compressibility_level, uint64_t &ssd_location)
+  void FPIndex::update(uint32_t fp_hash, uint32_t compressibility_level, uint64_t &ssd_location, uint64_t &metadata_location)
   {
-    uint32_t bucket_id = ca_hash >> _n_bits_per_key,
-             signature = ca_hash & ((1 << _n_bits_per_key) - 1),
+    uint32_t bucket_id = fp_hash >> _n_bits_per_key,
+             signature = fp_hash & ((1 << _n_bits_per_key) - 1),
              n_slots_to_occupy = compressibility_level + 1;
 
     Stats::get_instance()->add_ca_index_bucket_update(bucket_id);
-    uint32_t slot_id = get_ca_bucket(bucket_id)->update(signature, n_slots_to_occupy);
+    uint32_t slot_id = get_fp_bucket(bucket_id)->update(signature, n_slots_to_occupy);
     ssd_location = compute_ssd_location(bucket_id, slot_id);
+    metadata_location = compute_metadata_location(bucket_id, slot_id);
   }
 
   std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint32_t lba_hash)
@@ -168,15 +175,15 @@ namespace cache {
   {
   }
 
-  std::unique_ptr<std::lock_guard<std::mutex>> CAIndex::lock(uint32_t ca_hash)
+  std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint32_t fp_hash)
   {
-    uint32_t bucket_id = ca_hash >> _n_bits_per_key;
+    uint32_t bucket_id = fp_hash >> _n_bits_per_key;
     return std::move(
         std::make_unique<std::lock_guard<std::mutex>>(
           _mutexes[bucket_id]));
   }
 
-  void CAIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)
+  void FPIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)
   {
   }
 }

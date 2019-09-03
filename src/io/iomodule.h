@@ -111,13 +111,13 @@ class IOModule {
         // stats related
         if (p._addr != ~0) { total_bytes_to_cache_disk += p._len; }
 
-        if (Config::get_configuration().get_direct_io() == 0) {
+        if (Config::get_configuration()->get_direct_io() == 0) {
           // no direct io, written into memory, no multithreading
           if (p._addr != ~0) {
             _cache_device->write(p._addr, _buffer + p._off, p._len);
           }
         } else {
-          if (threads.size() == Config::get_configuration().get_max_num_local_threads()) {
+          if (threads.size() == Config::get_configuration()->get_max_num_local_threads()) {
             _thread_pool->wait_and_return_threads(threads);
           }
           if (p._addr != ~0) {
@@ -132,7 +132,7 @@ class IOModule {
           }
         }
       }
-      if (Config::get_configuration().get_direct_io() == 1)
+      if (Config::get_configuration()->get_direct_io() == 1)
         _thread_pool->wait_and_return_threads(threads);
 
       _index.clear();
@@ -157,7 +157,7 @@ class IOModule {
         std::lock_guard<std::mutex> l(_read_mutex);
         std::vector<int> overwritten_entries;
         for (int i = _index.size() - 1; i >= 0; --i) {
-          uint32_t addr_ = _index[i]._addr, len_ = _index[i]._len;
+          uint64_t addr_ = _index[i]._addr, len_ = _index[i]._len;
           if (addr_ == ~0) continue;
           for (int j = i - 1; j >= 0; --j) {
             if ( _index[j]._addr != ~0

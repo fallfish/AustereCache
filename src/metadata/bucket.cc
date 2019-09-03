@@ -30,12 +30,12 @@ namespace cache {
   {
   }
 
-  uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &ca_hash) {
+  uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &fp_hash) {
     for (uint32_t slot_id = 0; slot_id < _n_slots; slot_id++) {
       if (!is_valid(slot_id)) continue;
       uint32_t lba_sig_ = get_k(slot_id);
       if (lba_sig_ == lba_sig) {
-        ca_hash = get_v(slot_id);
+        fp_hash = get_v(slot_id);
         return slot_id;
       }
     }
@@ -43,22 +43,21 @@ namespace cache {
   }
 
   void LBABucket::promote(uint32_t lba_sig) {
-    uint32_t ca_hash_ = 0;
-    uint32_t slot_id = lookup(lba_sig, ca_hash_);
+    uint32_t fp_hash_ = 0;
+    uint32_t slot_id = lookup(lba_sig, fp_hash_);
     //assert(slot_id != ~((uint32_t)0));
     _cache_policy->promote(slot_id);
   }
 
-  void LBABucket::update(uint32_t lba_sig, uint32_t ca_hash, std::shared_ptr<CAIndex> ca_index) {
-    uint32_t ca_hash_ = 0;
-    uint32_t slot_id = lookup(lba_sig, ca_hash_);
+  void LBABucket::update(uint32_t lba_sig, uint32_t fp_hash, std::shared_ptr<FPIndex> ca_index) {
+    uint32_t fp_hash_ = 0;
+    uint32_t slot_id = lookup(lba_sig, fp_hash_);
     if (slot_id != ~((uint32_t)0)) {
-      if (ca_hash == get_v(slot_id)) {
+      if (fp_hash == get_v(slot_id)) {
         promote(lba_sig);
         return ;
       }
       Stats::get_instance()->add_lba_index_eviction_caused_by_collision();
-      set_v(slot_id, ca_hash);
       set_invalid(slot_id);
     }
 
@@ -71,7 +70,7 @@ namespace cache {
     }
     slot_id = _cache_policy->allocate();
     set_k(slot_id, lba_sig);
-    set_v(slot_id, ca_hash);
+    set_v(slot_id, fp_hash);
     set_valid(slot_id);
     _cache_policy->promote(slot_id);
   }
@@ -82,19 +81,19 @@ namespace cache {
    * alignment issue needs to be dealed for each element
    *
    */
-  uint32_t CABucket::lookup(uint32_t ca_sig, uint32_t &n_slots_occupied)
+  uint32_t FPBucket::lookup(uint32_t fp_sig, uint32_t &n_slots_occupied)
   {
     uint32_t slot_id = 0;
     n_slots_occupied = 0;
     for ( ; slot_id < _n_slots; ) {
       if (!is_valid(slot_id)
-          || ca_sig != get_k(slot_id)) {
+          || fp_sig != get_k(slot_id)) {
         ++slot_id;
         continue;
       }
       while (slot_id < _n_slots
           && is_valid(slot_id)
-          && ca_sig == get_k(slot_id)) {
+          && fp_sig == get_k(slot_id)) {
         ++n_slots_occupied; 
         ++slot_id;
       }
@@ -104,19 +103,19 @@ namespace cache {
   }
 
 
-  void CABucket::promote(uint32_t ca_sig)
+  void FPBucket::promote(uint32_t fp_sig)
   {
     uint32_t slot_id = 0, compressibility_level = 0, n_slots_occupied;
-    slot_id = lookup(ca_sig, n_slots_occupied);
+    slot_id = lookup(fp_sig, n_slots_occupied);
     //assert(slot_id != ~((uint32_t)0));
 
     _cache_policy->promote(slot_id, n_slots_occupied);
   }
 
-  uint32_t CABucket::update(uint32_t ca_sig, uint32_t n_slots_to_occupy)
+  uint32_t FPBucket::update(uint32_t fp_sig, uint32_t n_slots_to_occupy)
   {
     uint32_t n_slots_occupied = 0, value = 0;
-    uint32_t slot_id = lookup(ca_sig, n_slots_occupied);
+    uint32_t slot_id = lookup(fp_sig, n_slots_occupied);
     if (slot_id != ~((uint32_t)0)) {
       // TODO: Add it into the evicted data of dirty list 
       Stats::get_instance()->add_ca_index_eviction_caused_by_collision();
@@ -125,8 +124,8 @@ namespace cache {
             /* Compute ssd location of the evicted data */
             /* Actually, full CA and address is sufficient. */
             (_bucket_id * _n_slots + slot_id) * 1LL *
-            (Config::get_configuration().get_sector_size() + 
-             Config::get_configuration().get_metadata_size()),
+            (Config::get_configuration()->get_sector_size() + 
+             Config::get_configuration()->get_metadata_size()),
             n_slots_occupied
           );
 #endif
@@ -142,17 +141,17 @@ namespace cache {
     for (uint32_t slot_id_ = slot_id;
         slot_id_ < slot_id + n_slots_to_occupy;
         ++slot_id_) {
-      set_k(slot_id_, ca_sig);
+      set_k(slot_id_, fp_sig);
       set_valid(slot_id_);
     }
 
     return slot_id;
   }
 
-  void CABucket::erase(uint32_t ca_sig)
+  void FPBucket::erase(uint32_t fp_sig)
   {
     for (uint32_t index = 0; index < _n_slots; index++) {
-      if (get_k(index) == ca_sig) {
+      if (get_k(index) == fp_sig) {
         set_invalid(index);
       }
     }
@@ -169,14 +168,14 @@ namespace cache {
     //_valid = std::make_unique<Bitmap>(0, 1, n_slots);
   //}
 
-  //uint32_t BlockBucket::lookup(uint32_t ca_sig, uint32_t &size, Chunk &c)
+  //uint32_t BlockBucket::lookup(uint32_t fp_sig, uint32_t &size, Chunk &c)
   //{
     //// search in the anxiliary lists with full CA
     //uint32_t slot_id;
     //if (_anxiliary_list.find(c._ca) != _anxiliary_list.end()) {
       //slot_id = _anxiliary_list.find(c._ca)->second;
     //} else {
-      //slot_id = _index->lookup(ca_sig);
+      //slot_id = _index->lookup(fp_sig);
     //}
     //size = get_v(slot_id);
     //return slot_id;
@@ -185,16 +184,16 @@ namespace cache {
   /**
    * @brief Promoting a ca signature means updating its status
    *        Requirement: the ca signature must be hit
-   * @param ca_sig
+   * @param fp_sig
    */
-  //void BlockBucket::promote(uint32_t ca_sig)
+  //void BlockBucket::promote(uint32_t fp_sig)
   //{
 
   //}
 
   //// Must be NOT_DUP and allocate new slot
   //// Update the list
-  //void BlockBucket::update(uint32_t ca_sig, uint32_t size, Chunk &c)
+  //void BlockBucket::update(uint32_t fp_sig, uint32_t size, Chunk &c)
   //{
     //// First, check whether current block is full
     //uint32_t slot_id = _current_block_id * _n_slots_per_block,
@@ -255,10 +254,10 @@ namespace cache {
     //set_v(slot_id, size);
     //_valid->set(slot_id, 1);
 
-    //// Note: if current ca_sig already has a slot allocated
+    //// Note: if current fp_sig already has a slot allocated
     ////       and we have known it didnot match
     ////       It must be a collision.
-    //if (_index->find(ca_sig) != ~0) {
+    //if (_index->find(fp_sig) != ~0) {
       //_anxiliary_list[c._ca] = slot_no;
     //} 
   //}

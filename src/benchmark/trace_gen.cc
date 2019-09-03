@@ -90,7 +90,7 @@ class TraceGenerator {
     int fd = open(_fingerprint_file, O_CREAT | O_RDWR, 0666);
     _chunks = reinterpret_cast<Chunk *>(malloc(sizeof(Chunk) * _num_chunks));
 
-    // compute lba_hash, ca_hash, compressiblity, and ca (fingerprint) for each chunk
+    // compute lba_hash, fp_hash, compressiblity, and ca (fingerprint) for each chunk
     int index = 0;
     while (chunker.next(_chunks[index])) {
       _chunks[index].TEST_fingerprinting();
