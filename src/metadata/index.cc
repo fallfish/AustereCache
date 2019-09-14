@@ -105,7 +105,7 @@ namespace cache {
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
     get_lba_bucket(bucket_id)->update(signature, fp_hash, _ca_index);
 
-    Stats::get_instance()->add_lba_index_bucket_update(bucket_id);
+    Stats::get_instance()->add_lba_bucket_update(bucket_id);
   }
 
   FPIndex::FPIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
@@ -140,7 +140,7 @@ namespace cache {
     ssd_location = compute_ssd_location(bucket_id, index);
     metadata_location = compute_metadata_location(bucket_id, index);
 
-    Stats::get_instance()->add_ca_index_bucket_hit(bucket_id);
+    Stats::get_instance()->add_fp_bucket_lookup(bucket_id);
     return true;
   }
 
@@ -157,7 +157,7 @@ namespace cache {
              signature = fp_hash & ((1 << _n_bits_per_key) - 1),
              n_slots_to_occupy = compressibility_level + 1;
 
-    Stats::get_instance()->add_ca_index_bucket_update(bucket_id);
+    Stats::get_instance()->add_fp_bucket_update(bucket_id);
     uint32_t slot_id = get_fp_bucket(bucket_id)->update(signature, n_slots_to_occupy);
     ssd_location = compute_ssd_location(bucket_id, slot_id);
     metadata_location = compute_metadata_location(bucket_id, slot_id);

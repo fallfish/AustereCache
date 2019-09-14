@@ -80,7 +80,7 @@ namespace cache {
         return _valid.get(index);
       }
       inline void set_valid(uint32_t index) { _valid.set(index); }
-      inline void set_invalid(uint32_t index) { set_v(index, (uint32_t)(~0)); set_k(index, (uint32_t)(~0)); _valid.clear(index); }
+      inline void set_invalid(uint32_t index) { _valid.clear(index); }
       inline uint32_t get_valid_32bits(uint32_t index) { return _valid.get_32bits(index); }
       inline void set_valid_32bits(uint32_t index, uint32_t v) { _valid.set_32bits(index, v); }
 

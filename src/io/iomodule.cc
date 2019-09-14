@@ -15,6 +15,7 @@ IOModule::IOModule()
   _write_buffer = nullptr;
 #else
   if (Config::get_configuration()->get_write_buffer_size() != 0) {
+    std::cout << "Write Buffer init" << std::endl;
     _write_buffer = new WriteBuffer(Config::get_configuration()->get_write_buffer_size());
     _write_buffer->_thread_pool = std::make_unique<ThreadPool>(Config::get_configuration()->get_max_num_global_threads());
   } else {

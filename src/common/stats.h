@@ -29,8 +29,8 @@ namespace cache {
 #if !defined(CACHE_DEDUP)
       _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_lba_bucket_no_len());
       _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_fp_bucket_no_len());
-      _n_hits_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_lba_bucket_no_len());
-      _n_hits_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_fp_bucket_no_len());
+      _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_lba_bucket_no_len());
+      _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_fp_bucket_no_len());
 #endif
       reset();
     }
@@ -163,8 +163,8 @@ namespace cache {
 
     std::unique_ptr<std::atomic<uint32_t> []> _n_updates_lba_buckets;
     std::unique_ptr<std::atomic<uint32_t> []> _n_updates_fp_buckets;
-    std::unique_ptr<std::atomic<uint32_t> []> _n_hits_lba_buckets;
-    std::unique_ptr<std::atomic<uint32_t> []> _n_hits_fp_buckets;
+    std::unique_ptr<std::atomic<uint32_t> []> _n_lookups_lba_buckets;
+    std::unique_ptr<std::atomic<uint32_t> []> _n_lookups_fp_buckets;
 
 
     /*
@@ -219,17 +219,17 @@ namespace cache {
      *
      *
      */
-    inline void add_lba_index_bucket_update(uint32_t bucket_id) {
+    inline void add_lba_bucket_update(uint32_t bucket_id) {
       _n_updates_lba_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
     }
-    inline void add_ca_index_bucket_update(uint32_t bucket_id) {
+    inline void add_fp_bucket_update(uint32_t bucket_id) {
       _n_updates_fp_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
     }
     inline void add_lba_index_bucket_hit(uint32_t bucket_id) {
-      _n_hits_lba_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
+      _n_lookups_lba_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
     }
-    inline void add_ca_index_bucket_hit(uint32_t bucket_id) {
-      _n_hits_fp_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
+    inline void add_fp_bucket_lookup(uint32_t bucket_id) {
+      _n_lookups_fp_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
     }
 
     // statistics for io module
@@ -404,76 +404,28 @@ namespace cache {
 #if !defined(CACHE_DEDUP)
       uint32_t n_lba_bucket = 1 << Config::get_configuration()->get_lba_bucket_no_len();
       uint32_t n_fp_bucket = 1 << Config::get_configuration()->get_fp_bucket_no_len();
-      std::map<uint32_t, uint32_t> lba_bucket_update;
+
+      std::cerr << "LBA Index Lookups: " << std::endl;
       for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        if (lba_bucket_update.find(_n_updates_lba_buckets[i])
-            == lba_bucket_update.end()) {
-          lba_bucket_update[_n_updates_lba_buckets[i]] = 0;
-        }
-        lba_bucket_update[_n_updates_lba_buckets[i]] += 1;
+        fprintf(stderr, "(%d,%d) ", i, _n_lookups_lba_buckets[i].load());
       }
-      std::cout << "    LBA Index update: " << std::endl;
-      int cnt = 0;
-      for (auto pr : lba_bucket_update) {
-        printf("(%d,%d) ", pr.first, pr.second);
-        cnt++;
-        if (cnt == 8) printf("\n"), cnt=0;
-//        std::cout << "(" << pr.first << "," << pr.second << ") ";
-      }
-      std::cout << std::endl;
-      cnt = 0;
-
-      std::map<uint32_t, uint32_t> lba_bucket_hit;
+      fprintf(stderr, "\n");
+      std::cerr << "LBA Index Updates: " << std::endl;
       for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        if (lba_bucket_hit.find(_n_hits_lba_buckets[i])
-            == lba_bucket_hit.end()) {
-          lba_bucket_hit[_n_hits_lba_buckets[i]] = 0;
-        }
-        lba_bucket_hit[_n_hits_lba_buckets[i]] += 1;
+        fprintf(stderr, "(%d,%d) ", i, _n_updates_lba_buckets[i].load());
       }
-      std::cout << "    LBA Index hit: " << std::endl;
-      for (auto pr : lba_bucket_hit) {
-        printf("(%d,%d) ", pr.first, pr.second);
-        cnt++;
-        if (cnt == 8) printf("\n"), cnt=0;
-        //std::cout << "        " << pr.first << " " << pr.second << std::endl;
-      }
-      cnt=0;
-      printf("\n");
-
-      std::map<uint32_t, uint32_t> fp_bucket_update;
+      fprintf(stderr, "\n");
+      std::cerr << "FP Index Lookups: " << std::endl;
       for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        if (fp_bucket_update.find(_n_updates_fp_buckets[i])
-            == fp_bucket_update.end()) {
-          fp_bucket_update[_n_updates_fp_buckets[i]] = 0;
-        }
-        fp_bucket_update[_n_updates_fp_buckets[i]] += 1;
+        fprintf(stderr, "(%d,%d) ", i, _n_lookups_fp_buckets[i].load());
       }
-      std::cout << "    CA Index update: " << std::endl;
-      for (auto pr : fp_bucket_update) {
-        printf("(%d,%d) ", pr.first, pr.second);
-        cnt++;
-        if (cnt == 8) printf("\n"), cnt=0;
-        //std::cout << "        " << pr.first << " " << pr.second << std::endl;
-      }
-      printf("\n");
-
-      std::map<uint32_t, uint32_t> fp_bucket_hit;
+      fprintf(stderr, "\n");
+      std::cerr << "FP Index Updates: " << std::endl;
       for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        if (fp_bucket_hit.find(_n_hits_fp_buckets[i])
-            == fp_bucket_hit.end()) {
-          fp_bucket_hit[_n_hits_fp_buckets[i]] = 0;
-        }
-        fp_bucket_hit[_n_hits_fp_buckets[i]] += 1;
+        fprintf(stderr, "(%d,%d) ", i, _n_updates_fp_buckets[i].load());
       }
-      std::cout << "    CA Index hit: " << std::endl;
-      for (auto pr : fp_bucket_hit) {
-        printf("(%d,%d) ", pr.first, pr.second);
-        cnt++;
-        if (cnt == 8) printf("\n"), cnt=0;
-        //std::cout << "        " << pr.first << " " << pr.second << std::endl;
-      }
-      printf("\n");
+      fprintf(stderr, "\n");
+
 #endif
 
       std::cout << "IO statistics: " << std::endl
@@ -481,9 +433,17 @@ namespace cache {
                 << "    Num bytes metadata read from ssd: " << _n_metadata_bytes_read_from_ssd << std::endl
                 << "    Num bytes data written to ssd: " << _n_data_bytes_written_to_ssd << std::endl
                 << "    Num bytes data read from ssd: " << _n_data_bytes_read_from_ssd << std::endl
+                << "    Num bytes data written to write buffer: " << _n_data_bytes_written_to_ssd << std::endl
+                << "    Num bytes data read from write buffer: " << _n_data_bytes_read_from_ssd << std::endl
                 << "    Num bytes written to hdd: " << _n_bytes_written_to_hdd << std::endl
                 << "    Num bytes read from hdd: " << _n_bytes_read_from_hdd << std::endl
                 << std::endl;
+
+      //std::cout << "Write buffer: " << std::endl
+        //<< _n_bytes_written_to_write_buffer << std::endl
+        //<< _n_bytes_written_to_cache_disk << std::endl
+        //<< _n_bytes_read_from_write_buffer << std::endl
+        //<< _n_bytes_read_from_cache_disk    << std::endl;
 
       std::cout << std::fixed << std::setprecision(0) << "Time Elapsed: " << std::endl
                 << "    Time elpased for compression: " << _time_elapsed_compression << std::endl

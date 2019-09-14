@@ -10,6 +10,8 @@
 #include "manage/dirty_list.h"
 #include <csignal>
 
+#include "validators.h"
+
 namespace cache {
 
 

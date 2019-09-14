@@ -462,13 +462,11 @@ namespace cache {
       std::cout << "deference an empty entry" << std::endl;
       exit(0);
     }
-    BEGIN_TIMER();
     if ((it->second._reference_count -= 1) == 0) {
       _zero_reference_list.push_front(ca_);
       it->second._zero_reference_list_it = _zero_reference_list.begin();
       //DARC_SourceIndex::get_instance().check_zero_reference(ca_._v);
     }
-    END_TIMER(debug);
     // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
     Stats::get_instance()->add_lba_index_eviction_caused_by_capacity();
   }

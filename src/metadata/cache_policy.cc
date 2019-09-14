@@ -34,11 +34,11 @@ namespace cache {
     uint32_t v = _bucket->get_v(slot_id);
     // Move each slot to the tail
     for ( ; slot_id < n_slots - n_slots_to_occupy; ++slot_id) {
+      _bucket->set_invalid(slot_id);
       _bucket->set_k(slot_id, 
           _bucket->get_k(slot_id + n_slots_to_occupy));
       _bucket->set_v(slot_id, 
           _bucket->get_v(slot_id + n_slots_to_occupy));
-      _bucket->set_invalid(slot_id);
       if (_bucket->is_valid(slot_id + n_slots_to_occupy)) {
         _bucket->set_valid(slot_id);
       }

@@ -204,15 +204,14 @@ namespace cache {
       _ca_index->promote(c._fp_hash);
       _lba_index->promote(c._lba_hash);
     } else {
-      if (c._dedup_result == DUP_CONTENT) {
+      if (c._dedup_result == DUP_CONTENT || c._dedup_result == DUP_WRITE) {
         _ca_index->promote(c._fp_hash);
-        if (c._lba_hit) {
-          _lba_index->promote(c._lba_hash);
-        } else {
-          _lba_index->update(c._lba_hash, c._fp_hash);
-        }
       } else {
         _ca_index->update(c._fp_hash, c._compress_level, c._ssd_location, c._metadata_location);
+      }
+      if (c._lba_hit) {
+        _lba_index->promote(c._lba_hash);
+      } else {
         _lba_index->update(c._lba_hash, c._fp_hash);
       }
     }

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FILE="mail.csv"
+FILE="webvm_new.csv"
 
 rm -f $FILE
 
@@ -59,9 +59,9 @@ print_cache_size() {
   done
   echo "" >> $FILE
 
-  printf "ours,0.5," >> $FILE
-  SUM=1
-  for ((i=2; i<=18; i++))
+  printf "ours,2," >> $FILE
+  SUM=2
+  for ((i=4; i<=18; i++))
   do
     printf "$SUM," >> $FILE
     SUM=$(( $SUM * 2))
@@ -70,23 +70,23 @@ print_cache_size() {
 }
 
 # Print Hit ratio
-print_keyword_prev_suff "Hit ratio" "mail" "darc" "dlru" "ours" "lba13"
-print_keyword_prev_suff "Dup ratio" "mail" "darc" "dlru" "ours" "lba13"
-print_keyword_prev_suff "Dup write to the total write ratio:" "mail" "darc" "dlru" "ours" "lba13"
+print_keyword_prev_suff "Hit ratio" "webvm" "darc" "dlru" "ours" "new"
+print_keyword_prev_suff "Dup ratio" "webvm" "darc" "dlru" "ours" "new"
+print_keyword_prev_suff "Dup write to the total write ratio:" "webvm" "darc" "dlru" "ours" "new"
 
 # Print fingerprint size
 print_cache_size
 
 # Print VM and RSS
-print_keyword_prev_suff "VM.*e+" "mail" "darc" "dlru" "ours" "lba13" "\$11" "VM"
-print_keyword_prev_suff "VM.*e+" "mail" "darc" "dlru" "ours" "lba13" "\$15" "RSS"
+print_keyword_prev_suff "VM.*e+0" "webvm" "darc" "dlru" "ours" "new" "\$12" "VM"
+print_keyword_prev_suff "VM.*e+0" "webvm" "darc" "dlru" "ours" "new" "\$16" "RSS"
 
 # Print Num total write and read
-print_keyword_prev_suff "Num total write" "mail" "darc" "dlru" "ours" "lba13" 
-print_keyword_prev_suff "Num total read" "mail" "darc" "dlru" "ours" "lba13" 
+print_keyword_prev_suff "Num total write" "webvm" "darc" "dlru" "ours" "new" 
+print_keyword_prev_suff "Num total read" "webvm" "darc" "dlru" "ours" "new" 
 
 # Print R/W from/to SSD
-print_keyword_prev_suff "Num bytes data written to ssd" "mail" "darc" "dlru" "ours" "lba13" 
-print_keyword_prev_suff "Num bytes data read from ssd" "mail" "darc" "dlru" "ours" "lba13" 
-print_keyword_prev_suff "Num bytes metadata written to ssd" "mail" "darc" "dlru" "ours" "lba13" 
-print_keyword_prev_suff "Num bytes metadata read from ssd" "mail" "darc" "dlru" "ours" "lba13" 
+print_keyword_prev_suff "Num bytes data written to ssd" "webvm" "darc" "dlru" "ours" "new" 
+print_keyword_prev_suff "Num bytes data read from ssd" "webvm" "darc" "dlru" "ours" "new" 
+print_keyword_prev_suff "Num bytes metadata written to ssd" "webvm" "darc" "dlru" "ours" "new" 
+print_keyword_prev_suff "Num bytes metadata read from ssd" "webvm" "darc" "dlru" "ours" "new" 

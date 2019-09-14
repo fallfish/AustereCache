@@ -15,21 +15,22 @@ void CompressionModule::compress(Chunk &c)
 {
   BEGIN_TIMER();
 #if defined(CDARC)
-#if !defined(FAKE_IO)
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
       c._len, c._len - 1);
-#endif
-  c._compressed_len = 0;
   if (c._compressed_len == 0) {
     c._compressed_len = c._len;
     c._compressed_buf = c._buf;
   }
 #else
+#if !defined(FAKE_IO)
   c._compressed_len = LZ4_compress_default(
       (const char*)c._buf, (char*)c._compressed_buf,
       c._len, c._len * 0.75);
+#else
+  // not compressible
   c._compressed_len = 0;
+#endif
   double compress_ratio = c._compressed_len * 1.0 / c._len;
   if (compress_ratio > 0.75 || c._compressed_len == 0) {
     c._compress_level = 3;

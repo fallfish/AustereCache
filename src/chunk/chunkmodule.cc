@@ -8,6 +8,8 @@
 #include <cstring>
 #include <cassert>
 
+#include "metadata/validators.h"
+
 namespace cache {
 
   //Chunk::Chunk() {}
