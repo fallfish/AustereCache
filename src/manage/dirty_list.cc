@@ -117,6 +117,10 @@ namespace cache {
     // Case 1: We have a newly evicted block.
     while (_evicted_blocks.size() != 0) {
       uint64_t ssd_data_location = _evicted_blocks.front()._ssd_data_location;
+      uint64_t metadata_location = (ssd_data_location - 32LL *
+          Config::get_configuration()->get_metadata_size() *
+          Config::get_configuration()->get_fp_bucket_no_len()
+          ) / Config::get_configuration()->get_sector_size() * Config::get_configuration()->get_fp_bucket_no_len();
       uint32_t len = _evicted_blocks.front()._len;
       _evicted_blocks.pop_front();
 
@@ -129,12 +133,10 @@ namespace cache {
           lbas_to_flush.push_back(pr.first);
         }
       }
-      // Read cached metadata (compressed length)
-      _io_module->read(1, ssd_data_location, 
-          &metadata, Config::get_configuration()->get_metadata_size());
+      // Read chunk metadata (compressed length)
+      _io_module->read(1, metadata_location, &metadata, Config::get_configuration()->get_metadata_size());
       // Read cached data
-      _io_module->read(1, ssd_data_location + Config::get_configuration()->get_metadata_size(),
-          compressed_data, len * Config::get_configuration()->get_sector_size());
+      _io_module->read(1, ssd_data_location, compressed_data, len * Config::get_configuration()->get_sector_size());
       // Decompress cached data
       memset(uncompressed_data, 0, 32768);
       _compression_module->decompress(compressed_data, uncompressed_data, 
@@ -152,19 +154,20 @@ namespace cache {
       for (auto pr : _latest_updates) {
         uint64_t lba = pr.first;
         uint64_t ssd_data_location = pr.second.first;
+        uint64_t metadata_location = (ssd_data_location - 32LL *
+            Config::get_configuration()->get_metadata_size() *
+            Config::get_configuration()->get_fp_bucket_no_len()
+            ) / Config::get_configuration()->get_sector_size() * Config::get_configuration()->get_fp_bucket_no_len();
 
         // Read cached metadata (compressed length)
-        _io_module->read(1, ssd_data_location, 
-            &metadata, Config::get_configuration()->get_metadata_size());
+        _io_module->read(1, metadata_location, &metadata, Config::get_configuration()->get_metadata_size());
         // Read cached data
-        _io_module->read(1, ssd_data_location + Config::get_configuration()->get_metadata_size(),
-            compressed_data, pr.second.second * Config::get_configuration()->get_sector_size());
+        _io_module->read(1, ssd_data_location, compressed_data, pr.second.second * Config::get_configuration()->get_sector_size());
         // Decompress cached data
         _compression_module->decompress(compressed_data, uncompressed_data, 
             metadata._compressed_len, Config::get_configuration()->get_chunk_size());
         // Write uncompressed data into HDD
-        _io_module->write(0, lba, uncompressed_data,
-            Config::get_configuration()->get_chunk_size());
+        _io_module->write(0, lba, uncompressed_data, Config::get_configuration()->get_chunk_size());
       }
       _latest_updates.clear();
     }

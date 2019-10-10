@@ -140,7 +140,7 @@ namespace cache {
 
   void MetadataModule::dedup(Chunk &c)
   {
-    uint32_t fp_hash = ~0;
+    uint64_t fp_hash = ~0LL;
     if (c._lba_bucket_lock.get() == nullptr) {
       c._lba_bucket_lock = std::move(_lba_index->lock(c._lba_hash));
     }

@@ -128,7 +128,7 @@ class Config
     _lba_signature_len = 12;
     _lba_bucket_no_len = 11;
     _lba_slots_per_bucket = 32;
-    _fp_signature_len = 14;;
+    _fp_signature_len = 12;
     _fp_bucket_no_len = 10;
     _ca_slots_per_bucket = 32;
     _clock_bits = 2;

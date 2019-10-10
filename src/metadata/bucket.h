@@ -47,25 +47,31 @@ namespace cache {
         b = index * _n_bits_per_slot + _n_bits_per_key;
         e = b + _n_bits_per_value;
       }
-      inline uint32_t get_v(uint32_t index)
+      inline uint64_t get_v(uint32_t index)
       {
+        //uint32_t b, e; init_v(index, b, e);
+        //return _data.get_bits(b, e);
         uint32_t b, e; init_v(index, b, e);
-        return _data.get_bits(b, e);
+        uint64_t v = 0;
+        if (e - b > 32) {
+          v = _data.get_bits(b, b + 32);
+          v |= ((uint64_t)_data.get_bits(b + 32, e)) << 32;
+        } else {
+          v = _data.get_bits(b, e);
+        }
+        return v;
       }
-      inline uint64_t get_v_64(uint32_t index)
+      inline void set_v(uint32_t index, uint64_t v)
       {
+        //uint32_t b, e; init_v(index, b, e);
+        //_data.store_bits(b, e, v);
         uint32_t b, e; init_v(index, b, e);
-        return _data.get_bits_64(b, e);
-      }
-      inline void set_v(uint32_t index, uint32_t v)
-      {
-        uint32_t b, e; init_v(index, b, e);
-        _data.store_bits(b, e, v);
-      }
-      inline void set_v_64(uint32_t index, uint32_t v)
-      {
-        uint32_t b, e; init_v(index, b, e);
-        _data.store_bits_64(b, e, v);
+        if (e - b > 32) {
+          _data.store_bits(b, b + 32, v & 0xffffffff);
+          _data.store_bits(b + 32, e, v >> 32);
+        } else {
+          _data.store_bits(b, e, v);
+        }
       }
       inline uint32_t get_data_32bits(uint32_t index)
       {
@@ -122,7 +128,7 @@ namespace cache {
        *
        * @return ~0 if the lba signature does not exist, otherwise the corresponding index
        */
-      uint32_t lookup(uint32_t lba_sig, uint32_t &fp_hash);
+      uint32_t lookup(uint32_t lba_sig, uint64_t &fp_hash);
       void promote(uint32_t lba_sig);
       /**
        * @brief Update the lba index structure
@@ -134,7 +140,7 @@ namespace cache {
        * @param fp_hash
        * @param ca_index used to evict obselete entries that has been evicted in ca_index
        */
-      void update(uint32_t lba_sig, uint32_t fp_hash, std::shared_ptr<FPIndex> ca_index);
+      void update(uint32_t lba_sig, uint64_t fp_hash, std::shared_ptr<FPIndex> ca_index);
   };
 
   /**

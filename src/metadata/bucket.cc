@@ -32,7 +32,7 @@ namespace cache {
   {
   }
 
-  uint32_t LBABucket::lookup(uint32_t lba_sig, uint32_t &fp_hash) {
+  uint32_t LBABucket::lookup(uint32_t lba_sig, uint64_t &fp_hash) {
     for (uint32_t slot_id = 0; slot_id < _n_slots; slot_id++) {
       if (!is_valid(slot_id)) continue;
       uint32_t lba_sig_ = get_k(slot_id);
@@ -45,14 +45,14 @@ namespace cache {
   }
 
   void LBABucket::promote(uint32_t lba_sig) {
-    uint32_t fp_hash_ = 0;
+    uint64_t fp_hash_ = 0;
     uint32_t slot_id = lookup(lba_sig, fp_hash_);
     //assert(slot_id != ~((uint32_t)0));
     _cache_policy->promote(slot_id);
   }
 
-  void LBABucket::update(uint32_t lba_sig, uint32_t fp_hash, std::shared_ptr<FPIndex> ca_index) {
-    uint32_t fp_hash_ = 0;
+  void LBABucket::update(uint32_t lba_sig, uint64_t fp_hash, std::shared_ptr<FPIndex> ca_index) {
+    uint64_t fp_hash_ = 0;
     uint32_t slot_id = lookup(lba_sig, fp_hash_);
     if (slot_id != ~((uint32_t)0)) {
       if (fp_hash == get_v(slot_id)) {

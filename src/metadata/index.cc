@@ -84,7 +84,7 @@ namespace cache {
     set_cache_policy(std::move(std::make_unique<LRU>()));
   }
 
-  bool LBAIndex::lookup(uint32_t lba_hash, uint32_t &fp_hash)
+  bool LBAIndex::lookup(uint64_t lba_hash, uint64_t &fp_hash)
   {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
@@ -92,14 +92,14 @@ namespace cache {
     return get_lba_bucket(bucket_id)->lookup(signature, fp_hash) != ~((uint32_t)0);
   }
 
-  void LBAIndex::promote(uint32_t lba_hash)
+  void LBAIndex::promote(uint64_t lba_hash)
   {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
     get_lba_bucket(bucket_id)->promote(signature);
   }
 
-  void LBAIndex::update(uint32_t lba_hash, uint32_t fp_hash)
+  void LBAIndex::update(uint64_t lba_hash, uint64_t fp_hash)
   {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     uint32_t signature = lba_hash & ((1 << _n_bits_per_key) - 1);
@@ -128,7 +128,7 @@ namespace cache {
     return (bucket_id * _n_slots_per_bucket + slot_id) * 1LL * Config::get_configuration()->get_metadata_size();
   }
 
-  bool FPIndex::lookup(uint32_t fp_hash, uint32_t &compressibility_level, uint64_t &ssd_location, uint64_t &metadata_location)
+  bool FPIndex::lookup(uint64_t fp_hash, uint32_t &compressibility_level, uint64_t &ssd_location, uint64_t &metadata_location)
   {
     uint32_t bucket_id = fp_hash >> _n_bits_per_key,
              signature = fp_hash & ((1 << _n_bits_per_key) - 1),
@@ -144,14 +144,14 @@ namespace cache {
     return true;
   }
 
-  void FPIndex::promote(uint32_t fp_hash)
+  void FPIndex::promote(uint64_t fp_hash)
   {
     uint32_t bucket_id = fp_hash >> _n_bits_per_key,
              signature = fp_hash & ((1 << _n_bits_per_key) - 1);
     get_fp_bucket(bucket_id)->promote(signature);
   }
 
-  void FPIndex::update(uint32_t fp_hash, uint32_t compressibility_level, uint64_t &ssd_location, uint64_t &metadata_location)
+  void FPIndex::update(uint64_t fp_hash, uint32_t compressibility_level, uint64_t &ssd_location, uint64_t &metadata_location)
   {
     uint32_t bucket_id = fp_hash >> _n_bits_per_key,
              signature = fp_hash & ((1 << _n_bits_per_key) - 1),
@@ -163,7 +163,7 @@ namespace cache {
     metadata_location = compute_metadata_location(bucket_id, slot_id);
   }
 
-  std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint32_t lba_hash)
+  std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint64_t lba_hash)
   {
     uint32_t bucket_id = lba_hash >> _n_bits_per_key;
     return std::move(
@@ -175,7 +175,7 @@ namespace cache {
   {
   }
 
-  std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint32_t fp_hash)
+  std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fp_hash)
   {
     uint32_t bucket_id = fp_hash >> _n_bits_per_key;
     return std::move(

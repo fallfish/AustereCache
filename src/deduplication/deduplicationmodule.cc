@@ -22,5 +22,4 @@ namespace cache {
     _metadata_module->lookup(c);
     END_TIMER(lookup);
   }
-
 }

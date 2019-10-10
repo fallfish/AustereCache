@@ -45,13 +45,10 @@ namespace cache {
     _has_ca = true;
 
     // compute ca hash
-    //uint64_t tmp[2];
-    //MurmurHash3_x64_128(_ca, conf->get_ca_length(), 2, tmp);
-    //_fp_hash = tmp[0];
-    //_fp_hash >>= 64 - (conf->get_fp_signature_len() + conf->get_fp_bucket_no_len());
-    _fp_hash = 0;
-    MurmurHash3_x86_32(_ca, conf->get_ca_length(), 2, &_fp_hash);
-    _fp_hash >>= 32 - (conf->get_fp_signature_len() + conf->get_fp_bucket_no_len());
+    uint64_t tmp[2];
+    MurmurHash3_x64_128(_ca, conf->get_ca_length(), 2, tmp);
+    _fp_hash = tmp[0];
+    _fp_hash >>= 64 - (conf->get_fp_signature_len() + conf->get_fp_bucket_no_len());
     END_TIMER(fingerprinting);
   }
 
@@ -62,13 +59,10 @@ namespace cache {
   void Chunk::compute_lba_hash()
   {
     Config *conf = Config::get_configuration();
-    //uint64_t tmp[2];
-    //MurmurHash3_x64_128(_addr, 8, 2, tmp);
-    //_lba_hash = tmp[0];
-    //_lba_hash >>= 64 - (conf->get_lba_signature_len() + conf->get_lba_bucket_no_len());
-    _lba_hash = 0;
-    MurmurHash3_x86_32(&_addr, 8, 2, &_lba_hash);
-    _lba_hash >>= 32 - (conf->get_lba_signature_len() + conf->get_lba_bucket_no_len());
+    uint64_t tmp[2];
+    MurmurHash3_x64_128(&_addr, 8, 3, tmp);
+    _lba_hash = tmp[0];
+    _lba_hash >>= 64 - (conf->get_lba_signature_len() + conf->get_lba_bucket_no_len());
   }
 
   void Chunk::preprocess_unaligned(uint8_t *buf) {
@@ -126,6 +120,8 @@ namespace cache {
     c._buf = _buf;
     c._has_ca = false;
 
+    c._lba_hash = -1LL;
+    c._fp_hash = -1LL;
     c._lba_hit = false;
     c._ca_hit = false;
     c._dedup_result = DEDUP_UNKNOWN;
@@ -151,7 +147,7 @@ namespace cache {
     if (_len == 0) return false;
 
 
-    uint32_t next_addr = 
+    uint64_t next_addr = 
       ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?
       ((_addr & ~(_chunk_size - 1)) + _chunk_size) : (_addr + _len);
 

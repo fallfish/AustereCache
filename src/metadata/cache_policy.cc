@@ -31,7 +31,7 @@ namespace cache {
   {
     uint32_t n_slots = _bucket->get_n_slots();
     uint32_t k = _bucket->get_k(slot_id);
-    uint32_t v = _bucket->get_v(slot_id);
+    uint64_t v = _bucket->get_v(slot_id);
     // Move each slot to the tail
     for ( ; slot_id < n_slots - n_slots_to_occupy; ++slot_id) {
       _bucket->set_invalid(slot_id);
@@ -61,7 +61,7 @@ namespace cache {
 
       uint32_t size; uint64_t ssd_location, metadata_location;// useless variables
       bool valid = false;
-      uint32_t fp_hash = _bucket->get_v(slot_id);
+      uint64_t fp_hash = _bucket->get_v(slot_id);
       if (ca_index != nullptr)
         valid = ca_index->lookup(fp_hash, size, ssd_location, metadata_location);
       // if the slot has no mappings in ca index, it is an empty slot

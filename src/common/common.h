@@ -88,8 +88,8 @@ struct Chunk {
 
     uint8_t  _ca[20];
     uint8_t  _strong_ca[20];
-    uint32_t _lba_hash;
-    uint32_t _fp_hash;
+    uint64_t _lba_hash;
+    uint64_t _fp_hash;
     bool     _has_ca;
 
     uint64_t _ssd_location;

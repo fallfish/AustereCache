@@ -51,10 +51,10 @@ namespace cache {
       LBAIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_slots_per_bucket, std::shared_ptr<FPIndex> ca_index);
       ~LBAIndex();
-      bool lookup(uint32_t lba_hash, uint32_t &fp_hash);
-      void promote(uint32_t lba_hash);
-      void update(uint32_t lba_hash, uint32_t fp_hash);
-      std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t lba_hash);
+      bool lookup(uint64_t lba_hash, uint64_t &fp_hash);
+      void promote(uint64_t lba_hash);
+      void update(uint64_t lba_hash, uint64_t fp_hash);
+      std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t lba_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
       std::unique_ptr<LBABucket> get_lba_bucket(uint32_t bucket_id)
@@ -75,10 +75,10 @@ namespace cache {
       FPIndex(uint32_t n_bits_per_key, uint32_t n_bits_per_value,
           uint32_t n_buckets, uint32_t n_slots_per_bucket);
       ~FPIndex();
-      bool lookup(uint32_t fp_hash, uint32_t &size, uint64_t &ssd_location, uint64_t &metadata_location);
-      void promote(uint32_t fp_hash);
-      void update(uint32_t fp_hash, uint32_t size, uint64_t &ssd_location, uint64_t &metadata_location);
-      std::unique_ptr<std::lock_guard<std::mutex>> lock(uint32_t fp_hash);
+      bool lookup(uint64_t fp_hash, uint32_t &size, uint64_t &ssd_location, uint64_t &metadata_location);
+      void promote(uint64_t fp_hash);
+      void update(uint64_t fp_hash, uint32_t size, uint64_t &ssd_location, uint64_t &metadata_location);
+      std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t fp_hash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
       std::unique_ptr<FPBucket> get_fp_bucket(uint32_t bucket_id) {
