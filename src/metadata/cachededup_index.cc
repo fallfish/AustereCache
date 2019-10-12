@@ -134,7 +134,7 @@ namespace cache {
       spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
       DirtyList::getInstance()->add_evicted_block(mp_[_fp].cachedataLocation_,
-          Config::get_configuration()->get_chunk_size());
+          Config::getInstance()->get_chunk_size());
 #endif
       mp_.erase(_fp);
       Stats::getInstance()->add_fp_index_eviction_caused_by_capacity();
@@ -208,7 +208,7 @@ namespace cache {
 #ifdef CDARC
       CDARC_FingerprintIndex::getInstance().reference(lba, ca);
 #else
-      DARC_FingerprintIndex::get_instance().reference(lba, ca);
+      DARC_FingerprintIndex::getInstance().reference(lba, ca);
 #endif
       return ;
     }
@@ -236,7 +236,7 @@ namespace cache {
 #ifdef CDARC
           CDARC_FingerprintIndex::getInstance().reference(lba, ca);
 #else
-          DARC_FingerprintIndex::get_instance().reference(lba, ca);
+          DARC_FingerprintIndex::getInstance().reference(lba, ca);
 #endif
           return ;
         } else if (it->second.listId_ == 2) {
@@ -255,7 +255,7 @@ namespace cache {
 #ifdef CDARC
         CDARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
 #else
-        DARC_FingerprintIndex::get_instance().deference(lba, it->second.v_);
+        DARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
 #endif
       }
 
@@ -275,7 +275,7 @@ namespace cache {
 #ifdef CDARC
     CDARC_FingerprintIndex::getInstance().reference(lba, ca);
 #else
-    DARC_FingerprintIndex::get_instance().reference(lba, ca);
+    DARC_FingerprintIndex::getInstance().reference(lba, ca);
 #endif
     memcpy(mp_[lba].v_, ca, Config::getInstance()->getFingerprintLength());
   }
@@ -332,7 +332,7 @@ namespace cache {
 #ifdef CDARC
           CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #else
-          DARC_FingerprintIndex::get_instance().deference(lba_, it->second.v_);
+          DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #endif
         } else {
           // move LRU from t1 to b3
@@ -347,7 +347,7 @@ namespace cache {
 #ifdef CDARC
           CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #else
-          DARC_FingerprintIndex::get_instance().deference(lba_, it->second.v_);
+          DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #endif
         }
       }
@@ -387,7 +387,7 @@ namespace cache {
 #ifdef CDARC
       CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #else
-      DARC_FingerprintIndex::get_instance().deference(lba_, it->second.v_);
+      DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #endif
     } else {
       // move LRU from T2 to B2
@@ -402,13 +402,13 @@ namespace cache {
 #ifdef CDARC
       CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #else
-      DARC_FingerprintIndex::get_instance().deference(lba_, it->second.v_);
+      DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
 #endif
     }
   }
 
   DARC_FingerprintIndex::DARC_FingerprintIndex() {}
-  DARC_FingerprintIndex &DARC_FingerprintIndex::get_instance()
+  DARC_FingerprintIndex &DARC_FingerprintIndex::getInstance()
   {
     return instance;
   }
@@ -493,7 +493,7 @@ namespace cache {
       spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
       DirtyList::getInstance()->add_evicted_block(mp_[_fp].cachedataLocation_,
-          Config::get_configuration()->get_chunk_size());
+          Config::getInstance()->get_chunk_size());
 #endif
       mp_.erase(_fp);
 
@@ -510,7 +510,7 @@ namespace cache {
   }
 
   CDARC_FingerprintIndex::CDARC_FingerprintIndex() {}
-  CDARC_FingerprintIndex &CDARC_FingerprintIndex::get_instance()
+  CDARC_FingerprintIndex &CDARC_FingerprintIndex::getInstance()
   {
     return instance;
   }

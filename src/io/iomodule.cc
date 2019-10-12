@@ -10,8 +10,8 @@ namespace cache {
 IOModule::IOModule()
 {
 #if defined(CDARC)
-  _weu._buf = new uint8_t[Config::get_configuration()->get_write_buffer_size()];
-  _weu.len_ = Config::get_configuration()->get_write_buffer_size();
+  weu_.buf_ = new uint8_t[Config::getInstance()->getWriteBufferSize()];
+  weu_.len_ = Config::getInstance()->getWriteBufferSize();
   writeBuffer_ = nullptr;
 #else
   if (Config::getInstance()->getWriteBufferSize() != 0) {
@@ -30,7 +30,7 @@ IOModule::~IOModule()
     delete writeBuffer_;
   }
 #if defined(CDARC)
-  free(_weu._buf);
+  free(weu_.buf_);
 #endif
 }
 
@@ -77,7 +77,7 @@ uint32_t IOModule::read(DeviceType deviceType, uint64_t addr, void *buf, uint32_
     END_TIMER(io_ssd);
 #if defined(CDARC)
   } else if (deviceType == 2) {
-    _weu.read(addr, (uint8_t*)buf, len);
+    weu_.read(addr, (uint8_t*)buf, len);
 #endif
   }
   Stats::getInstance()->add_io_request(deviceType, 1, len);
@@ -102,7 +102,7 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
     END_TIMER(io_ssd);
 #if defined(CDARC)
   } else if (deviceType == 2) {
-    _weu.write(addr, (uint8_t*)buf, len);
+    weu_.write(addr, (uint8_t*)buf, len);
 #endif
   }
   Stats::getInstance()->add_io_request(deviceType, 0, len);
@@ -111,7 +111,7 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
 void IOModule::flush(uint64_t addr)
 {
 #if defined(CDARC)
-  cacheDevice_->write(addr, _weu._buf, _weu.len_);
+  cacheDevice_->write(addr, weu_.buf_, weu_.len_);
 #endif
 }
 

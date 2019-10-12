@@ -15,10 +15,10 @@ namespace cache {
     bool next(Chunk &c);
     bool next(uint64_t &addr, uint8_t *&buf, uint32_t &len);
    protected:
-    uint64_t _addr;
-    uint8_t *_buf;
-    uint32_t _len;
-    uint32_t _chunk_size;
+    uint64_t addr_;
+    uint8_t *buf_;
+    uint32_t len_;
+    uint32_t chunkSize_;
   };
 
   /**

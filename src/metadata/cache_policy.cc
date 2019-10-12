@@ -186,12 +186,12 @@ namespace cache {
         }
         if (evicted) {
 #ifdef WRITE_BACK_CACHE
-          DirtyList::get_instance()->add_evicted_block(
+          DirtyList::getInstance()->add_evicted_block(
               /* Compute ssd location of the evicted data */
               /* Actually, full FP and address is sufficient. */
                 (_bucket->get_bucket_id() * _bucket->get_n_slots() + slot_id_begin) * 1LL *
-                (Config::get_configuration()->get_sector_size() + 
-                 Config::get_configuration()->get_metadata_size()),
+                (Config::getInstance()->get_sector_size() +
+                 Config::getInstance()->get_metadata_size()),
                 slot_id - slot_id_begin
               );
 #endif

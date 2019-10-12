@@ -122,12 +122,12 @@ namespace cache {
       // TODO: Add it into the evicted data of dirty list 
       Stats::getInstance()->add_fp_index_eviction_caused_by_collision();
 #ifdef WRITE_BACK_CACHE
-      DirtyList::get_instance()->add_evicted_block(
+      DirtyList::getInstance()->add_evicted_block(
             /* Compute ssd location of the evicted data */
             /* Actually, full FP and address is sufficient. */
             (bucketId_ * nSlots_ + slotId) * 1LL *
-            (Config::get_configuration()->get_sector_size() + 
-             Config::get_configuration()->get_metadata_size()),
+            (Config::getInstance()->get_sector_size() +
+             Config::getInstance()->get_metadata_size()),
             nSlotsOccupied
           );
 #endif

@@ -16,11 +16,11 @@ void CompressionModule::compress(Chunk &chunk)
   BEGIN_TIMER();
 #if defined(CDARC)
   chunk.compressedLen_ = LZ4_compress_default(
-      (const char*)chunk._buf, (char*)chunk.compressedBuf_,
+      (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
       chunk.len_, chunk.len_ - 1);
   if (chunk.compressedLen_ == 0) {
     chunk.compressedLen_ = chunk.len_;
-    chunk.compressedBuf_ = chunk._buf;
+    chunk.compressedBuf_ = chunk.buf_;
   }
 #else
 #if !defined(FAKE_IO)
@@ -60,8 +60,8 @@ void CompressionModule::decompress(Chunk &chunk)
 #endif
 
 #if defined(NORMAL_DIST_COMPRESSION)
-    chunk.compressedLen_ = Config::get_configuration()->get_current_compressed_len();
-    memcpy(chunk.compressedBuf_, Config::get_configuration()->get_current_data(), chunk.compressedLen_);
+    chunk.compressedLen_ = Config::getInstance()->get_current_compressed_len();
+    memcpy(chunk.compressedBuf_, Config::getInstance()->get_current_data(), chunk.compressedLen_);
     // printf("%s: ", __func__);
     // print_SHA1((char*)chunk.compressedBuf_, chunk.compressedLen_);
 #endif

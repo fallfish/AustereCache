@@ -31,18 +31,18 @@ namespace cache {
     std::cout << "Number of FP buckets: " << (1 << fp_bucket_no_len) << std::endl;
 #ifdef CACHE_DEDUP
 #if defined(DLRU)
-    DLRU_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len));
-    DLRU_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
+    DLRU_SourceIndex::getInstance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len));
+    DLRU_FingerprintIndex::getInstance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
     std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
     std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << fp_bucket_no_len)) << std::endl;
 #elif defined(DARC)
-    DARC_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
-    DARC_FingerprintIndex::get_instance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
+    DARC_SourceIndex::getInstance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
+    DARC_FingerprintIndex::getInstance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
     std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
     std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << fp_bucket_no_len)) << std::endl;
 #elif defined(CDARC)
-    DARC_SourceIndex::get_instance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
-    CDARC_FingerprintIndex::get_instance().init((1 << fp_bucket_no_len));
+    DARC_SourceIndex::getInstance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
+    CDARC_FingerprintIndex::getInstance().init((1 << fp_bucket_no_len));
     std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
     std::cout << "FingerprintIndex capacity: " << (1 << fp_bucket_no_len) << std::endl;
 #endif
@@ -53,7 +53,7 @@ namespace cache {
 #if defined(DLRU)
   void MetadataModule::dedup(Chunk &c)
   {
-    c.hitFPIndex_ = DLRU_FingerprintIndex::get_instance().lookup(c.fingerprint_, c.cachedataLocation_);
+    c.hitFPIndex_ = DLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
     else
@@ -61,9 +61,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c.hitLBAIndex_ = DLRU_SourceIndex::get_instance().lookup(c.addr_, c.fingerprint_);
+    c.hitLBAIndex_ = DLRU_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
     if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = DLRU_FingerprintIndex::get_instance().lookup(c.fingerprint_, c.cachedataLocation_);
+      c.hitFPIndex_ = DLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
@@ -72,13 +72,13 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    DLRU_SourceIndex::get_instance().update(c.addr_, c.fingerprint_);
-    DLRU_FingerprintIndex::get_instance().update(c.fingerprint_, c.cachedataLocation_);
+    DLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
+    DLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 #elif defined(DARC)
   void MetadataModule::dedup(Chunk &c)
   {
-    c.hitFPIndex_ = DARC_FingerprintIndex::get_instance().lookup(c.fingerprint_, c.cachedataLocation_);
+    c.hitFPIndex_ = DARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
     else
@@ -86,9 +86,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c.hitLBAIndex_ = DARC_SourceIndex::get_instance().lookup(c.addr_, c.fingerprint_);
+    c.hitLBAIndex_ = DARC_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
     if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = DARC_FingerprintIndex::get_instance().lookup(c.fingerprint_, c.cachedataLocation_);
+      c.hitFPIndex_ = DARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
@@ -97,14 +97,14 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    DARC_SourceIndex::get_instance().adjust_adaptive_factor(c.addr_);
-    DARC_FingerprintIndex::get_instance().update(c.addr_, c.fingerprint_, c.cachedataLocation_);
-    DARC_SourceIndex::get_instance().update(c.addr_, c.fingerprint_);
+    DARC_SourceIndex::getInstance().adjust_adaptive_factor(c.addr_);
+    DARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.cachedataLocation_);
+    DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
   }
 #elif defined(CDARC)
   void MetadataModule::dedup(Chunk &c)
   {
-    c.hitFPIndex_ = CDARC_FingerprintIndex::get_instance().lookup(c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
+    c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
     if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
     else
@@ -112,9 +112,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c.hitLBAIndex_ = DARC_SourceIndex::get_instance().lookup(c.addr_, c.fingerprint_);
+    c.hitLBAIndex_ = DARC_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
     if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = CDARC_FingerprintIndex::get_instance().lookup(c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
+      c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
@@ -123,9 +123,9 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    DARC_SourceIndex::get_instance().adjust_adaptive_factor(c.addr_);
-    c._evicted_weu_id = CDARC_FingerprintIndex::get_instance().update(c.addr_, c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
-    DARC_SourceIndex::get_instance().update(c.addr_, c.fingerprint_);
+    DARC_SourceIndex::getInstance().adjust_adaptive_factor(c.addr_);
+    c._evicted_weu_id = CDARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
+    DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
   }
 #endif
 #else

@@ -10,7 +10,7 @@ ManageModule::ManageModule(
   ioModule_(ioModule), metadataModule_(metadataModule)
 {
 #if defined(CDARC)
-  weuSize_ = Config::get_configuration()->get_write_buffer_size();
+  weuSize_ = Config::getInstance()->getWriteBufferSize();
   _current_ssd_location = 0;
   _current_weu_id = 0;
 #endif
@@ -31,20 +31,20 @@ void ManageModule::generateReadRequest(
 #if defined(CACHE_DEDUP)
 
 #if defined(DLRU) || defined(DARC)
-    deviceType = 1;
+    deviceType = CACHE_DEVICE;
     addr = c.cachedataLocation_;
-    buf = c._buf;
+    buf = c.buf_;
     len = c.len_;
 #elif defined(CDARC)
     if (_current_weu_id == c.weuId_) {
-      deviceType = 2;
+      deviceType = WRITE_BUFFER;
       addr = c._weu_offset;
     } else {
-      deviceType = 1;
+      deviceType = CACHE_DEVICE;
       addr = _weu_to_ssd_location[c.weuId_] + c._weu_offset;
     }
     if (c.compressedLen_ == c.len_) {
-      buf = c._buf;
+      buf = c.buf_;
     } else {
       buf = c.compressedBuf_;
     }
@@ -108,7 +108,7 @@ bool ManageModule::generateCacheWriteRequest(
 
 #if defined(DLRU) || defined(DARC)
     addr = chunk.cachedataLocation_;
-    buf = chunk._buf;
+    buf = chunk.buf_;
     len = chunk.len_;
 #elif defined(CDARC)
     uint64_t evicted_ssd_location = -1;
@@ -129,7 +129,7 @@ bool ManageModule::generateCacheWriteRequest(
 
       _current_weu_id = chunk.weuId_;
     }
-    deviceType = 2;
+    deviceType = WRITE_BUFFER;
     addr = chunk._weu_offset;
     buf = chunk.compressedBuf_;
     len = chunk.compressedLen_;

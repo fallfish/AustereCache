@@ -145,7 +145,7 @@ struct Chunk {
       return len_ == Config::getInstance()->getChunkSize()
         && (long long)buf_ % 512 == 0;
 #else
-      return len_ == Config::get_configuration()->get_chunk_size();
+      return len_ == Config::getInstance()->get_chunk_size();
 #endif
     }
     

@@ -229,7 +229,7 @@ namespace cache {
       };
 
       DARC_FingerprintIndex();
-      static DARC_FingerprintIndex &get_instance();
+      static DARC_FingerprintIndex &getInstance();
       void init(uint32_t cap);
       bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
       void reference(uint64_t lba, uint8_t *fp);
@@ -313,7 +313,7 @@ namespace cache {
       };
 
       CDARC_FingerprintIndex();
-      static CDARC_FingerprintIndex &get_instance();
+      static CDARC_FingerprintIndex &getInstance();
       void init(uint32_t cap);
       bool lookup(uint8_t *fp, uint32_t &weuId, uint32_t &offset, uint32_t &len);
       void reference(uint64_t lba, uint8_t *fp);

@@ -73,7 +73,7 @@ namespace cache {
           //} else {
             //ioModule_->read(1, metadataLocation + 512, decompressed_data, chunk_size);
           //}
-          //validFingerprint = (memcmp(decompressed_data, chunk._buf, chunk_size) == 0);
+          //validFingerprint = (memcmp(decompressed_data, chunk.buf_, chunk_size) == 0);
         //} else if (fingerprint_computation_method == 2) {
         //// Method 2: use weak hash + strong hash
           //chunk.computeStrongFingerprint();

@@ -89,21 +89,21 @@ namespace cache {
   }
 
   Chunker::Chunker(uint64_t addr, void *buf, uint32_t len) :
-    _chunk_size(Config::getInstance()->getChunkSize()),
-    _addr(addr), _len(len), _buf((uint8_t*)buf)
+    chunkSize_(Config::getInstance()->getChunkSize()),
+    addr_(addr), len_(len), buf_((uint8_t*)buf)
   {}
 
   bool Chunker::next(Chunk &c)
   {
-    if (_len == 0) return false;
+    if (len_ == 0) return false;
 
-    uint64_t next_addr = 
-      ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?
-      ((_addr & ~(_chunk_size - 1)) + _chunk_size) : (_addr + _len);
+    uint64_t next_addr =
+      ((addr_ & ~(chunkSize_ - 1)) + chunkSize_) < (addr_ + len_) ?
+      ((addr_ & ~(chunkSize_ - 1)) + chunkSize_) : (addr_ + len_);
 
-    c.addr_ = _addr;
-    c.len_ = next_addr - _addr;
-    c.buf_ = _buf;
+    c.addr_ = addr_;
+    c.len_ = next_addr - addr_;
+    c.buf_ = buf_;
     c.hasFingerprint_ = false;
 
     c.lbaHash_ = -1LL;
@@ -116,9 +116,9 @@ namespace cache {
     c.compressedLevel_ = 0;
     c.computeLBAHash();
 
-    _addr += c.len_;
-    _buf += c.len_;
-    _len -= c.len_;
+    addr_ += c.len_;
+    buf_ += c.len_;
+    len_ -= c.len_;
 
     return true;
   }
@@ -130,20 +130,20 @@ namespace cache {
    */
   bool Chunker::next(uint64_t &addr, uint8_t *&buf, uint32_t &len)
   {
-    if (_len == 0) return false;
+    if (len_ == 0) return false;
 
 
-    uint64_t next_addr = 
-      ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?
-      ((_addr & ~(_chunk_size - 1)) + _chunk_size) : (_addr + _len);
+    uint64_t next_addr =
+      ((addr_ & ~(chunkSize_ - 1)) + chunkSize_) < (addr_ + len_) ?
+      ((addr_ & ~(chunkSize_ - 1)) + chunkSize_) : (addr_ + len_);
 
-    addr = _addr;
-    len = next_addr - _addr;
-    buf = _buf;
+    addr = addr_;
+    len = next_addr - addr_;
+    buf = buf_;
 
-    _addr += len;
-    _buf += len;
-    _len -= len;
+    addr_ += len;
+    buf_ += len;
+    len_ -= len;
 
     return true;
   }

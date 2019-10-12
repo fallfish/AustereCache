@@ -59,8 +59,8 @@ class RunSystem {
 
         // read working set
 #ifdef DIRECT_IO
-        _workload_chunks = (char *)aligned_alloc(512, _working_set_size);
-        _unique_chunks = (char *)aligned_alloc(512, _num_unique_chunks * _chunk_size);
+        posix_memalign(reinterpret_cast<void **>(_workload_chunks), 512, _working_set_size);
+        posix_memalign(reinterpret_cast<void **>(_unique_chunks), 512, _num_unique_chunks * _chunk_size);
 #else
         _workload_chunks = reinterpret_cast<char*>(malloc(_working_set_size));
         _unique_chunks = reinterpret_cast<char*>(malloc((uint64_t)_num_unique_chunks * chunkSize_));
@@ -111,7 +111,7 @@ class RunSystem {
     {
       _read_data = (char**)malloc(sizeof(char*) * _num_workers);
       for (int i = 0; i < _num_workers; i++) {
-        _read_data[i] = (char *)aligned_alloc(512, _working_set_size);
+        posix_memalign(reinterpret_cast<void **>(_read_data[i]), 512, _working_set_size);
       }
     }
     _workload_conf.print_current_parameters();

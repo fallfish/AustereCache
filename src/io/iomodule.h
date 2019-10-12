@@ -248,17 +248,17 @@ class IOModule {
 
 #if defined(CDARC)
   struct {
-    uint8_t *_buf;
+    uint8_t *buf_;
     uint32_t len_;
     void read(uint64_t addr, uint8_t *buf, uint32_t len)
     {
-      memcpy(buf, _buf + addr, len);
+      memcpy(buf, buf_ + addr, len);
     }
     void write(uint64_t addr, uint8_t *buf, uint32_t len)
     {
-      memcpy(_buf + addr, buf, len);
+      memcpy(buf_ + addr, buf, len);
     }
-  } _weu;
+  } weu_;
 #endif
 };
 

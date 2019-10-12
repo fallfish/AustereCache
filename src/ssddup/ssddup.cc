@@ -34,8 +34,8 @@ namespace cache {
     threadPool_ = std::make_unique<ThreadPool>(Config::getInstance()->getMaxNumGlobalThreads());
 
 #ifdef WRITE_BACK_CACHE
-    DirtyList::get_instance()->set_io_module(io_module);
-    DirtyList::get_instance()->set_compression_module(compressionModule_);
+    DirtyList::getInstance()->set_io_module(io_module);
+    DirtyList::getInstance()->set_compression_module(compressionModule_);
 #endif
 
     std::cout << sizeof(Metadata) << std::endl;
@@ -123,40 +123,38 @@ namespace cache {
   }
 
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
-  void SSDDup::internal_read(Chunk &c, bool update_metadata)
+  void SSDDup::internalRead(Chunk &chunk)
   {
-    deduplicationModule_->lookup(c);
-    Stats::get_instance()->add_read_stat(c);
+    deduplicationModule_->lookup(chunk);
+    Stats::getInstance()->addReadLookupStatistics(chunk);
     // printf("TEST: %s, manageModule_ read\n", __func__);
-    manageModule_->read(c);
+    manageModule_->read(chunk);
 
-    if (update_metadata) {
-      if (c.lookupResult_ == NOT_HIT) {
-        c.fingerprinting();
-        deduplicationModule_->dedup(c);
-        manageModule_->update_metadata(c);
-        if (c.dedupResult_ == NOT_DUP) {
-          manageModule_->write(c);
-        }
-
-        Stats::get_instance()->add_read_post_dedup_stat(c);
-      } else {
-        manageModule_->update_metadata(c);
+    if (chunk.lookupResult_ == NOT_HIT) {
+      chunk.computeFingerprint();
+      deduplicationModule_->dedup(chunk);
+      manageModule_->updateMetadata(chunk);
+      if (chunk.dedupResult_ == NOT_DUP) {
+        manageModule_->write(chunk);
       }
+
+      Stats::getInstance()->add_read_post_dedup_stat(chunk);
+    } else {
+      manageModule_->updateMetadata(chunk);
     }
   }
 
-  void SSDDup::internal_write(Chunk &c)
+  void SSDDup::internalWrite(Chunk &chunk)
   {
-    c.fingerprinting();
-    deduplicationModule_->dedup(c);
-    manageModule_->update_metadata(c);
-    manageModule_->write(c);
+    chunk.computeFingerprint();
+    deduplicationModule_->dedup(chunk);
+    manageModule_->updateMetadata(chunk);
+    manageModule_->write(chunk);
 #if defined(WRITE_BACK_CACHE)
-    DirtyList::get_instance()->add_latest_update(c.addr_, c.cachedataLocation_, c.len_);
+    DirtyList::getInstance()->addLatestUpdate(chunk.addr_, chunk.cachedataLocation_, chunk.len_);
 #endif
 
-    Stats::get_instance()->add_write_stat(c);
+    Stats::getInstance()->add_write_stat(chunk);
   }
 #else
 // ACDC or CDARC 
@@ -213,7 +211,7 @@ namespace cache {
       }
       manageModule_->updateMetadata(chunk);
 #if defined(WRITE_BACK_CACHE)
-      DirtyList::get_instance()->add_latest_update(chunk.addr_, chunk.cachedataLocation_, chunk.compressedLevel_ + 1);
+      DirtyList::getInstance()->add_latest_update(chunk.addr_, chunk.cachedataLocation_, chunk.compressedLevel_ + 1);
 #endif
       manageModule_->write(chunk);
 

@@ -17,12 +17,12 @@ namespace cache {
       void setCompressionModule(std::shared_ptr<CompressionModule> compressionModule);
       void setIOModule(std::shared_ptr<IOModule> ioModule);
 
-      static DirtyList* get_instance();
+      static DirtyList* getInstance();
       static void release();
 
       struct EvictedBlock {
-        uint64_t _ssd_data_location;
-        uint32_t _len;
+        uint64_t cachedataLocation_;
+        uint32_t len_;
       };
 
 
