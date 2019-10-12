@@ -93,8 +93,8 @@ class TraceGenerator {
     // compute lba_hash, fp_hash, compressiblity, and ca (fingerprint) for each chunk
     int index = 0;
     while (chunker.next(_chunks[index])) {
-      _chunks[index].TEST_fingerprinting();
-      _chunks[index].TEST_compute_lba_hash();
+      _chunks[index].computeFingerprint();
+      _chunks[index].computeLBAHash();
       _chunks[index].compressedBuf_ = tmp_buf;
       compression_module.compress(_chunks[index]);
       ++ index;

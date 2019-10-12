@@ -26,7 +26,7 @@ namespace cache {
   class Index {
     public:
       Index(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-          uint32_t nBuckets, uint32_t nSlotsPerBucket);
+          uint32_t nSlotsPerBucket, uint32_t nBuckets);
       ~Index() {}
 
       //virtual bool lookup(uint8_t *key, uint8_t *value) = 0;
@@ -48,7 +48,7 @@ namespace cache {
   class LBAIndex : Index {
     public:
       LBAIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-          uint32_t nBuckets, uint32_t nSlotsPerBucket, std::shared_ptr<FPIndex> fpIndex);
+          uint32_t nSlotsPerBucket, uint32_t nBuckets, std::shared_ptr<FPIndex> fpIndex);
       ~LBAIndex();
       bool lookup(uint64_t lbaHash, uint64_t &fpHash);
       void promote(uint64_t lbaHash);
@@ -56,14 +56,13 @@ namespace cache {
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t lbaHash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
-      LBABucket&& getLBABucket(uint32_t bucketId)
+      std::unique_ptr<LBABucket> getLBABucket(uint32_t bucketId)
       {
-        LBABucket lbaBucket(
+        return std::move(std::make_unique<LBABucket>(
             nBitsPerKey_, nBitsPerValue_, nSlotsPerBucket_,
             data_.get() + nBytesPerBucket_ * bucketId,
             valid_.get() + nBytesPerBucketForValid_ * bucketId,
-            cachePolicy_.get(), bucketId);
-        return std::move(lbaBucket);
+            cachePolicy_.get(), bucketId));
       }
     private:
       std::shared_ptr<FPIndex> fpIndex_;
@@ -73,7 +72,7 @@ namespace cache {
     public:
       // n_bits_per_key = 12, n_bits_per_value = 4
       FPIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-          uint32_t nBuckets, uint32_t nSlotsPerBucket);
+          uint32_t nSlotsPerBucket, uint32_t nBuckets);
       ~FPIndex();
       bool lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation);
       void promote(uint64_t fpHash);
@@ -81,13 +80,12 @@ namespace cache {
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t fpHash);
       void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
-      FPBucket&& getFPBucket(uint32_t bucketId) {
-        FPBucket fpBucket(
+      std::unique_ptr<FPBucket> getFPBucket(uint32_t bucketId) {
+        return std::move(std::make_unique<FPBucket>(
             nBitsPerKey_, nBitsPerValue_, nSlotsPerBucket_,
             data_.get() + nBytesPerBucket_ * bucketId,
             valid_.get() + nBytesPerBucketForValid_ * bucketId,
-            cachePolicy_.get(), bucketId);
-        return std::move(fpBucket);
+            cachePolicy_.get(), bucketId));
       }
     private:
       uint64_t computeCachedataLocation(uint32_t bucketId, uint32_t slotId);

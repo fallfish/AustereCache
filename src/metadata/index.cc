@@ -5,15 +5,15 @@
 namespace cache {
 
   Index::Index(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-      uint32_t nBuckets, uint32_t nSlotsPerBucket) :
+      uint32_t nSlotsPerBucket, uint32_t nBuckets) :
     nBitsPerKey_(nBitsPerKey), nBitsPerValue_(nBitsPerValue),
-    nBitsPerSlot_(nBitsPerKey + nBitsPerValue), nSlotsPerBucket_(nBuckets),
-    nBytesPerBucket_(((nBitsPerKey + nBitsPerValue) * nBuckets + 7) / 8),
-    nBytesPerBucketForValid_((1 * nBuckets + 7) / 8),
-    data_(std::make_unique<uint8_t[]>(nBytesPerBucket_ * nSlotsPerBucket)),
-    valid_(std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nSlotsPerBucket)),
-    mutexes_(std::make_unique<std::mutex[]>(nSlotsPerBucket)),
-    nBuckets_(nSlotsPerBucket)
+    nBitsPerSlot_(nBitsPerKey + nBitsPerValue), nSlotsPerBucket_(nSlotsPerBucket),
+    nBytesPerBucket_(((nBitsPerKey + nBitsPerValue) * nSlotsPerBucket + 7) / 8),
+    nBytesPerBucketForValid_((1 * nSlotsPerBucket + 7) / 8),
+    nBuckets_(nBuckets),
+    data_(std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets)),
+    valid_(std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets)),
+    mutexes_(std::make_unique<std::mutex[]>(nBuckets))
   {}
 
   LBAIndex::~LBAIndex() {}
@@ -26,9 +26,9 @@ namespace cache {
   }
 
   LBAIndex::LBAIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-      uint32_t nBuckets, uint32_t nSlotsPerBucket,
+      uint32_t nSlotsPerBucket, uint32_t nBuckets,
       std::shared_ptr<FPIndex> fpIndex) :
-    Index(nBitsPerKey, nBitsPerValue, nBuckets, nSlotsPerBucket),
+    Index(nBitsPerKey, nBitsPerValue, nSlotsPerBucket, nBuckets),
     fpIndex_(fpIndex)
   {
     setCachePolicy(std::move(std::make_unique<LRU>()));
@@ -39,30 +39,30 @@ namespace cache {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1 << nBitsPerKey_) - 1);
     Stats::getInstance()->add_lba_index_bucket_hit(bucketId);
-    return getLBABucket(bucketId).lookup(signature, fpHash) != ~((uint32_t)0);
+    return getLBABucket(bucketId)->lookup(signature, fpHash) != ~((uint32_t)0);
   }
 
   void LBAIndex::promote(uint64_t lbaHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1 << nBitsPerKey_) - 1);
-    getLBABucket(bucketId).promote(signature);
+    getLBABucket(bucketId)->promote(signature);
   }
 
   void LBAIndex::update(uint64_t lbaHash, uint64_t fpHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1 << nBitsPerKey_) - 1);
-    getLBABucket(bucketId).update(signature, fpHash, fpIndex_);
+    getLBABucket(bucketId)->update(signature, fpHash, fpIndex_);
 
     Stats::getInstance()->add_lba_bucket_update(bucketId);
   }
 
   FPIndex::FPIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-      uint32_t nBuckets, uint32_t nSlotsPerBucket) :
-    Index(nBitsPerKey, nBitsPerValue, nBuckets, nSlotsPerBucket)
+      uint32_t nSlotsPerBucket, uint32_t nBuckets) :
+    Index(nBitsPerKey, nBitsPerValue, nSlotsPerBucket, nBuckets)
   {
-    cachePolicy_ = std::move(std::make_unique<CAClock>(nBuckets, nSlotsPerBucket));
+    cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket, nBuckets));
   }
 
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
@@ -83,7 +83,7 @@ namespace cache {
     uint32_t bucketId = fpHash >> nBitsPerKey_,
              signature = fpHash & ((1 << nBitsPerKey_) - 1),
              nSlotsOccupied = 0;
-    uint32_t index = getFPBucket(bucketId).lookup(signature, nSlotsOccupied);
+    uint32_t index = getFPBucket(bucketId)->lookup(signature, nSlotsOccupied);
     if (index == ~((uint32_t)0)) return false;
 
     compressedLevel = nSlotsOccupied - 1;
@@ -98,7 +98,7 @@ namespace cache {
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_,
              signature = fpHash & ((1 << nBitsPerKey_) - 1);
-    getFPBucket(bucketId).promote(signature);
+    getFPBucket(bucketId)->promote(signature);
   }
 
   void FPIndex::update(uint64_t fpHash, uint32_t compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)
@@ -108,7 +108,7 @@ namespace cache {
              nSlotsToOccupy = compressedLevel + 1;
 
     Stats::getInstance()->add_fp_bucket_update(bucketId);
-    uint32_t slotId = getFPBucket(bucketId).update(signature, nSlotsToOccupy);
+    uint32_t slotId = getFPBucket(bucketId)->update(signature, nSlotsToOccupy);
     cachedataLocation = computeCachedataLocation(bucketId, slotId);
     metadataLocation = computeMetadataLocation(bucketId, slotId);
   }

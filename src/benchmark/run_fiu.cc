@@ -261,7 +261,7 @@ namespace cache {
       void work(std::atomic<uint64_t> &total_bytes)
       {
         char* rwdata;
-        posix_memalign(reinterpret_cast<void **>(rwdata), 512, 32768 + 10);
+        posix_memalign(reinterpret_cast<void **>(&rwdata), 512, 32768 + 10);
         //rwdata = (char*)malloc(32768 + 10);
         std::string s;
         Config* conf = Config::getInstance();
