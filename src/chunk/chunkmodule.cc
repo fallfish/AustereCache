@@ -20,7 +20,7 @@ namespace cache {
     assert(len_ == conf->getChunkSize());
     assert(addr_ % conf->getChunkSize() == 0);
 #ifdef REPLAY_FIU
-    memcpy(fingerprint_, conf->get_current_fingerprint(), conf->get_ca_length());
+    memcpy(fingerprint_, conf->getCurrentFingerprint(), conf->getFingerprintLength());
 #else
     if (conf->getFingerprintAlg() == 0) {
       SHA1(buf_, len_, fingerprint_);
@@ -152,7 +152,7 @@ namespace cache {
    * (Commented by jhli)
    * A factory of class "Chunker". Used to create a Chunker class
    */
-  ChunkModule::ChunkModule() {}
+  ChunkModule::ChunkModule() = default;
   Chunker ChunkModule::createChunker(uint64_t addr, void *buf, uint32_t len)
   {
     Chunker chunker(addr, buf, len);
