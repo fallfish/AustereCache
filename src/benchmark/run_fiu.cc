@@ -286,7 +286,7 @@ namespace cache {
           convertStr2Sha1(_reqs[i].sha1, sha1);
 
 #if defined(REPLAY_FIU)
-          conf->set_current_fingerprint(sha1);
+          conf->setCurrentFingerprint(sha1);
 #endif
 
           total_bytes.fetch_add(len, std::memory_order_relaxed);

@@ -38,7 +38,7 @@ class RunDeduplicationModule {
 
         _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
         // read working set
-        posix_memalign(reinterpret_cast<void **>(_chunks), 512, _n_chunks * sizeof(Chunk)));
+        posix_memalign(reinterpret_cast<void **>(_chunks), 512, _n_chunks * sizeof(Chunk));
         n = read(fd, _chunks, _n_chunks * sizeof(Chunk));
 
         if (n != _n_chunks * sizeof(Chunk)) {
