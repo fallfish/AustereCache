@@ -13,7 +13,7 @@ namespace cache {
    */
   struct Stats {
     static Stats* instance;
-    static Stats* get_instance() {
+    static Stats* getInstance() {
       if (instance == nullptr) {
         instance = new Stats();
       }
@@ -27,17 +27,17 @@ namespace cache {
 
     Stats() {
 #if !defined(CACHE_DEDUP)
-      _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_lba_bucket_no_len());
-      _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_fp_bucket_no_len());
-      _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_lba_bucket_no_len());
-      _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::get_configuration()->get_fp_bucket_no_len());
+      _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerLBABucketId());
+      _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerFPBucketId());
+      _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerLBABucketId());
+      _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerFPBucketId());
 #endif
       reset();
     }
 
 
     int _current_request_type;
-    inline void set_current_request_type(bool is_write) {
+    inline void setCurrentRequestType(bool is_write) {
       if (is_write) _current_request_type = 1;
       else _current_request_type = 0;
     }
@@ -65,17 +65,17 @@ namespace cache {
     std::atomic<uint64_t> _n_write_not_dup_ca_not_match;
     inline void add_write_stat(Chunk &c) {
       _n_write.fetch_add(1, std::memory_order_relaxed);
-      if (c._dedup_result == DUP_WRITE) {
+      if (c.dedupResult_ == DUP_WRITE) {
         _n_write_dup_write.fetch_add(1, std::memory_order_relaxed);
-      } else if (c._dedup_result == DUP_CONTENT) {
+      } else if (c.dedupResult_ == DUP_CONTENT) {
         _n_write_dup_content.fetch_add(1, std::memory_order_relaxed);
-      } else if (c._dedup_result == NOT_DUP) {
+      } else if (c.dedupResult_ == NOT_DUP) {
         _n_write_not_dup.fetch_add(1, std::memory_order_relaxed);
-        if (c._ca_hit == false) {
+        if (c.hitFPIndex_ == false) {
           _n_write_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
         } else {
-          if (c._verification_result == BOTH_LBA_AND_CA_NOT_VALID
-              || c._verification_result == ONLY_LBA_VALID) {
+          if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
+              || c.verficationResult_ == ONLY_LBA_VALID) {
             _n_write_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
           }
         }
@@ -114,24 +114,24 @@ namespace cache {
     // Note: ca not match causes a invalidation of the corresponding entry
     std::atomic<uint64_t> _n_read_not_hit_not_dup_ca_not_hit;
     std::atomic<uint64_t> _n_read_not_hit_not_dup_ca_not_match;
-    inline void add_read_stat(Chunk &c) {
-      if (c._lookup_result == HIT) {
+    inline void addReadLookupStatistics(Chunk &c) {
+      if (c.lookupResult_ == HIT) {
         _n_read_hit.fetch_add(1, std::memory_order_relaxed);
-      } else if (c._lookup_result == NOT_HIT) {
+      } else if (c.lookupResult_ == NOT_HIT) {
         _n_read_not_hit.fetch_add(1, std::memory_order_relaxed);
 
-        if (c._lba_hit == false) {
+        if (c.hitLBAIndex_ == false) {
           _n_read_not_hit_lba_not_hit.fetch_add(1, std::memory_order_relaxed);
         } else {
-          if (c._ca_hit == false) {
+          if (c.hitFPIndex_ == false) {
             _n_read_not_hit_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
           } else {
             // read request only match LBA
-            if (c._verification_result == BOTH_LBA_AND_CA_NOT_VALID) {
+            if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID) {
               _n_read_not_hit_lba_not_match.fetch_add(1, std::memory_order_relaxed);
             } else {
-              std::cout << c._has_ca << std::endl;
-              std::cout << c._verification_result << std::endl;
+              std::cout << c.hasFingerprint_ << std::endl;
+              std::cout << c.verficationResult_ << std::endl;
               assert(0);
             }
           }
@@ -140,11 +140,11 @@ namespace cache {
     }
     inline void add_read_post_dedup_stat(Chunk &c) {
       _n_read_not_hit_not_dup.fetch_add(1, std::memory_order_relaxed);
-      if (c._ca_hit == false) {
+      if (c.hitFPIndex_ == false) {
         _n_read_not_hit_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
       } else {
-        if (c._verification_result == BOTH_LBA_AND_CA_NOT_VALID
-            || c._verification_result == ONLY_LBA_VALID) {
+        if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
+            || c.verficationResult_ == ONLY_LBA_VALID) {
           _n_read_not_hit_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
         }
       }
@@ -171,9 +171,9 @@ namespace cache {
      * Description:
      *   LBA signature collision caused eviction could be detected
      *   in the metadata/bucket.cc:LBABucket::update procedure, 
-     *   where stored CA signature is checked against
+     *   where stored FP signature is checked against
      *   the "real" (either fetched from a read hit or computed from a write/read not hit)
-     *   CA signature, if not match, a collision is bound to happen.
+     *   FP signature, if not match, a collision is bound to happen.
      */
     inline void add_lba_index_eviction_caused_by_collision() {
       if (_current_request_type == 0)
@@ -195,22 +195,22 @@ namespace cache {
 
     /* 
      * Description:
-     *   CA signature collision caused eviction could only happen in
-     *   1. Write not dup - caused by CA hit but CA not valid
-     *   2. Read not hit not dup - caused by CA hit but CA not valid
+     *   FP signature collision caused eviction could only happen in
+     *   1. Write not dup - caused by FP hit but FP not valid
+     *   2. Read not hit not dup - caused by FP hit but FP not valid
      */
-    inline void add_ca_index_eviction_caused_by_collision() {
+    inline void add_fp_index_eviction_caused_by_collision() {
       _n_ca_index_eviction_caused_by_collision.fetch_add(1, std::memory_order_relaxed);
     }
 
     /* 
      * Description:
-     *   CA eviction caused by capacity is triggered each time
+     *   FP eviction caused by capacity is triggered each time
      *   the space is full and we need to accommodate new entry.
      *   1. cache_policy.cc:CAClockExecutor::allocate
      *   2. cachededup.cc:(XX)FingerprintIndex::allocate
      */
-    inline void add_ca_index_eviction_caused_by_capacity() {
+    inline void add_fp_index_eviction_caused_by_capacity() {
       _n_ca_index_eviction_caused_by_capacity.fetch_add(1, std::memory_order_relaxed);
     }
 
@@ -247,8 +247,8 @@ namespace cache {
      *   When length = 512 bytes, the data is bound to be a metadata,
      *   so I will count it into metadata write into SSD.
      */
-    inline void add_io_request(uint32_t device_no, uint32_t type, uint64_t v) {
-      if (device_no == 0) {
+    inline void add_io_request(DeviceType deviceType, uint32_t type, uint64_t v) {
+      if (deviceType == PRIMARY_DEVICE) {
         if (type == 0) {
           _n_bytes_written_to_hdd.fetch_add(v, std::memory_order_relaxed);
         } else {
@@ -397,13 +397,13 @@ namespace cache {
       std::cout << "Index statistics: " << std::endl
                 << "    LBA Index eviction caused by hash collision: " << _n_lba_index_eviction_caused_by_collision << std::endl
                 << "    LBA Index eviction caused by full capacity: " << _n_lba_index_eviction_caused_by_capacity << std::endl
-                << "    CA Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
-                << "    CA Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
+                << "    FP Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
+                << "    FP Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
                 << std::endl;
 
 #if !defined(CACHE_DEDUP)
-      uint32_t n_lba_bucket = 1 << Config::get_configuration()->get_lba_bucket_no_len();
-      uint32_t n_fp_bucket = 1 << Config::get_configuration()->get_fp_bucket_no_len();
+      uint32_t n_lba_bucket = 1 << Config::getInstance()->getnBitsPerLBABucketId();
+      uint32_t n_fp_bucket = 1 << Config::getInstance()->getnBitsPerFPBucketId();
 
       std::cerr << "LBA Index Lookups: " << std::endl;
       for (uint32_t i = 0; i < n_lba_bucket; ++i) {
@@ -448,7 +448,7 @@ namespace cache {
       std::cout << std::fixed << std::setprecision(0) << "Time Elapsed: " << std::endl
                 << "    Time elpased for compression: " << _time_elapsed_compression << std::endl
                 << "    Time elpased for decompression: " << _time_elapsed_decompression << std::endl
-                << "    Time elpased for fingerprinting: " << _time_elapsed_fingerprinting << std::endl
+                << "    Time elpased for computeFingerprint: " << _time_elapsed_fingerprinting << std::endl
                 << "    Time elpased for dedup: " << _time_elapsed_dedup << std::endl
                 << "    Time elpased for lookup: " << _time_elapsed_lookup << std::endl
                 << "    Time elpased for update_index: " << _time_elapsed_update_index << std::endl

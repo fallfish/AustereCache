@@ -11,37 +11,37 @@
 
 namespace cache {
 
-void CompressionModule::compress(Chunk &c)
+void CompressionModule::compress(Chunk &chunk)
 {
   BEGIN_TIMER();
 #if defined(CDARC)
-  c._compressed_len = LZ4_compress_default(
-      (const char*)c._buf, (char*)c._compressed_buf,
-      c._len, c._len - 1);
-  if (c._compressed_len == 0) {
-    c._compressed_len = c._len;
-    c._compressed_buf = c._buf;
+  chunk.compressedLen_ = LZ4_compress_default(
+      (const char*)chunk._buf, (char*)chunk.compressedBuf_,
+      chunk.len_, chunk.len_ - 1);
+  if (chunk.compressedLen_ == 0) {
+    chunk.compressedLen_ = chunk.len_;
+    chunk.compressedBuf_ = chunk._buf;
   }
 #else
 #if !defined(FAKE_IO)
-  c._compressed_len = LZ4_compress_default(
-      (const char*)c._buf, (char*)c._compressed_buf,
-      c._len, c._len * 0.75);
+    chunk.compressedLen_ = LZ4_compress_default(
+      (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
+      chunk.len_, chunk.len_ * 0.75);
 #else
   // not compressible
-  c._compressed_len = 0;
+  chunk.compressedLen_ = 0;
 #endif
-  double compress_ratio = c._compressed_len * 1.0 / c._len;
-  if (compress_ratio > 0.75 || c._compressed_len == 0) {
-    c._compress_level = 3;
-    c._compressed_buf = c._buf;
+  double compress_ratio = chunk.compressedLen_ * 1.0 / chunk.len_;
+  if (compress_ratio > 0.75 || chunk.compressedLen_ == 0) {
+    chunk.compressedLevel_ = 3;
+    chunk.compressedBuf_ = chunk.buf_;
   } else {
     if (compress_ratio > 0.5) {
-      c._compress_level = 2;
+      chunk.compressedLevel_ = 2;
     } else if (compress_ratio > 0.25) {
-      c._compress_level = 1;
+      chunk.compressedLevel_ = 1;
     } else {
-      c._compress_level = 0;
+      chunk.compressedLevel_ = 0;
     }
   }
 #endif
@@ -49,63 +49,50 @@ void CompressionModule::compress(Chunk &c)
   return ;
 }
 
-void CompressionModule::decompress(Chunk &c)
+void CompressionModule::decompress(Chunk &chunk)
 {
   static int k = 0;
   BEGIN_TIMER();
 #if defined(CDARC)
-  if (c._compressed_len != c._len) {
+  if (chunk.compressedLen_ != chunk.len_) {
 #else
-  if (c._compressed_len != 0) {
+  if (chunk.compressedLen_ != 0) {
 #endif
 
 #if defined(NORMAL_DIST_COMPRESSION)
-    c._compressed_len = Config::get_configuration()->get_current_compressed_len();
-    memcpy(c._compressed_buf, Config::get_configuration()->get_current_data(), c._compressed_len);
+    chunk.compressedLen_ = Config::get_configuration()->get_current_compressed_len();
+    memcpy(chunk.compressedBuf_, Config::get_configuration()->get_current_data(), chunk.compressedLen_);
     // printf("%s: ", __func__);
-    // print_SHA1((char*)c._compressed_buf, c._compressed_len);
+    // print_SHA1((char*)chunk.compressedBuf_, chunk.compressedLen_);
 #endif
 
 #if !defined(FAKE_IO)
-    LZ4_decompress_safe((const char*)c._compressed_buf, (char*)c._buf,
-        c._compressed_len, c._len);
+    LZ4_decompress_safe((const char*)chunk.compressedBuf_, (char*)chunk.buf_,
+                        chunk.compressedLen_, chunk.len_);
 #endif
   }
-  // printf("%s: clen = %d \n", __func__, c._compressed_len), k = 1;
+  // printf("%s: clen = %d \n", __func__, chunk.compressedLen_), k = 1;
   END_TIMER(decompression);
   return ;
 }
 
 // Not used now
-void CompressionModule::decompress(uint8_t *compressed_buf, uint8_t *buf, uint32_t compressed_len, uint32_t original_len)
+void CompressionModule::decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_t compressedLen, uint32_t originalLen)
 {
   BEGIN_TIMER();
 #if defined(CDARC)
-  if (compressed_len != original_len) {
+  if (compressedLen != originalLen) {
 #else
-  if (compressed_len != 0) {
+  if (compressedLen != 0) {
 #endif
 #if !defined(FAKE_IO)
-    int res = LZ4_decompress_safe((const char*)compressed_buf, (char*)buf,
-        compressed_len, original_len);
+    int res = LZ4_decompress_safe((const char*)compressedBuf, (char*)buf,
+                                  compressedLen, originalLen);
 #endif
   } else {
-    memcpy(buf, compressed_buf, original_len);
+    memcpy(buf, compressedBuf, originalLen);
   }
   END_TIMER(decompression);
   return ;
 }
-
-void CompressionModule::compress_TEST(const char *src, char *dest, int len, int &compressibility)
-{
-  int compressed_len = LZ4_compress_default(src, dest, len, 40000);
-  compressibility = (compressed_len * 1.0 / 32768 < 0.25) ? 1 :
-    (compressed_len * 1.0 / 32768 < 0.5)  ? 2 :
-    (compressed_len * 1.0 / 32768 < 0.75) ? 3 : 4;
-  //std::cout << "compressible: " << LZ4_compressBound(32768) << std::endl;
-  //std::cout << "original len: " << len << std::endl;
-  //std::cout << "compressed_len: " << compressed_len << std::endl;
-  //std::cout << compressed_len * 1.0 / 32768 << std::endl;
-}
-
 }

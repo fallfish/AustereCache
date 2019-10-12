@@ -63,7 +63,7 @@ class RunSystem {
         _unique_chunks = (char *)aligned_alloc(512, _num_unique_chunks * _chunk_size);
 #else
         _workload_chunks = reinterpret_cast<char*>(malloc(_working_set_size));
-        _unique_chunks = reinterpret_cast<char*>(malloc((uint64_t)_num_unique_chunks * _chunk_size));
+        _unique_chunks = reinterpret_cast<char*>(malloc((uint64_t)_num_unique_chunks * chunkSize_));
 #endif
         n = read(fd, _workload_chunks, _working_set_size);
         std::cout << n << " " << _working_set_size << std::endl;
@@ -75,21 +75,21 @@ class RunSystem {
       } else if (strcmp(param, "--wr-ratio") == 0) {
         _wr_ratio = atof(value);
       } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::get_configuration()->set_fp_bucket_no_len(atoi(value));
+        Config::getInstance()->setnBitsPerFPBucketId(atoi(value));
       } else if (strcmp(param, "--lba-bits") == 0) {
-        Config::get_configuration()->set_lba_bucket_no_len(atoi(value));
+        Config::getInstance()->setnBitsPerLBABucketId(atoi(value));
       } else if (strcmp(param, "--multi-thread") == 0) {
         _multi_thread = atoi(value);
       } else if (strcmp(param, "--num-workers") == 0) {
         _num_workers = atoi(value);
       } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
-        Config::get_configuration()->set_fingerprint_algorithm(atoi(value));
+        Config::getInstance()->setFingerprintAlgorithm(atoi(value));
       } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
-        Config::get_configuration()->set_fingerprint_computation_method(atoi(value));
+        Config::getInstance()->setFingerprintMode(atoi(value));
       } else if (strcmp(param, "--write-buffer-size") == 0) {
-        Config::get_configuration()->set_write_buffer_size(atoi(value));
+        Config::getInstance()->setWriteBufferSize(atoi(value));
       } else if (strcmp(param, "--direct-io") == 0) {
-        Config::get_configuration()->set_direct_io(atoi(value));
+        Config::getInstance()->enableDirectIO(atoi(value));
       } else if (strcmp(param, "--access-pattern") == 0) {
         FILE *f = fopen(value, "r");
         int chunk_id, length;
@@ -115,14 +115,14 @@ class RunSystem {
       }
     }
     _workload_conf.print_current_parameters();
-    Config::get_configuration()->set_cache_device_name("./cache_device");
-    Config::get_configuration()->set_primary_device_name("./primary_device");
-    //Config::get_configuration()->set_cache_device_name("./ramdisk/cache_device");
-    //Config::get_configuration()->set_primary_device_name("./primary_device");
-    //Config::get_configuration()->set_primary_device_name("./ramdisk/primary_device");
-    //Config::get_configuration()->set_cache_device_name("./ramdisk/cache_device");
-    //Config::get_configuration()->set_primary_device_name("/dev/sdb");
-    //Config::get_configuration()->set_cache_device_name("/dev/sda");
+    Config::getInstance()->setCacheDeviceName("./cache_device");
+    Config::getInstance()->setPrimaryDeviceName("./primary_device");
+    //Config::getInstance()->setCacheDeviceName("./ramdisk/cache_device");
+    //Config::getInstance()->setPrimaryDeviceName("./primary_device");
+    //Config::getInstance()->setPrimaryDeviceName("./ramdisk/primary_device");
+    //Config::getInstance()->setCacheDeviceName("./ramdisk/cache_device");
+    //Config::getInstance()->setPrimaryDeviceName("/dev/sdb");
+    //Config::getInstance()->setCacheDeviceName("/dev/sda");
     _ssddup = std::make_unique<SSDDup>();
   }
 
@@ -130,7 +130,7 @@ class RunSystem {
   {
     std::cout << sizeof(WorkloadConfiguration) << std::endl;
     _ssddup->write(0, _workload_chunks, _working_set_size);
-    _ssddup->reset_stats();
+    _ssddup->resetStatistics();
     sync();
     //_ssddup->sync();
     DEBUG("finish warm up");
@@ -138,9 +138,9 @@ class RunSystem {
 
   void work(int n_requests, std::atomic<uint64_t> &total_bytes)
   {
-    //for (uint64_t addr = 0; addr < Config::get_configuration()->get_primary_device_size(); addr += _chunk_size) {
+    //for (uint64_t addr = 0; addr < Config::getInstance()->getPrimaryDeviceSize(); addr += chunkSize_) {
       //std::cout << addr << std::endl;
-      //_ssddup->read(addr, _read_data[0], _chunk_size);
+      //_ssddup->read(addr, _read_data[0], chunkSize_);
     //}
     //return;
 
@@ -176,7 +176,7 @@ class RunSystem {
                   << (begin * _chunk_size) << ", length: " << (len * _chunk_size)
                   << " matched length: " << result << std::endl;
                 std::cout << "The request num: " << i << std::endl;
-                _ssddup->dump_stats();
+                _ssddup->dumpStatistics();
                 exit(1);
               }
             }

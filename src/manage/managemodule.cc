@@ -5,12 +5,12 @@
 namespace cache {
 
 ManageModule::ManageModule(
-  std::shared_ptr<IOModule> io_module,
-  std::shared_ptr<MetadataModule> metadata_module) :
-  _io_module(io_module), _metadata_module(metadata_module)
+  std::shared_ptr<IOModule> ioModule,
+  std::shared_ptr<MetadataModule> metadataModule) :
+  ioModule_(ioModule), metadataModule_(metadataModule)
 {
 #if defined(CDARC)
-  _weu_size = Config::get_configuration()->get_write_buffer_size();
+  weuSize_ = Config::get_configuration()->get_write_buffer_size();
   _current_ssd_location = 0;
   _current_weu_id = 0;
 #endif
@@ -23,152 +23,149 @@ ManageModule::ManageModule(
  * 2 - WEU (in memory)
  */
 
-void ManageModule::preprocess_read(Chunk &c, uint32_t &device_no, uint64_t &addr, uint8_t *&buf, uint32_t &len)
+void ManageModule::generateReadRequest(
+      cache::Chunk &c, cache::DeviceType &deviceType,
+      uint64_t &addr, uint8_t *&buf, uint32_t &len)
 {
-  if (c._lookup_result == HIT) {
+  if (c.lookupResult_ == HIT) {
 #if defined(CACHE_DEDUP)
 
 #if defined(DLRU) || defined(DARC)
-    device_no = 1;
-    addr = c._ssd_location;
+    deviceType = 1;
+    addr = c.cachedataLocation_;
     buf = c._buf;
-    len = c._len;
+    len = c.len_;
 #elif defined(CDARC)
-    if (_current_weu_id == c._weu_id) {
-      device_no = 2;
+    if (_current_weu_id == c.weuId_) {
+      deviceType = 2;
       addr = c._weu_offset;
     } else {
-      device_no = 1;
-      addr = _weu_to_ssd_location[c._weu_id] + c._weu_offset;
+      deviceType = 1;
+      addr = _weu_to_ssd_location[c.weuId_] + c._weu_offset;
     }
-    if (c._compressed_len == c._len) {
+    if (c.compressedLen_ == c.len_) {
       buf = c._buf;
     } else {
-      buf = c._compressed_buf;
+      buf = c.compressedBuf_;
     }
-    len = c._compressed_len;
+    len = c.compressedLen_;
 #endif
 
 #else // ACDC
-    device_no = 1;
-    c._compressed_len = c._metadata._compressed_len;
-    if (c._compressed_len != 0) {
-      buf = c._compressed_buf;
+    deviceType = CACHE_DEVICE;
+    c.compressedLen_ = c.metadata_.compressedLen_;
+    if (c.compressedLen_ != 0) {
+      buf = c.compressedBuf_;
     } else {
-      buf = c._buf;
+      buf = c.buf_;
     }
-    addr = c._ssd_location;
-    len = (c._compress_level + 1) * Config::get_configuration()->get_sector_size();
+    addr = c.cachedataLocation_;
+    len = (c.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
 #endif
   } else {
-    device_no = 0;
-    addr = c._addr;
-    buf = c._buf;
-    len = c._len;
+    deviceType = PRIMARY_DEVICE;
+    addr = c.addr_;
+    buf = c.buf_;
+    len = c.len_;
   }
-
 }
 
-int ManageModule::read(Chunk &c)
+int ManageModule::read(Chunk &chunk)
 {
-  uint32_t device_no;
+  DeviceType deviceType;
   uint64_t addr;
   uint8_t *buf;
   uint32_t len;
-  preprocess_read(c, device_no, addr, buf, len);
-  _io_module->read(device_no, addr, buf, len);
+  generateReadRequest(chunk, deviceType, addr, buf, len);
+  ioModule_->read(deviceType, addr, buf, len);
 
   return 0;
 }
 
-bool ManageModule::preprocess_write_primary(
-    Chunk &c, uint32_t &device_no,
-    uint64_t &addr, uint8_t *&buf, uint32_t &len)
+bool ManageModule::generatePrimaryWriteRequest(
+  Chunk &chunk, DeviceType &deviceType,
+  uint64_t &addr, uint8_t *&buf, uint32_t &len)
 {
-  device_no = 0;
-  if ( c._lookup_result == LOOKUP_UNKNOWN &&
-      (c._dedup_result == DUP_CONTENT || c._dedup_result == NOT_DUP)) {
-    addr = c._addr;
-    buf = c._buf;
-    len = c._len;
+  deviceType = PRIMARY_DEVICE;
+  if (chunk.lookupResult_ == LOOKUP_UNKNOWN &&
+      (chunk.dedupResult_ == DUP_CONTENT || chunk.dedupResult_ == NOT_DUP)) {
+    addr = chunk.addr_;
+    buf = chunk.buf_;
+    len = chunk.len_;
     return true;
   }
 
   return false;
 }
 
-bool ManageModule::preprocess_write_cache(
-    Chunk &c, uint32_t &device_no,
-    uint64_t &addr, uint8_t *&buf, uint32_t &len)
+bool ManageModule::generateCacheWriteRequest(
+  Chunk &chunk, DeviceType &deviceType,
+  uint64_t &addr, uint8_t *&buf, uint32_t &len)
 {
-  device_no = 1;
-  if (c._dedup_result == NOT_DUP) {
+  deviceType = CACHE_DEVICE;
+  if (chunk.dedupResult_ == NOT_DUP) {
 #if defined(CACHE_DEDUP)
 
 #if defined(DLRU) || defined(DARC)
-    addr = c._ssd_location;
-    buf = c._buf;
-    len = c._len;
+    addr = chunk.cachedataLocation_;
+    buf = chunk._buf;
+    len = chunk.len_;
 #elif defined(CDARC)
     uint64_t evicted_ssd_location = -1;
-    if (_current_weu_id != c._weu_id) {
-      if (c._evicted_weu_id != _current_weu_id) {
-        if (c._evicted_weu_id != ~0) {
-          evicted_ssd_location = _weu_to_ssd_location[c._evicted_weu_id];
-          _weu_to_ssd_location.erase(c._evicted_weu_id);
+    if (_current_weu_id != chunk.weuId_) {
+      if (chunk._evicted_weu_id != _current_weu_id) {
+        if (chunk._evicted_weu_id != ~0) {
+          evicted_ssd_location = _weu_to_ssd_location[chunk._evicted_weu_id];
+          _weu_to_ssd_location.erase(chunk._evicted_weu_id);
 
-          _io_module->flush(evicted_ssd_location);
+          ioModule_->flush(evicted_ssd_location);
           _weu_to_ssd_location[_current_weu_id] = evicted_ssd_location;
         } else {
-          _io_module->flush(_current_ssd_location);
+          ioModule_->flush(_current_ssd_location);
           _weu_to_ssd_location[_current_weu_id] = _current_ssd_location;
-          _current_ssd_location += _weu_size;
+          _current_ssd_location += weuSize_;
         }
       }
 
-      _current_weu_id = c._weu_id;
+      _current_weu_id = chunk.weuId_;
     }
-    device_no = 2;
-    addr = c._weu_offset;
-    buf = c._compressed_buf;
-    len = c._compressed_len;
+    deviceType = 2;
+    addr = chunk._weu_offset;
+    buf = chunk.compressedBuf_;
+    len = chunk.compressedLen_;
 #endif
 
 #else  // ACDC
-    addr = c._ssd_location;
-    buf = c._compressed_buf;
-    len = (c._compress_level + 1) * Config::get_configuration()->get_sector_size();
+    addr = chunk.cachedataLocation_;
+    buf = chunk.compressedBuf_;
+    len = (chunk.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
 #endif
     return true;
   }
   return false;
 }
 
-int ManageModule::write(Chunk &c)
+int ManageModule::write(Chunk &chunk)
 {
-  uint32_t device_no;
+  DeviceType deviceType;
   uint64_t addr;
   uint8_t *buf;
   uint32_t len;
 #if !defined(WRITE_BACK_CACHE)
-  if (preprocess_write_primary(c, device_no, addr, buf, len)) {
-    //threadpool.doJob([this, device_no, addr, buf, len]() {
-        _io_module->write(device_no, addr, buf, len);
-        //});
+  if (generatePrimaryWriteRequest(chunk, deviceType, addr, buf, len)) {
+    ioModule_->write(deviceType, addr, buf, len);
   }
 #endif
-  if (preprocess_write_cache(c, device_no, addr, buf, len)) {
-    //threadpool.doJob([this, device_no, addr, buf, len]() {
-        _io_module->write(device_no, addr, buf, len);
-        //});
+  if (generateCacheWriteRequest(chunk, deviceType, addr, buf, len)) {
+    ioModule_->write(deviceType, addr, buf, len);
   }
   return 0;
 }
 
-void ManageModule::update_metadata(Chunk &c)
+void ManageModule::updateMetadata(Chunk &chunk)
 {
   BEGIN_TIMER();
-  _metadata_module->update(c);
+  metadataModule_->update(chunk);
   END_TIMER(update_index);
 }
 

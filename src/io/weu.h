@@ -4,9 +4,9 @@
 
 uint64_t WriteEvictUnit::gen_id = 0;
 struct WEULocation {
-  uint64_t _weu_id;
-  uint32_t _offset;
-  uint32_t _len;
+  uint64_t weuId_;
+  uint32_t offset_;
+  uint32_t len_;
 };
 
 class WriteEvictUnit {

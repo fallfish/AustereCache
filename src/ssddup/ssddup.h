@@ -23,14 +23,12 @@ class SSDDup {
   ~SSDDup();
   void read(uint64_t addr, void *buf, uint32_t len);
   void write(uint64_t addr, void *buf, uint32_t len);
-  void read_mt(uint64_t addr, void *buf, uint32_t len);
-  void read_singlethread(uint64_t addr, void *buf, uint32_t len);
-  void TEST_write(int device, uint64_t addr, void *buf, uint32_t len);
-  void TEST_read(int device, uint64_t addr, void *buf, uint32_t len);
-  inline void reset_stats() { _stats->reset(); }
-  inline void dump_stats() { _stats->dump(); }
-  inline void sync() { _manage_module->sync(); }
-  void process_mem_usage(double& vm_usage, double& resident_set)
+  void readMultiThread(uint64_t addr, void *buf, uint32_t len);
+  void readSingleThread(uint64_t addr, void *buf, uint32_t len);
+  inline void resetStatistics() { stats_->reset(); }
+  inline void dumpStatistics() { stats_->dump(); }
+  inline void sync() { manageModule_->sync(); }
+  void dumpMemoryUsage(double& vm_usage, double& resident_set)
   {
     using std::ios_base;
     using std::ifstream;
@@ -68,18 +66,17 @@ class SSDDup {
   }
 
  private:
-  void internal_read(Chunk &c, bool update_metadata);
-  void internal_write(Chunk &c);
-  std::unique_ptr<ChunkModule> _chunk_module;
-  std::unique_ptr<DeduplicationModule> _deduplication_module;
-  std::shared_ptr<CompressionModule> _compression_module;
-  std::unique_ptr<ManageModule> _manage_module;
+  void internalRead(Chunk &chunk);
+  void internalWrite(Chunk &chunk);
+  std::unique_ptr<ChunkModule> chunkModule_;
+  std::unique_ptr<DeduplicationModule> deduplicationModule_;
+  std::shared_ptr<CompressionModule> compressionModule_;
+  std::unique_ptr<ManageModule> manageModule_;
 
   // Statistics
-  Stats* _stats;
+  Stats* stats_;
 
-  std::unique_ptr<ThreadPool> _thread_pool;
-  std::mutex _mutex;
+  std::unique_ptr<ThreadPool> threadPool_;
 };
 }
 

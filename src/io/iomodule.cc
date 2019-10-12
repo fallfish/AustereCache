@@ -11,107 +11,107 @@ IOModule::IOModule()
 {
 #if defined(CDARC)
   _weu._buf = new uint8_t[Config::get_configuration()->get_write_buffer_size()];
-  _weu._len = Config::get_configuration()->get_write_buffer_size();
-  _write_buffer = nullptr;
+  _weu.len_ = Config::get_configuration()->get_write_buffer_size();
+  writeBuffer_ = nullptr;
 #else
-  if (Config::get_configuration()->get_write_buffer_size() != 0) {
+  if (Config::getInstance()->getWriteBufferSize() != 0) {
     std::cout << "Write Buffer init" << std::endl;
-    _write_buffer = new WriteBuffer(Config::get_configuration()->get_write_buffer_size());
-    _write_buffer->_thread_pool = std::make_unique<ThreadPool>(Config::get_configuration()->get_max_num_global_threads());
+    writeBuffer_ = new WriteBuffer(Config::getInstance()->getWriteBufferSize());
+    writeBuffer_->threadPool_ = std::make_unique<ThreadPool>(Config::getInstance()->getMaxNumGlobalThreads());
   } else {
-    _write_buffer = nullptr;
+    writeBuffer_ = nullptr;
   }
 #endif
 }
 
 IOModule::~IOModule()
 {
-  if (_write_buffer != nullptr) {
-    delete _write_buffer;
+  if (writeBuffer_ != nullptr) {
+    delete writeBuffer_;
   }
 #if defined(CDARC)
   free(_weu._buf);
 #endif
 }
 
-uint32_t IOModule::add_cache_device(char *filename)
+uint32_t IOModule::addCacheDevice(char *filename)
 {
   // a temporary size for cache device
   // 32 MiB cache device
-  uint64_t size = Config::get_configuration()->get_cache_device_size();
-  _cache_device = std::make_unique<BlockDevice>();
-  _cache_device->_direct_io = Config::get_configuration()->get_direct_io();
-  _cache_device->open(filename, size);
-  if (_write_buffer != nullptr)
-    _write_buffer->_cache_device = _cache_device.get();
+  uint64_t size = Config::getInstance()->getCacheDeviceSize();
+  cacheDevice_ = std::make_unique<BlockDevice>();
+  cacheDevice_->_direct_io = Config::getInstance()->isDirectIOEnabled();
+  cacheDevice_->open(filename, size);
+  if (writeBuffer_ != nullptr)
+    writeBuffer_->cacheDevice_ = cacheDevice_.get();
   return 0;
 }
 
-uint32_t IOModule::add_primary_device(char *filename)
+uint32_t IOModule::addPrimaryDevice(char *filename)
 {
   // a temporary size for primary device
   // 128 MiB primary device
-  uint64_t size = Config::get_configuration()->get_primary_device_size();
-  _primary_device = std::make_unique<BlockDevice>();
-  _primary_device->_direct_io = Config::get_configuration()->get_direct_io();
-  _primary_device->open(filename, size);
+  uint64_t size = Config::getInstance()->getPrimaryDeviceSize();
+  primaryDevice_ = std::make_unique<BlockDevice>();
+  primaryDevice_->_direct_io = Config::getInstance()->isDirectIOEnabled();
+  primaryDevice_->open(filename, size);
   return 0;
 }
 
-uint32_t IOModule::read(uint32_t device, uint64_t addr, void *buf, uint32_t len)
+uint32_t IOModule::read(DeviceType deviceType, uint64_t addr, void *buf, uint32_t len)
 {
   uint32_t ret = 0;
-  if (device == 0) {
+  if (deviceType == PRIMARY_DEVICE) {
     BEGIN_TIMER();
-    ret = _primary_device->read(addr, (uint8_t*)buf, len);
+    ret = primaryDevice_->read(addr, (uint8_t*)buf, len);
     END_TIMER(io_hdd);
-    Stats::get_instance()->add_bytes_read_from_primary_disk(len);
-  } else if (device == 1) {
+    Stats::getInstance()->add_bytes_read_from_primary_disk(len);
+  } else if (deviceType == CACHE_DEVICE) {
     BEGIN_TIMER();
-    if (_write_buffer != nullptr) {
-      ret = _write_buffer->read(addr, (uint8_t*)buf, len);
+    if (writeBuffer_ != nullptr) {
+      ret = writeBuffer_->read(addr, (uint8_t*)buf, len);
     } else {
-      ret = _cache_device->read(addr, (uint8_t*)buf, len);
-      Stats::get_instance()->add_bytes_read_from_cache_disk(len);
+      ret = cacheDevice_->read(addr, (uint8_t*)buf, len);
+      Stats::getInstance()->add_bytes_read_from_cache_disk(len);
     }
     END_TIMER(io_ssd);
 #if defined(CDARC)
-  } else if (device == 2) {
+  } else if (deviceType == 2) {
     _weu.read(addr, (uint8_t*)buf, len);
 #endif
   }
-  Stats::get_instance()->add_io_request(device, 1, len);
+  Stats::getInstance()->add_io_request(deviceType, 1, len);
   return ret;
 }
 
-uint32_t IOModule::write(uint32_t device, uint64_t addr, void *buf, uint32_t len)
+uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32_t len)
 {
-  if (device == 0) {
+  if (deviceType == PRIMARY_DEVICE) {
     BEGIN_TIMER();
-    _primary_device->write(addr, (uint8_t*)buf, len);
-    Stats::get_instance()->add_bytes_written_to_primary_disk(len);
+    primaryDevice_->write(addr, (uint8_t*)buf, len);
+      Stats::getInstance()->add_bytes_written_to_primary_disk(len);
     END_TIMER(io_hdd);
-  } else if (device == 1) {
+  } else if (deviceType == CACHE_DEVICE) {
     BEGIN_TIMER();
-    if (_write_buffer != nullptr) {
-      _write_buffer->write(addr, (uint8_t*)buf, len);
+    if (writeBuffer_ != nullptr) {
+      writeBuffer_->write(addr, (uint8_t*)buf, len);
     } else {
-      _cache_device->write(addr, (uint8_t*)buf, len);
-      Stats::get_instance()->add_bytes_written_to_cache_disk(len);
+      cacheDevice_->write(addr, (uint8_t*)buf, len);
+      Stats::getInstance()->add_bytes_written_to_cache_disk(len);
     }
     END_TIMER(io_ssd);
 #if defined(CDARC)
-  } else if (device == 2) {
+  } else if (deviceType == 2) {
     _weu.write(addr, (uint8_t*)buf, len);
 #endif
   }
-  Stats::get_instance()->add_io_request(device, 0, len);
+  Stats::getInstance()->add_io_request(deviceType, 0, len);
 }
 
 void IOModule::flush(uint64_t addr)
 {
 #if defined(CDARC)
-  _cache_device->write(addr, _weu._buf, _weu._len);
+  cacheDevice_->write(addr, _weu._buf, _weu.len_);
 #endif
 }
 

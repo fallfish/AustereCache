@@ -14,7 +14,7 @@
 
 + Slot size: 8KiB + 512B
 + Bucket size: 32 \* (8KiB + 512B) = 272KiB
-+ If CA Bits are 11, then the minimum cache (SSD) size should be (2^11) * 272KiB = 544MiB
++ If FP Bits are 11, then the minimum cache (SSD) size should be (2^11) * 272KiB = 544MiB
 
 ### src/benchmark
 
@@ -34,7 +34,7 @@ A factory that create chunks.
 
 ```c++
 ChunkModule::ChunkModule() {}
-Chunker ChunkModule::create_chunker(uint64_t addr, void *buf, uint32_t len)
+Chunker ChunkModule::createChunker(uint64_t addr, void *buf, uint32_t len)
 {
 	Chunker chunker(addr, buf, len);
 	return chunker;
@@ -79,15 +79,15 @@ Fetch R/W address and R/W data from/to the **IOModule**.
 
 ### src/ssddup - Overall
 
-`process_mem_usage()` reads process statistics from `/proc/self/stat`. 
+`dumpMemoryUsage()` reads process statistics from `/proc/self/stat`.
 
-Public methods `read()` and `write()` response requests by calling `internal_read()` and `internal_write()`.
+Public methods `read()` and `write()` response requests by calling `internal_read()` and `internalWrite()`.
 
-#### `internal_read()`
+#### `internalRead()`
 
 The function can be divided into several steps:
 
-+ Look up the CA index
++ Look up the FP index
 + Decompress data
 + Update metadata (if needed)
 

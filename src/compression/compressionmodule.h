@@ -9,10 +9,9 @@ namespace cache {
 class CompressionModule {
  public:
   CompressionModule() {}
-  void compress(Chunk &c);
-  void decompress(Chunk &c);
-  void decompress(uint8_t *_compressed_buf, uint8_t *_buf, uint32_t compressed_len, uint32_t original_len);
-  void compress_TEST(const char *src, char *dest, int len, int &compressibility);
+  void compress(Chunk &chunk);
+  void decompress(Chunk &chunk);
+  void decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_t compressedLen, uint32_t originalLen);
 };
 }
 

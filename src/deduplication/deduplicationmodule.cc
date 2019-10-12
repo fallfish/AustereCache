@@ -6,20 +6,20 @@ namespace cache {
 
   DeduplicationModule::DeduplicationModule(
       std::shared_ptr<MetadataModule> metadata_module) :
-    _metadata_module(metadata_module)
+    metadataModule_(metadata_module)
     {}
 
-  void DeduplicationModule::dedup(Chunk &c)
+  void DeduplicationModule::dedup(Chunk &chunk)
   {
     BEGIN_TIMER();
-    _metadata_module->dedup(c);
+    metadataModule_->dedup(chunk);
     END_TIMER(dedup);
   }
 
-  void DeduplicationModule::lookup(Chunk &c)
+  void DeduplicationModule::lookup(Chunk &chunk)
   {
     BEGIN_TIMER();
-    _metadata_module->lookup(c);
+    metadataModule_->lookup(chunk);
     END_TIMER(lookup);
   }
 }

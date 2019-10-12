@@ -14,96 +14,82 @@ namespace cache {
 
   //Chunk::Chunk() {}
 
-  void Chunk::TEST_fingerprinting() {
-    Config *conf = Config::get_configuration();
-    assert(_len == conf->get_chunk_size());
-    assert(_addr % conf->get_chunk_size() == 0);
-    MurmurHash3_x64_128(_buf, _len, 0, _ca);
-    MurmurHash3_x86_32(_ca, conf->get_ca_length(), 2, &_fp_hash);
-    _has_ca = true;
-  }
-  void Chunk::TEST_compute_lba_hash()
-  {
-    Config *conf = Config::get_configuration();
-    MurmurHash3_x86_32(&_addr, 8, 1, &_lba_hash);
-  }
-
-  void Chunk::fingerprinting() {
+  void Chunk::computeFingerprint() {
     BEGIN_TIMER();
-    Config *conf = Config::get_configuration();
-    assert(_len == conf->get_chunk_size());
-    assert(_addr % conf->get_chunk_size() == 0);
+    Config *conf = Config::getInstance();
+    assert(len_ == conf->getChunkSize());
+    assert(addr_ % conf->getChunkSize() == 0);
 #ifdef REPLAY_FIU
-    memcpy(_ca, conf->get_current_fingerprint(), conf->get_ca_length());
+    memcpy(fingerprint_, conf->get_current_fingerprint(), conf->get_ca_length());
 #else
-    if (conf->get_fingerprint_algorithm() == 0) {
-      SHA1(_buf, _len, _ca);
-    } else if (conf->get_fingerprint_algorithm() == 1) {
-      MurmurHash3_x64_128(_buf, _len, 0, _ca);
+    if (conf->getFingerprintAlg() == 0) {
+      SHA1(buf_, len_, fingerprint_);
+    } else if (conf->getFingerprintAlg() == 1) {
+      MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
     }
 #endif
-    _has_ca = true;
+    hasFingerprint_ = true;
 
-    // compute ca hash
+    // compute hash value of fingerprint
     uint64_t tmp[2];
-    MurmurHash3_x64_128(_ca, conf->get_ca_length(), 2, tmp);
-    _fp_hash = tmp[0];
-    _fp_hash >>= 64 - (conf->get_fp_signature_len() + conf->get_fp_bucket_no_len());
+    MurmurHash3_x64_128(fingerprint_, conf->getFingerprintLength(), 2, tmp);
+    fingerprintHash_ = tmp[0];
+    fingerprintHash_ >>= 64 - (conf->getnBitsPerFPSignature() + conf->getnBitsPerFPBucketId());
     END_TIMER(fingerprinting);
   }
 
-  void Chunk::compute_strong_ca() {
-    SHA1(_buf, _len, _strong_ca);
+  void Chunk::computeStrongFingerprint() {
+    SHA1(buf_, len_, strongFingerprint_);
   }
 
-  void Chunk::compute_lba_hash()
+  void Chunk::computeLBAHash()
   {
-    Config *conf = Config::get_configuration();
+    Config *conf = Config::getInstance();
     uint64_t tmp[2];
-    MurmurHash3_x64_128(&_addr, 8, 3, tmp);
-    _lba_hash = tmp[0];
-    _lba_hash >>= 64 - (conf->get_lba_signature_len() + conf->get_lba_bucket_no_len());
+    MurmurHash3_x64_128(&addr_, 8, 3, tmp);
+    lbaHash_ = tmp[0];
+    lbaHash_ >>= 64 - (conf->getnBitsPerLBASignature() + conf->getnBitsPerLBABucketId());
   }
 
-  void Chunk::preprocess_unaligned(uint8_t *buf) {
-    Config *conf = Config::get_configuration();
-    _original_addr = _addr;
-    _original_len = _len;
-    _original_buf = _buf;
+  void Chunk::preprocessUnalignedChunk(uint8_t *buf) {
+    Config *conf = Config::getInstance();
+    originalAddr_ = addr_;
+    originalLen_ = len_;
+    originalBuf_ = buf_;
 
-    _addr = _addr - _addr % conf->get_chunk_size();
-    _len = conf->get_chunk_size();
-    _buf = buf;
+    addr_ = addr_ - addr_ % conf->getChunkSize();
+    len_ = conf->getChunkSize();
+    buf_ = buf;
 
-    memset(buf, 0, conf->get_chunk_size());
-    compute_lba_hash();
+    memset(buf, 0, conf->getChunkSize());
+    computeLBAHash();
   }
 
   // used for read-modify-write case
   // the base chunk is an unaligned write chunk
   // the delta chunk is a read chunk
-  void Chunk::merge_write() {
-    Config *conf = Config::get_configuration();
-    uint32_t chunk_size = conf->get_chunk_size();
-    assert(_addr - _addr % chunk_size == _original_addr - _original_addr % chunk_size);
+  void Chunk::handleReadModifyWrite() {
+    Config *conf = Config::getInstance();
+    uint32_t chunk_size = conf->getChunkSize();
+    assert(addr_ - addr_ % chunk_size == originalAddr_ - originalAddr_ % chunk_size);
 
-    memcpy(_buf + _original_addr % chunk_size, _original_buf, _original_len);
-    _len = chunk_size;
-    _addr -= _addr % chunk_size;
+    memcpy(buf_ + originalAddr_ % chunk_size, originalBuf_, originalLen_);
+    len_ = chunk_size;
+    addr_ -= addr_ % chunk_size;
 
-    _has_ca = false;
-    _verification_result = VERIFICATION_UNKNOWN;
-    _lookup_result = LOOKUP_UNKNOWN;
-    compute_lba_hash();
+    hasFingerprint_ = false;
+    verficationResult_ = VERIFICATION_UNKNOWN;
+    lookupResult_ = LOOKUP_UNKNOWN;
+    computeLBAHash();
   }
 
-  void Chunk::merge_read() {
-    Config *conf = Config::get_configuration();
-    memcpy(_original_buf, _buf + _original_addr % conf->get_chunk_size(), _original_len);
+  void Chunk::handleReadPartialChunk() {
+    Config *conf = Config::getInstance();
+    memcpy(originalBuf_, buf_ + originalAddr_ % conf->getChunkSize(), originalLen_);
   }
 
   Chunker::Chunker(uint64_t addr, void *buf, uint32_t len) :
-    _chunk_size(Config::get_configuration()->get_chunk_size()),
+    _chunk_size(Config::getInstance()->getChunkSize()),
     _addr(addr), _len(len), _buf((uint8_t*)buf)
   {}
 
@@ -115,24 +101,24 @@ namespace cache {
       ((_addr & ~(_chunk_size - 1)) + _chunk_size) < (_addr + _len) ?
       ((_addr & ~(_chunk_size - 1)) + _chunk_size) : (_addr + _len);
 
-    c._addr = _addr;
-    c._len = next_addr - _addr;
-    c._buf = _buf;
-    c._has_ca = false;
+    c.addr_ = _addr;
+    c.len_ = next_addr - _addr;
+    c.buf_ = _buf;
+    c.hasFingerprint_ = false;
 
-    c._lba_hash = -1LL;
-    c._fp_hash = -1LL;
-    c._lba_hit = false;
-    c._ca_hit = false;
-    c._dedup_result = DEDUP_UNKNOWN;
-    c._lookup_result = LOOKUP_UNKNOWN;
-    c._verification_result = VERIFICATION_UNKNOWN;
-    c._compress_level = 0;
-    c.compute_lba_hash();
+    c.lbaHash_ = -1LL;
+    c.fingerprintHash_ = -1LL;
+    c.hitLBAIndex_ = false;
+    c.hitFPIndex_ = false;
+    c.dedupResult_ = DEDUP_UNKNOWN;
+    c.lookupResult_ = LOOKUP_UNKNOWN;
+    c.verficationResult_ = VERIFICATION_UNKNOWN;
+    c.compressedLevel_ = 0;
+    c.computeLBAHash();
 
-    _addr += c._len;
-    _buf += c._len;
-    _len -= c._len;
+    _addr += c.len_;
+    _buf += c.len_;
+    _len -= c.len_;
 
     return true;
   }
@@ -167,7 +153,7 @@ namespace cache {
    * A factory of class "Chunker". Used to create a Chunker class
    */
   ChunkModule::ChunkModule() {}
-  Chunker ChunkModule::create_chunker(uint64_t addr, void *buf, uint32_t len)
+  Chunker ChunkModule::createChunker(uint64_t addr, void *buf, uint32_t len)
   {
     Chunker chunker(addr, buf, len);
     return chunker;

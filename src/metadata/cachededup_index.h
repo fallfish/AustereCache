@@ -29,46 +29,46 @@ namespace cache {
    * will firstly trigger an eviction.
    */
   struct SpaceAllocator {
-    uint64_t _capacity;
-    uint64_t _current_location;
-    uint64_t _free_location;
-    uint64_t _chunk_size;
+    uint64_t capacity_;
+    uint64_t nextLocation_;
+    uint64_t freeLocation_;
+    uint64_t chunkSize_;
     void recycle(uint64_t location) {
-      _free_location = location;
+      freeLocation_ = location;
     }
     uint64_t allocate() {
-      uint64_t allocated_location = -1;
-      if (_current_location != _capacity) {
-        allocated_location = _current_location;
-        _current_location += _chunk_size;
+      uint64_t allocatedLocation = -1;
+      if (nextLocation_ != capacity_) {
+        allocatedLocation = nextLocation_;
+        nextLocation_ += chunkSize_;
       } else {
-        allocated_location = _free_location;
+        allocatedLocation = freeLocation_;
       }
-      return allocated_location;
+      return allocatedLocation;
     }
   };
 
   class DLRU_SourceIndex {
     public:
-      struct CA {
-        CA() { memset(_v, 0, 20); }
-        uint8_t _v[20];
-        std::list<uint64_t>::iterator _it;
+      struct FP {
+        FP() { memset(v_, 0, 20); }
+        uint8_t v_[20];
+        std::list<uint64_t>::iterator it_;
       };
 
       DLRU_SourceIndex();
-      static DLRU_SourceIndex& get_instance();
+      static DLRU_SourceIndex& getInstance();
       void init(uint32_t capacity);
 
-      bool lookup(uint64_t lba, uint8_t *ca);
+      bool lookup(uint64_t lba, uint8_t *fp);
       void promote(uint64_t lba);
-      void update(uint64_t lba, uint8_t *ca);
+      void update(uint64_t lba, uint8_t *fp);
 
     private:
       static DLRU_SourceIndex instance;
-      uint32_t _capacity;
-      std::map<uint64_t, CA> _mp; // mapping from lba to ca and list iter
-      std::list<uint64_t> _list;
+      uint32_t capacity_;
+      std::map<uint64_t, FP> mp_; // mapping from lba to ca and list iter
+      std::list<uint64_t> list_;
   };
 
   /*
@@ -84,53 +84,53 @@ namespace cache {
    */
   class DLRU_FingerprintIndex {
     public:
-      struct CA {
-        CA() { memset(_v, 0, 20); }
-        uint8_t _v[20];
-        bool operator<(const CA &ca) const {
-          return memcmp(_v, ca._v, 20) < 0;
+      struct FP {
+        FP() { memset(v_, 0, 20); }
+        uint8_t v_[20];
+        bool operator<(const FP &fp) const {
+          return memcmp(v_, fp.v_, 20) < 0;
         }
       };
       struct DP {
-        uint64_t _ssd_data_pointer;
-        std::list<CA>::iterator _it;
+        uint64_t cachedataLocation_;
+        std::list<FP>::iterator it_;
       };
 
       DLRU_FingerprintIndex();
-      static DLRU_FingerprintIndex& get_instance();
+      static DLRU_FingerprintIndex& getInstance();
       void init(uint32_t cap);
 
 
-      bool lookup(uint8_t *ca, uint64_t &ssd_data_pointer);
-      void promote(uint8_t *ca);
-      void update(uint8_t *ca, uint64_t &ssd_data_pointer);
+      bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
+      void promote(uint8_t *fp);
+      void update(uint8_t *fp, uint64_t &cachedataLocation);
     private:
       static DLRU_FingerprintIndex instance;
-      uint32_t _capacity;
-      std::map<CA, DP> _mp; // mapping from CA to list
-      std::list<CA> _list;
-      SpaceAllocator _space_allocator;
+      uint32_t capacity_;
+      std::map<FP, DP> mp_; // mapping from FP to list
+      std::list<FP> list_;
+      SpaceAllocator spaceAllocator_;
   };
 
   class DARC_SourceIndex {
     public:
       friend class DARC_FingerprintIndex;
       
-      struct CA {
-        CA() {
-          memset(_v, 0, 20);
-          _list_id = 0;
+      struct FP {
+        FP() {
+          memset(v_, 0, 20);
+          listId_ = 0;
         }
 
-        uint8_t _v[20];
+        uint8_t v_[20];
         /**
          * list_id: 
          */
-        uint8_t _list_id;
-        std::list<uint64_t>::iterator _it;
+        uint8_t listId_;
+        std::list<uint64_t>::iterator it_;
       };
       DARC_SourceIndex();
-      static DARC_SourceIndex& get_instance();
+      static DARC_SourceIndex& getInstance();
       void init(uint32_t cap, uint32_t p, uint32_t x);
 
       bool lookup(uint64_t lba, uint8_t *ca);
@@ -146,20 +146,20 @@ namespace cache {
        */
       void check_list_id_consistency() {
         std::vector<uint64_t> lbas2;
-        for (auto lba : _t1) {
-          if (_mp[lba]._list_id != 0) {
+        for (auto lba : t1_) {
+          if (mp_[lba].listId_ != 0) {
             lbas2.push_back(lba);
           }
         }
-        for (auto lba : _t2) {
-          if (_mp[lba]._list_id != 1) {
-            std::cout << "Should be in " << (int)_mp[lba]._list_id << " while in t2" << std::endl;
+        for (auto lba : t2_) {
+          if (mp_[lba].listId_ != 1) {
+            std::cout << "Should be in " << (int)mp_[lba].listId_ << " while in t2" << std::endl;
             lbas2.push_back(lba);
           }
         }
         if (lbas2.size() != 0) {
           for (auto lba : lbas2) {
-            std::cout << (int)_mp[lba]._list_id << std::endl;
+            std::cout << (int)mp_[lba].listId_ << std::endl;
           }
           assert(0);
         }
@@ -171,36 +171,36 @@ namespace cache {
       void check_zero_reference(uint8_t *ca) {
         std::vector<uint64_t> lbas;
         std::vector<uint64_t> lbas2;
-        for (auto lba : _t1) {
-          if (memcmp(_mp[lba]._v, ca, Config::get_configuration()->get_ca_length()) == 0) {
+        for (auto lba : t1_) {
+          if (memcmp(mp_[lba].v_, ca, Config::getInstance()->getFingerprintLength()) == 0) {
             lbas.push_back(lba);
           }
-          if (_mp[lba]._list_id != 0) {
+          if (mp_[lba].listId_ != 0) {
             lbas2.push_back(lba);
           }
         }
-        for (auto lba : _t2) {
-          if (memcmp(_mp[lba]._v, ca, Config::get_configuration()->get_ca_length()) == 0) {
+        for (auto lba : t2_) {
+          if (memcmp(mp_[lba].v_, ca, Config::getInstance()->getFingerprintLength()) == 0) {
             lbas.push_back(lba);
           }
-          if (_mp[lba]._list_id != 1) {
-            std::cout << "Should be in " << (int)_mp[lba]._list_id << " while in t2" << std::endl;
+          if (mp_[lba].listId_ != 1) {
+            std::cout << "Should be in " << (int)mp_[lba].listId_ << " while in t2" << std::endl;
             lbas2.push_back(lba);
           }
         }
         assert(lbas.size() == 0);
         if (lbas2.size() != 0) {
           for (auto lba : lbas2) {
-            std::cout << (int)_mp[lba]._list_id << std::endl;
+            std::cout << (int)mp_[lba].listId_ << std::endl;
           }
         }
         assert(lbas2.size() == 0);
       }
     private:
       static DARC_SourceIndex instance;
-      std::map<uint64_t, CA> _mp;
-      std::list<uint64_t> _t1, _t2, _b1, _b2, _b3;
-      uint32_t _capacity, _p, _x;
+      std::map<uint64_t, FP> mp_;
+      std::list<uint64_t> t1_, t2_, b1_, b2_, b3_;
+      uint32_t capacity_, p_, x_;
   };
 
   class DARC_FingerprintIndex {
@@ -208,83 +208,83 @@ namespace cache {
       friend class DARC_SourceIndex;
 
 
-      struct CA {
-        CA() { memset(_v, 0, sizeof(_v)); }
-        uint8_t _v[20];
-        bool operator<(const CA &ca) const {
-          return memcmp(_v, ca._v, 20) < 0;
+      struct FP {
+        FP() { memset(v_, 0, sizeof(v_)); }
+        uint8_t v_[20];
+        bool operator<(const FP &fp) const {
+          return memcmp(v_, fp.v_, 20) < 0;
         }
-        bool operator==(const CA &ca) const {
+        bool operator==(const FP &fp) const {
           for (uint32_t i = 0; i < 20 / 4; ++i) {
-            if (((uint32_t*)_v)[i] != ((uint32_t*)ca._v)[i])
+            if (((uint32_t*)v_)[i] != ((uint32_t*)fp.v_)[i])
               return false;
           }
           return true;
         }
       };
       struct DP {
-        uint64_t _ssd_data_pointer;
-        uint32_t _reference_count;
-        std::list<CA>::iterator _zero_reference_list_it;
+        uint64_t cachedataLocation_;
+        uint32_t referenceCount_;
+        std::list<FP>::iterator zeroReferenceListIt_;
       };
 
       DARC_FingerprintIndex();
       static DARC_FingerprintIndex &get_instance();
       void init(uint32_t cap);
-      bool lookup(uint8_t *ca, uint64_t &ssd_data_pointer);
-      void reference(uint64_t lba, uint8_t *ca);
-      void deference(uint64_t lba, uint8_t *ca);
-      void update(uint64_t lba, uint8_t *ca, uint64_t &ssd_data_pointer);
+      bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
+      void reference(uint64_t lba, uint8_t *fp);
+      void deference(uint64_t lba, uint8_t *fp);
+      void update(uint64_t lba, uint8_t *fp, uint64_t &cachedataLocation);
     private:
       static DARC_FingerprintIndex instance;
-      std::map<CA, DP> _mp;
-      std::list<CA> _zero_reference_list;
-      SpaceAllocator _space_allocator;
-      uint32_t _capacity;
+      std::map<FP, DP> mp_;
+      std::list<FP> zeroReferenceList_;
+      SpaceAllocator spaceAllocator_;
+      uint32_t capacity_;
   };
  
   struct WEUAllocator {
-    uint32_t _weu_id = 0;
-    uint32_t _weu_size;
-    uint32_t _current_offset;
+    uint32_t weuId_ = 0;
+    uint32_t weuSize_;
+    uint32_t currentOffset;
     
     WEUAllocator() {}
 
     void init()
     {
       // 2 MiB weu size
-      _weu_size = Config::get_configuration()->get_write_buffer_size();
-      _current_offset = 0;
+      weuSize_ = Config::getInstance()->getWriteBufferSize();
+      currentOffset = 0;
     }
     
-    std::set<uint32_t> evicted_weu_ids;
+    std::set<uint32_t> evictedWEUIds;
 
-    void clear_evicted_weu_ids() {
-      evicted_weu_ids.clear();
+    void clearEvictedWEUIds() {
+      evictedWEUIds.clear();
     }
 
-    bool has_recycled(uint32_t weu_id) {
-      return evicted_weu_ids.find(weu_id) != evicted_weu_ids.end();
+    bool hasRecycled(uint32_t weuId) {
+      return evictedWEUIds.find(weuId) != evictedWEUIds.end();
     }
 
-    inline void recycle(uint32_t weu_id) {
-      evicted_weu_ids.insert(weu_id);
+    inline void recycle(uint32_t weuId) {
+      evictedWEUIds.insert(weuId);
     }
 
-    inline bool is_full(uint32_t length) {
-      return (length + _current_offset > _weu_size);
+    inline bool isCurrentWEUFull(uint32_t length) {
+      return (length + currentOffset > weuSize_);
     }
 
-    void allocate(uint32_t &weu_id, uint32_t &offset, uint32_t length)
+    void allocate(uint32_t &weuId, uint32_t &offset, uint32_t length)
     {
-      if (length + _current_offset > _weu_size)
+      if (length + currentOffset > weuSize_)
       {
-        _weu_id += 1;
-        _current_offset = 0;
+        weuId_ += 1;
+        currentOffset = 0;
       }
-      weu_id = _weu_id;
-      offset = _current_offset;
-      _current_offset += length;
+      weuId = weuId_;
+      offset = currentOffset;
+      currentOffset += length;
     }
   };
 
@@ -292,41 +292,41 @@ namespace cache {
     public:
       friend class DARC_SourceIndex;
 
-      struct CA {
-        CA() { memset(_v, 0, sizeof(_v)); }
-        uint8_t _v[20];
-        bool operator<(const CA &ca) const {
-          return memcmp(_v, ca._v, 20) < 0;
+      struct FP {
+        FP() { memset(v_, 0, sizeof(v_)); }
+        uint8_t v_[20];
+        bool operator<(const FP &fp) const {
+          return memcmp(v_, fp.v_, 20) < 0;
         }
-        bool operator==(const CA &ca) const {
+        bool operator==(const FP &fp) const {
           for (uint32_t i = 0; i < 20 / 4; ++i) {
-            if (((uint32_t*)_v)[i] != ((uint32_t*)ca._v)[i])
+            if (((uint32_t*)v_)[i] != ((uint32_t*)fp.v_)[i])
               return false;
           }
           return true;
         }
       };
       struct DP {
-        uint32_t _weu_id;
-        uint32_t _offset;
-        uint32_t _len;
+        uint32_t weuId_;
+        uint32_t offset_;
+        uint32_t len_;
       };
 
       CDARC_FingerprintIndex();
       static CDARC_FingerprintIndex &get_instance();
       void init(uint32_t cap);
-      bool lookup(uint8_t *ca, uint32_t &weu_id, uint32_t &offset, uint32_t &len);
-      void reference(uint64_t lba, uint8_t *ca);
-      void deference(uint64_t lba, uint8_t *ca);
-      uint32_t update(uint64_t lba, uint8_t *ca, uint32_t &weu_id,
+      bool lookup(uint8_t *fp, uint32_t &weuId, uint32_t &offset, uint32_t &len);
+      void reference(uint64_t lba, uint8_t *fp);
+      void deference(uint64_t lba, uint8_t *fp);
+      uint32_t update(uint64_t lba, uint8_t *fp, uint32_t &weuId,
           uint32_t &offset, uint32_t length);
     private:
       static CDARC_FingerprintIndex instance;
-      std::map<CA, DP> _mp;
-      std::map<uint32_t, uint32_t> _weu_reference_count; // reference count for each weu
-      std::list<uint32_t> _zero_reference_list; // weu_ids
-      WEUAllocator _weu_allocator;
-      uint32_t _capacity;
+      std::map<FP, DP> mp_;
+      std::map<uint32_t, uint32_t> weuReferenceCount_; // reference count for each weu
+      std::list<uint32_t> zeroReferenceList_; // weu_ids
+      WEUAllocator weuAllocator_;
+      uint32_t capacity_;
   };
 }
 #endif

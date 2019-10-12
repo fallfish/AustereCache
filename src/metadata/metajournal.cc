@@ -1,11 +1,11 @@
 #include "metajournal.h"
 namespace cache {
 
-MetaJournal::MetaJournal(std::shared_ptr<cache::IOModule> io_module) :
-  _io_module(io_module)
+MetaJournal::MetaJournal(std::shared_ptr<cache::IOModule> ioModule) :
+  ioModule_(ioModule)
 {}
 
-void MetaJournal::add_update(const cache::Chunk &c)
+void MetaJournal::addUpdate(const cache::Chunk &c)
 {
   // pack and write lba, ca, and lookup_result into a log
 }

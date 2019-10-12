@@ -59,15 +59,15 @@ class RunCompressionModule {
 
   void warm_up()
   {
-    Chunker chunker = _chunk_module->create_chunker(
-        0, _original_data, _workload_conf._working_set_size);
+    Chunker chunker = _chunk_module->createChunker(
+      0, _original_data, _workload_conf._working_set_size);
 
     _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
     _chunks = reinterpret_cast<Chunk*>(malloc(sizeof(Chunk) * _n_chunks));
 
     int index = 0;
     while (chunker.next(_chunks[index])) {
-      _chunks[index]._compressed_buf = 
+      _chunks[index].compressedBuf_ =
           _compressed_data + 
           index * _workload_conf._chunk_size;
       ++index;
@@ -84,7 +84,7 @@ class RunCompressionModule {
   void decompress()
   {
     for (int i = 0; i < _n_chunks; i++) {
-      if (_chunks[i]._compressed_len != 0)
+      if (_chunks[i].compressedLen_ != 0)
         _compression_module->decompress(_chunks[i]);
     }
   }

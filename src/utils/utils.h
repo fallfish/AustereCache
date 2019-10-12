@@ -13,7 +13,7 @@
 
 #define END_TIMER(phase_name) \
     gettimeofday(&ts_end_, NULL); \
-    Stats::get_instance()->add_time_elapsed_##phase_name(\
+    Stats::getInstance()->add_time_elapsed_##phase_name(\
         (ts_end_.tv_sec-ts_begin_.tv_sec)*1000000 + ts_end_.tv_usec-ts_begin_.tv_usec\
         ); \
   }

@@ -8,17 +8,17 @@ namespace cache {
 
   DirtyList::DirtyList()
   {
-    _dirty_list_size_limit = 1024;
+    size_ = 1024;
   }
 
-  void DirtyList::set_compression_module(std::shared_ptr<CompressionModule> compression_module)
+  void DirtyList::setCompressionModule(std::shared_ptr<CompressionModule> compressionModule)
   {
-    _compression_module = std::move(compression_module);
+    compressionModule_ = std::move(compressionModule);
   }
 
   void DirtyList::set_io_module(std::shared_ptr<IOModule> io_module)
   {
-    _io_module = std::move(io_module);
+    ioModule_ = std::move(io_module);
   }
 
   DirtyList* DirtyList::get_instance() {
@@ -33,11 +33,11 @@ namespace cache {
     }
   }
 
-  void DirtyList::add_latest_update(uint64_t lba, uint64_t ssd_data_location, uint32_t len)
+  void DirtyList::add_latest_update(uint64_t lba, uint64_t cachedataLocation, uint32_t len)
   {
     // TODO: persist the dirty list
-    _latest_updates[lba] = std::make_pair(ssd_data_location, len);
-    if (_latest_updates.size() >= _dirty_list_size_limit) {
+    latestUpdates_[lba] = std::make_pair(cachedataLocation, len);
+    if (latestUpdates_.size() >= size_) {
       flush();
     }
   }
@@ -56,7 +56,7 @@ namespace cache {
     evicted_block._ssd_data_location = ssd_data_location;
     evicted_block._len = len;
 
-    _evicted_blocks.push_back(evicted_block);
+    evictedBlocks_.push_back(evicted_block);
 
     flush();
   }
@@ -74,102 +74,103 @@ namespace cache {
 #if defined(DLRU) || defined(DARC)
   void DirtyList::flush() {
     alignas(512) uint8_t data[Config::get_configuration()->get_chunk_size()];
-    while (_evicted_blocks.size() != 0) {
-      uint64_t ssd_data_location = _evicted_blocks.front()._ssd_data_location;
-      uint32_t len = _evicted_blocks.front()._len;
-      _evicted_blocks.pop_front();
+    while (evictedBlocks_.size() != 0) {
+      uint64_t ssd_data_location = evictedBlocks_.front()._ssd_data_location;
+      uint32_t len = evictedBlocks_.front().len_;
+      evictedBlocks_.pop_front();
 
       std::vector<uint64_t> lbas_to_flush;
       lbas_to_flush.clear();
-      for (auto pr : _latest_updates) {
+      for (auto pr : latestUpdates_) {
         if (pr.second.first == ssd_data_location) {
           assert(pr.second.second == len);
           lbas_to_flush.push_back(pr.first);
         }
       }
       // Read cached data
-      _io_module->read(1, ssd_data_location, data, Config::get_configuration()->get_chunk_size());
+      ioModule_->read(1, ssd_data_location, data, Config::get_configuration()->get_chunk_size());
 
       for (auto lba : lbas_to_flush) {
-        _io_module->write(0, lba, data, Config::get_configuration()->get_chunk_size());
-        _latest_updates.erase(lba);
+        ioModule_->write(0, lba, data, Config::get_configuration()->get_chunk_size());
+        latestUpdates_.erase(lba);
       }
     }
 
-    if (_latest_updates.size() >= _dirty_list_size_limit) {
-      for (auto pr : _latest_updates) {
+    if (latestUpdates_.size() >= size_) {
+      for (auto pr : latestUpdates_) {
         uint64_t lba = pr.first;
         uint64_t ssd_data_location = pr.second.first;
         // Read cached data
-        _io_module->read(1, ssd_data_location, data, Config::get_configuration()->get_chunk_size());
-        _io_module->write(0, lba, data, Config::get_configuration()->get_chunk_size());
+        ioModule_->read(1, ssd_data_location, data, Config::get_configuration()->get_chunk_size());
+        ioModule_->write(0, lba, data, Config::get_configuration()->get_chunk_size());
       }
-      _latest_updates.clear();
+      latestUpdates_.clear();
     }
   }
 #else
   void DirtyList::flush() {
-    alignas(512) uint8_t compressed_data[Config::get_configuration()->get_chunk_size()];
-    alignas(512) uint8_t uncompressed_data[Config::get_configuration()->get_chunk_size()];
+    alignas(512) uint8_t compressed_data[Config::getInstance()->getChunkSize()];
+    alignas(512) uint8_t uncompressed_data[Config::getInstance()->getChunkSize()];
     alignas(512) Metadata metadata;
-    uint32_t sector_size = Config::get_configuration()->get_sector_size();
+    uint32_t sector_size = Config::getInstance()->getSectorSize();
 
     // Case 1: We have a newly evicted block.
-    while (_evicted_blocks.size() != 0) {
-      uint64_t ssd_data_location = _evicted_blocks.front()._ssd_data_location;
+    while (evictedBlocks_.size() != 0) {
+      uint64_t ssd_data_location = evictedBlocks_.front()._ssd_data_location;
       uint64_t metadata_location = (ssd_data_location - 32LL *
-          Config::get_configuration()->get_metadata_size() *
-          Config::get_configuration()->get_fp_bucket_no_len()
-          ) / Config::get_configuration()->get_sector_size() * Config::get_configuration()->get_fp_bucket_no_len();
-      uint32_t len = _evicted_blocks.front()._len;
-      _evicted_blocks.pop_front();
+                                                          Config::getInstance()->getMetadataSize() *
+                                                          Config::getInstance()->getnBitsPerFPBucketId()
+          ) / Config::getInstance()->getSectorSize() * Config::getInstance()->getnBitsPerFPBucketId();
+      uint32_t len = evictedBlocks_.front()._len;
+      evictedBlocks_.pop_front();
 
       std::vector<uint64_t> lbas_to_flush;
       lbas_to_flush.clear();
       bool k = 0;
-      for (auto pr : _latest_updates) {
+      for (auto pr : latestUpdates_) {
         if (pr.second.first == ssd_data_location) {
           assert(pr.second.second == len);
           lbas_to_flush.push_back(pr.first);
         }
       }
       // Read chunk metadata (compressed length)
-      _io_module->read(1, metadata_location, &metadata, Config::get_configuration()->get_metadata_size());
+      ioModule_->read(1, metadata_location, &metadata, Config::getInstance()->getMetadataSize());
       // Read cached data
-      _io_module->read(1, ssd_data_location, compressed_data, len * Config::get_configuration()->get_sector_size());
+      ioModule_->read(1, ssd_data_location, compressed_data, len * Config::getInstance()->getSectorSize());
       // Decompress cached data
       memset(uncompressed_data, 0, 32768);
-      _compression_module->decompress(compressed_data, uncompressed_data, 
-          metadata._compressed_len, Config::get_configuration()->get_chunk_size());
+      compressionModule_->decompress(compressed_data, uncompressed_data,
+          metadata.compressedLen_, Config::getInstance()->getChunkSize());
 
       for (auto lba : lbas_to_flush) {
-        _io_module->write(0, lba, uncompressed_data,
-            Config::get_configuration()->get_chunk_size());
-        _latest_updates.erase(lba);
+        ioModule_->write(0, lba, uncompressed_data,
+                          Config::getInstance()->getChunkSize());
+        latestUpdates_.erase(lba);
       }
     }
 
     // Case 2: The length of the dirty list exceed a limit.
-    if (_latest_updates.size() >= _dirty_list_size_limit) {
-      for (auto pr : _latest_updates) {
+    if (latestUpdates_.size() >= size_) {
+      for (auto pr : latestUpdates_) {
         uint64_t lba = pr.first;
         uint64_t ssd_data_location = pr.second.first;
         uint64_t metadata_location = (ssd_data_location - 32LL *
-            Config::get_configuration()->get_metadata_size() *
-            Config::get_configuration()->get_fp_bucket_no_len()
-            ) / Config::get_configuration()->get_sector_size() * Config::get_configuration()->get_fp_bucket_no_len();
+                                                            Config::getInstance()->getMetadataSize() *
+                                                            Config::getInstance()->getnBitsPerFPBucketId()
+            ) / Config::getInstance()->getSectorSize() * Config::getInstance()->getnBitsPerFPBucketId();
 
         // Read cached metadata (compressed length)
-        _io_module->read(1, metadata_location, &metadata, Config::get_configuration()->get_metadata_size());
+        ioModule_->read(1, metadata_location, &metadata, Config::getInstance()->getMetadataSize());
         // Read cached data
-        _io_module->read(1, ssd_data_location, compressed_data, pr.second.second * Config::get_configuration()->get_sector_size());
+        ioModule_->read(1, ssd_data_location, compressed_data, pr.second.second *
+          Config::getInstance()->getSectorSize());
         // Decompress cached data
-        _compression_module->decompress(compressed_data, uncompressed_data, 
-            metadata._compressed_len, Config::get_configuration()->get_chunk_size());
+        compressionModule_->decompress(compressed_data, uncompressed_data,
+            metadata.compressedLen_, Config::getInstance()->getChunkSize());
         // Write uncompressed data into HDD
-        _io_module->write(0, lba, uncompressed_data, Config::get_configuration()->get_chunk_size());
+        ioModule_->write(0, lba, uncompressed_data, Config::getInstance()->getChunkSize());
       }
-      _latest_updates.clear();
+      latestUpdates_.clear();
     }
   }
 #endif

@@ -51,7 +51,7 @@ SPDK already has examples that create block devices out of NVMe, Memdisk, and Ce
 One possibility is that we treat SPDK block device the same as the linux one.
 The other possibility is that we integrate SPDK into the application to co-design the indexing structure and io channel management.
 2019.06.16
-1. New verification failed (CA not match) write chunk should invalidate the corresponding CA Bucket.
+1. New verification failed (FP not match) write chunk should invalidate the corresponding FP Bucket.
 2. Import openssl library
 3. Generate 512MiB trace by randomly generating a chunk-aligned file and cat it. (32MiB (1024 chunks) * 16 files)
 4. A concern regarding Hash+memcmp strategy is that when we do compression?

@@ -11,27 +11,27 @@ class FrequentSlots {
  public:
   FrequentSlots() {}
 
-  void allocate(uint64_t fp_hash)
+  void allocate(uint64_t fpHash)
   {
-    for (auto &reverse_mapping : _slots) {
-      if (reverse_mapping.get() == nullptr) {
-        reverse_mapping = std::make_unique<ReverseMapping>();
-        reverse_mapping->_fp_hash = fp_hash;
+    for (auto &reverseMapping : slots_) {
+      if (reverseMapping.get() == nullptr) {
+        reverseMapping = std::make_unique<ReverseMapping>();
+        reverseMapping->fpHash_ = fpHash;
         return ;
       }
     }
-    std::unique_ptr<ReverseMapping> reverse_mapping =
+    std::unique_ptr<ReverseMapping> reverseMapping =
       std::make_unique<ReverseMapping>();
-    reverse_mapping->_fp_hash = fp_hash;
-    _slots.push_back(std::move(reverse_mapping));
+    reverseMapping->fpHash_ = fpHash;
+    slots_.push_back(std::move(reverseMapping));
   }
 
-  bool query(uint64_t fp_hash, uint64_t lba)
+  bool query(uint64_t fpHash, uint64_t lba)
   {
-    for (auto &reverse_mapping : _slots) {
-      if (reverse_mapping.get() == nullptr) continue;
-      if (reverse_mapping->_fp_hash == fp_hash) { 
-        for (auto l : reverse_mapping->_lbas) {
+    for (auto &reverseMapping : slots_) {
+      if (reverseMapping.get() == nullptr) continue;
+      if (reverseMapping->fpHash_ == fpHash) {
+        for (auto l : reverseMapping->lbas_) {
           if (l == lba)
             return true;
         }
@@ -41,30 +41,30 @@ class FrequentSlots {
     return false;
   }
 
-  void add(uint64_t fp_hash, uint64_t lba) {
-    for (auto &reverse_mapping : _slots) {
-      if (reverse_mapping.get() == nullptr) continue;
-      if (reverse_mapping->_fp_hash == fp_hash) {
-        reverse_mapping->_lbas.push_back(lba);
+  void add(uint64_t fpHash, uint64_t lba) {
+    for (auto &reverseMapping : slots_) {
+      if (reverseMapping.get() == nullptr) continue;
+      if (reverseMapping->fpHash_ == fpHash) {
+        reverseMapping->lbas_.push_back(lba);
       }
     }
   }
 
-  void remove(uint64_t fp_hash) {
-    for (auto &reverse_mapping : _slots) {
-      if (reverse_mapping.get() == nullptr) continue;
-      if (reverse_mapping->_fp_hash == fp_hash) {
-        reverse_mapping.reset();
+  void remove(uint64_t fpHash) {
+    for (auto &reverseMapping : slots_) {
+      if (reverseMapping.get() == nullptr) continue;
+      if (reverseMapping->fpHash_ == fpHash) {
+        reverseMapping.reset();
       }
     }
   }
 
  private:
   struct ReverseMapping {
-    uint64_t _fp_hash;
-    std::vector<uint64_t> _lbas;
+    uint64_t fpHash_;
+    std::vector<uint64_t> lbas_;
   };
-  std::vector<std::unique_ptr<ReverseMapping>> _slots;
+  std::vector<std::unique_ptr<ReverseMapping>> slots_;
 };
 
 }
