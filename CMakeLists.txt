@@ -58,7 +58,7 @@ add_library(cache
   src/manage/dirty_list.cc
 
   src/utils/MurmurHash3.cpp
-        src/manage/writebuffer.cc src/manage/writebuffer.h)
+        src/io/writebuffer.cc src/io/writebuffer.h)
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
 set (OPENSSL_ROOT_DIR ${CMAKE_SOURCE_DIR}/third_party/openssl)

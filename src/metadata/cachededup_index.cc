@@ -133,8 +133,8 @@ namespace cache {
       // assign the evicted free ssd location to the newly inserted data
       spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
-      DirtyList::getInstance()->add_evicted_block(mp_[_fp].cachedataLocation_,
-          Config::getInstance()->get_chunk_size());
+      DirtyList::getInstance()->addEvictedChunk(mp_[_fp].cachedataLocation_,
+          Config::getInstance()->getChunkSize());
 #endif
       mp_.erase(_fp);
       Stats::getInstance()->add_fp_index_eviction_caused_by_capacity();
@@ -492,8 +492,8 @@ namespace cache {
 
       spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
-      DirtyList::getInstance()->add_evicted_block(mp_[_fp].cachedataLocation_,
-          Config::getInstance()->get_chunk_size());
+      DirtyList::getInstance()->addEvictedChunk(mp_[_fp].cachedataLocation_,
+          Config::getInstance()->getChunkSize());
 #endif
       mp_.erase(_fp);
 

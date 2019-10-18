@@ -9,6 +9,7 @@
 #include <list>
 #include <set>
 #include <algorithm>
+#include <io/writebuffer.h>
 #include "common/env.h"
 #include "common/common.h"
 #include "common/stats.h"
@@ -45,6 +46,8 @@ class IOModule {
       memcpy(buf_ + addr, buf, len);
     }
   } inMemBuffer_;
+
+  std::unique_ptr<WriteBuffer> writeBuffer_;
 };
 
 }

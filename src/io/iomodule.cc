@@ -21,8 +21,10 @@ IOModule::IOModule()
     inMemBuffer_.len_ = 0;
   }
 
-
-
+  if (Config::getInstance()->getWriteBufferSize() != 0) {
+    writeBuffer_ = std::make_unique<WriteBuffer>(
+      Config::getInstance()->getWriteBufferSize());
+  }
 }
 
 IOModule::~IOModule() = default;
@@ -54,16 +56,25 @@ uint32_t IOModule::read(DeviceType deviceType, uint64_t addr, void *buf, uint32_
   uint32_t ret = 0;
   if (deviceType == PRIMARY_DEVICE) {
     BEGIN_TIMER();
-    ret = primaryDevice_->read(addr, (uint8_t*)buf, len);
+    ret = primaryDevice_->read(addr, static_cast<uint8_t *>(buf), len);
     END_TIMER(io_hdd);
     Stats::getInstance()->add_bytes_read_from_primary_disk(len);
   } else if (deviceType == CACHE_DEVICE) {
     BEGIN_TIMER();
-    ret = cacheDevice_->read(addr, (uint8_t*)buf, len);
+    if (writeBuffer_ != nullptr) {
+      auto indexAndOffset = writeBuffer_->prepareRead(addr, len);
+      auto index = indexAndOffset.first, offset = indexAndOffset.second;
+      if (index != ~0u) {
+        inMemBuffer_.read(offset, static_cast<uint8_t *>(buf), len);
+      }
+      writeBuffer_->commitRead();
+    } else {
+      ret = cacheDevice_->read(addr, static_cast<uint8_t *>(buf), len);
+    }
     Stats::getInstance()->add_bytes_read_from_cache_disk(len);
     END_TIMER(io_ssd);
   } else if (deviceType == IN_MEM_BUFFER) {
-    inMemBuffer_.read(addr, (uint8_t*)buf, len);
+    inMemBuffer_.read(addr, static_cast<uint8_t *>(buf), len);
   }
   Stats::getInstance()->add_io_request(deviceType, 1, len);
   return ret;
@@ -78,7 +89,28 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
     END_TIMER(io_hdd);
   } else if (deviceType == CACHE_DEVICE) {
     BEGIN_TIMER();
-    cacheDevice_->write(addr, (uint8_t*)buf, len);
+    if (writeBuffer_ != nullptr) {
+      std::pair<uint32_t, uint32_t> indexAndOffset;
+      uint32_t index, offset;
+      do {
+        indexAndOffset = writeBuffer_->prepareWrite(addr, len);
+        index = indexAndOffset.first;
+        offset = indexAndOffset.second;
+
+        if (index == ~0u) {
+          auto toFlush = writeBuffer_->flush();
+          for (WriteBuffer::Entry entry : toFlush) {
+            flush(entry.addr_, entry.off_, entry.len_);
+          }
+        } else {
+          inMemBuffer_.write(addr, (uint8_t*)buf, len);
+          break;
+        }
+      } while (true);
+      writeBuffer_->commitWrite(addr, offset, len, index);
+    } else {
+      cacheDevice_->write(addr, (uint8_t *) buf, len);
+    }
     Stats::getInstance()->add_bytes_written_to_cache_disk(len);
     END_TIMER(io_ssd);
   } else if (deviceType == IN_MEM_BUFFER) {

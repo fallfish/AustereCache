@@ -3,7 +3,7 @@
 
 #include "common/common.h"
 #include "managemodule.h"
-#include "writebuffer.h"
+#include "io/writebuffer.h"
 #include "io/iomodule.h"
 #include "chunk/chunkmodule.h"
 #include "compression/compressionmodule.h"

@@ -1,5 +1,5 @@
 #include "managemodule.h"
-#include "writebuffer.h"
+#include "io/writebuffer.h"
 #include "common/stats.h"
 #include "utils/utils.h"
 #include <cassert>
@@ -16,10 +16,6 @@ ManageModule::ManageModule(
   currentCachedataLocation_ = 0;
   currentWEUId_ = 0;
 #else
-  if (Config::getInstance()->getWriteBufferSize() != 0) {
-    writeBuffer_ = std::make_unique<WriteBuffer>(
-      Config::getInstance()->getWriteBufferSize());
-  }
 #endif
 }
 
@@ -84,16 +80,7 @@ int ManageModule::read(Chunk &chunk)
   uint32_t len;
   generateReadRequest(chunk, deviceType, addr, buf, len);
 
-  if (writeBuffer_ != nullptr) {
-    auto indexAndOffset = writeBuffer_->prepareRead(addr, len);
-    auto index = indexAndOffset.first, offset = indexAndOffset.second;
-    if (index != ~0u) {
-      ioModule_->read(IN_MEM_BUFFER, offset, buf, len);
-    }
-    writeBuffer_->commitRead();
-  } else {
-    ioModule_->read(deviceType, addr, buf, len);
-  }
+  ioModule_->read(deviceType, addr, buf, len);
 
   return 0;
 }
@@ -171,28 +158,7 @@ int ManageModule::write(Chunk &chunk)
   }
 #endif
   if (generateCacheWriteRequest(chunk, deviceType, addr, buf, len)) {
-    if (writeBuffer_ != nullptr) {
-      std::pair<uint32_t, uint32_t> indexAndOffset;
-      uint32_t index, offset;
-      do {
-        indexAndOffset = writeBuffer_->prepareWrite(addr, len);
-        index = indexAndOffset.first;
-        offset = indexAndOffset.second;
-
-        if (index == ~0u) {
-          auto toFlush = writeBuffer_->flush();
-          for (WriteBuffer::Entry entry : toFlush) {
-            ioModule_->flush(entry.addr_, entry.off_, entry.len_);
-          }
-        } else {
-          ioModule_->write(IN_MEM_BUFFER, offset, buf, len);
-          break;
-        }
-      } while (true);
-      writeBuffer_->commitWrite(addr, offset, len, index);
-    } else {
-      ioModule_->write(deviceType, addr, buf, len);
-    }
+    ioModule_->write(deviceType, addr, buf, len);
   }
   return 0;
 }

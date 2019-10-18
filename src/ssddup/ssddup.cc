@@ -22,20 +22,20 @@ namespace cache {
     dumpMemoryUsage(vm, rss);
     std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
     chunkModule_ = std::make_unique<ChunkModule>();
-    std::shared_ptr<IOModule> io_module = std::make_shared<IOModule>();
-    io_module->addCacheDevice(Config::getInstance()->getCacheDeviceName());
-    io_module->addPrimaryDevice(Config::getInstance()->getPrimaryDeviceName());
+    std::shared_ptr<IOModule> ioModule = std::make_shared<IOModule>();
+    ioModule->addCacheDevice(Config::getInstance()->getCacheDeviceName());
+    ioModule->addPrimaryDevice(Config::getInstance()->getPrimaryDeviceName());
     compressionModule_ = std::make_shared<CompressionModule>();
     std::shared_ptr<MetadataModule> metadata_module =
-      std::make_shared<MetadataModule>(io_module, compressionModule_);
+      std::make_shared<MetadataModule>(ioModule, compressionModule_);
     deduplicationModule_ = std::make_unique<DeduplicationModule>(metadata_module);
-    manageModule_ = std::make_unique<ManageModule>(io_module, metadata_module);
+    manageModule_ = std::make_unique<ManageModule>(ioModule, metadata_module);
     stats_ = Stats::getInstance();
     threadPool_ = std::make_unique<ThreadPool>(Config::getInstance()->getMaxNumGlobalThreads());
 
 #ifdef WRITE_BACK_CACHE
-    DirtyList::getInstance()->set_io_module(io_module);
-    DirtyList::getInstance()->set_compression_module(compressionModule_);
+    DirtyList::getInstance()->setIOModule(ioModule);
+    DirtyList::getInstance()->setCompressionModule(compressionModule_);
 #endif
 
     std::cout << sizeof(Metadata) << std::endl;
