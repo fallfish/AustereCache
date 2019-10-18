@@ -9,12 +9,12 @@ namespace cache {
 
 class FrequentSlots {
  public:
-  FrequentSlots() {}
+  FrequentSlots() = default;
 
   void allocate(uint64_t fpHash)
   {
     for (auto &reverseMapping : slots_) {
-      if (reverseMapping.get() == nullptr) {
+      if (reverseMapping == nullptr) {
         reverseMapping = std::make_unique<ReverseMapping>();
         reverseMapping->fpHash_ = fpHash;
         return ;
@@ -29,7 +29,7 @@ class FrequentSlots {
   bool query(uint64_t fpHash, uint64_t lba)
   {
     for (auto &reverseMapping : slots_) {
-      if (reverseMapping.get() == nullptr) continue;
+      if (reverseMapping == nullptr) continue;
       if (reverseMapping->fpHash_ == fpHash) {
         for (auto l : reverseMapping->lbas_) {
           if (l == lba)
@@ -43,7 +43,7 @@ class FrequentSlots {
 
   void add(uint64_t fpHash, uint64_t lba) {
     for (auto &reverseMapping : slots_) {
-      if (reverseMapping.get() == nullptr) continue;
+      if (reverseMapping == nullptr) continue;
       if (reverseMapping->fpHash_ == fpHash) {
         reverseMapping->lbas_.push_back(lba);
       }
@@ -52,7 +52,7 @@ class FrequentSlots {
 
   void remove(uint64_t fpHash) {
     for (auto &reverseMapping : slots_) {
-      if (reverseMapping.get() == nullptr) continue;
+      if (reverseMapping == nullptr) continue;
       if (reverseMapping->fpHash_ == fpHash) {
         reverseMapping.reset();
       }
@@ -61,7 +61,7 @@ class FrequentSlots {
 
  private:
   struct ReverseMapping {
-    uint64_t fpHash_;
+    uint64_t fpHash_{};
     std::vector<uint64_t> lbas_;
   };
   std::vector<std::unique_ptr<ReverseMapping>> slots_;

@@ -26,8 +26,8 @@ namespace cache {
       };
 
 
-      void add_latest_update(uint64_t lba, uint64_t cachedataLocation, uint32_t len);
-      void add_evicted_block(uint64_t addr, uint32_t len);
+      void addLatestUpdate(uint64_t lba, uint64_t cachedataLocation, uint32_t len);
+      void addEvictedChunk(uint64_t cachedataLocation, uint32_t len);
       void flush();
 
     private:

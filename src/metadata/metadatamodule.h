@@ -13,9 +13,9 @@ class MetadataModule {
   // initialize all submodules and start the journalling thread
   MetadataModule(std::shared_ptr<IOModule> ioModule,
       std::shared_ptr<CompressionModule> compressionModule);
-  void dedup(Chunk &c);
-  void lookup(Chunk &c);
-  void update(Chunk &c);
+  void dedup(Chunk &chunk);
+  void lookup(Chunk &chunk);
+  void update(Chunk &chunk);
 
   std::unique_ptr<LBAIndex> lbaIndex_;
   std::shared_ptr<FPIndex> fpIndex_;

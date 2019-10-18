@@ -228,7 +228,7 @@ namespace cache {
     inline void add_lba_index_bucket_hit(uint32_t bucket_id) {
       _n_lookups_lba_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
     }
-    inline void add_fp_bucket_lookup(uint32_t bucket_id) {
+    inline void addFPBucketLookup(uint32_t bucket_id) {
       _n_lookups_fp_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
     }
 

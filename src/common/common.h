@@ -7,6 +7,7 @@
 #include <mutex>
 #include <iostream>
 #include "common/config.h"
+#include "common/env.h"
 #include "utils/utils.h"
 #include <atomic>
 #define DIRECT_IO
@@ -19,15 +20,15 @@ namespace cache {
  *        metadata is fetched from SSD to verify if the chunk is duplicate or not.
  */
 struct Metadata {
+  uint64_t LBAs_[MAX_NUM_LBAS_PER_CACHED_CHUNK]; // 4 * 32
   uint8_t  fingerprint_[20];
   uint8_t  strongFingerprint_[20];
+  uint8_t _[512 - 20 - 20 - 4 - 8 * MAX_NUM_LBAS_PER_CACHED_CHUNK - 4 - 4];
   uint32_t referenceCount_;
-  uint64_t LBAs_[37]; // 4 * 32
   uint32_t numLBAs_;
   // If the data is compressed, the compressed_len is valid, otherwise, it is 0.
   uint32_t compressedLen_;
   // 512 bytes alignment for DMA access
-  uint8_t _[76 + 80];
 };
 
 enum DedupResult {
@@ -43,7 +44,7 @@ enum VerificationResult {
 };
 
 enum DeviceType {
-  PRIMARY_DEVICE, CACHE_DEVICE, WRITE_BUFFER
+  PRIMARY_DEVICE, CACHE_DEVICE, IN_MEM_BUFFER
 };
 
 /*
@@ -115,8 +116,8 @@ struct Chunk {
 
 #ifdef CDARC
     uint32_t weuId_;
-    uint32_t _weu_offset;
-    uint32_t _evicted_weu_id;
+    uint32_t weuOffset_;
+    uint32_t evictedWEUId_;
 #endif
 
     Chunk() {}

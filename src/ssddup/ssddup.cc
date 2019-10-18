@@ -175,7 +175,7 @@ namespace cache {
     }
     // read from ssd or hdd according to the lookup result
     manageModule_->read(chunk);
-    if (chunk.lookupResult_ == HIT) {
+    if (chunk.lookupResult_ == HIT && chunk.compressedLen_ != 0) {
       // hit the cache
       compressionModule_->decompress(chunk);
     }
@@ -200,8 +200,8 @@ namespace cache {
   void SSDDup::internalWrite(Chunk &chunk)
   {
     chunk.lookupResult_ = LOOKUP_UNKNOWN;
-    alignas(512) uint8_t temp_buffer[Config::getInstance()->getChunkSize()];
-    chunk.compressedBuf_ = temp_buffer;
+    alignas(512) uint8_t tempBuf[Config::getInstance()->getChunkSize()];
+    chunk.compressedBuf_ = tempBuf;
 
     {
       chunk.computeFingerprint();
@@ -211,7 +211,9 @@ namespace cache {
       }
       manageModule_->updateMetadata(chunk);
 #if defined(WRITE_BACK_CACHE)
-      DirtyList::getInstance()->add_latest_update(chunk.addr_, chunk.cachedataLocation_, chunk.compressedLevel_ + 1);
+      DirtyList::getInstance()->addLatestUpdate(chunk.addr_,
+        chunk.cachedataLocation_,
+        (chunk.compressedLevel_ + 1) * Config::getInstance()->getSectorSize());
 #endif
       manageModule_->write(chunk);
 

@@ -14,6 +14,11 @@ namespace cache {
 void CompressionModule::compress(Chunk &chunk)
 {
   BEGIN_TIMER();
+#if defined(FAKE_IO)
+  chunk.compressedLen_ = 0;
+  return ;
+#endif
+
 #if defined(CDARC)
   chunk.compressedLen_ = LZ4_compress_default(
       (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
@@ -22,15 +27,10 @@ void CompressionModule::compress(Chunk &chunk)
     chunk.compressedLen_ = chunk.len_;
     chunk.compressedBuf_ = chunk.buf_;
   }
-#else
-#if !defined(FAKE_IO)
-    chunk.compressedLen_ = LZ4_compress_default(
-      (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
-      chunk.len_, chunk.len_ * 0.75);
-#else
-  // not compressible
-  chunk.compressedLen_ = 0;
-#endif
+#else // ACDC
+  chunk.compressedLen_ = LZ4_compress_default(
+    (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
+    chunk.len_, chunk.len_ * 0.75);
   double compress_ratio = chunk.compressedLen_ * 1.0 / chunk.len_;
   if (compress_ratio > 0.75 || chunk.compressedLen_ == 0) {
     chunk.compressedLevel_ = 3;
@@ -46,24 +46,20 @@ void CompressionModule::compress(Chunk &chunk)
   }
 #endif
   END_TIMER(compression);
-  return ;
 }
 
 void CompressionModule::decompress(Chunk &chunk)
 {
-  static int k = 0;
   BEGIN_TIMER();
 #if defined(CDARC)
   if (chunk.compressedLen_ != chunk.len_) {
-#else
+#else // ACDC
   if (chunk.compressedLen_ != 0) {
 #endif
 
 #if defined(NORMAL_DIST_COMPRESSION)
-    chunk.compressedLen_ = Config::getInstance()->get_current_compressed_len();
-    memcpy(chunk.compressedBuf_, Config::getInstance()->get_current_data(), chunk.compressedLen_);
-    // printf("%s: ", __func__);
-    // print_SHA1((char*)chunk.compressedBuf_, chunk.compressedLen_);
+    chunk.compressedLen_ = Config::getInstance()->getCurrentCompressedLen();
+    memcpy(chunk.compressedBuf_, Config::getInstance()->getCurrentData(), chunk.compressedLen_);
 #endif
 
 #if !defined(FAKE_IO)
@@ -71,9 +67,7 @@ void CompressionModule::decompress(Chunk &chunk)
                         chunk.compressedLen_, chunk.len_);
 #endif
   }
-  // printf("%s: clen = %d \n", __func__, chunk.compressedLen_), k = 1;
   END_TIMER(decompression);
-  return ;
 }
 
 // Not used now
@@ -93,6 +87,5 @@ void CompressionModule::decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_
     memcpy(buf, compressedBuf, originalLen);
   }
   END_TIMER(decompression);
-  return ;
-}
+  }
 }

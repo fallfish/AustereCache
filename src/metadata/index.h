@@ -54,7 +54,6 @@ namespace cache {
       void promote(uint64_t lbaHash);
       void update(uint64_t lbaHash, uint64_t fpHash);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t lbaHash);
-      void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
       std::unique_ptr<LBABucket> getLBABucket(uint32_t bucketId)
       {
@@ -78,7 +77,6 @@ namespace cache {
       void promote(uint64_t fpHash);
       void update(uint64_t fpHash, uint32_t compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t fpHash);
-      void unlock(std::unique_ptr<std::lock_guard<std::mutex>>);
 
       std::unique_ptr<FPBucket> getFPBucket(uint32_t bucketId) {
         return std::move(std::make_unique<FPBucket>(
@@ -87,9 +85,8 @@ namespace cache {
             valid_.get() + nBytesPerBucketForValid_ * bucketId,
             cachePolicy_.get(), bucketId));
       }
-    private:
-      uint64_t computeCachedataLocation(uint32_t bucketId, uint32_t slotId);
-      uint64_t computeMetadataLocation(uint32_t bucketId, uint32_t slotId);
+      static uint64_t computeCachedataLocation(uint32_t bucketId, uint32_t slotId);
+      static uint64_t computeMetadataLocation(uint32_t bucketId, uint32_t slotId);
 
       //std::map< uint8_t [], std::pair<uint32_t> > collide_fingeprints;
   };

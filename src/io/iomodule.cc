@@ -9,30 +9,23 @@ namespace cache {
 
 IOModule::IOModule()
 {
-#if defined(CDARC)
-  weu_.buf_ = new uint8_t[Config::getInstance()->getWriteBufferSize()];
-  weu_.len_ = Config::getInstance()->getWriteBufferSize();
-  writeBuffer_ = nullptr;
-#else
   if (Config::getInstance()->getWriteBufferSize() != 0) {
     std::cout << "Write Buffer init" << std::endl;
-    writeBuffer_ = new WriteBuffer(Config::getInstance()->getWriteBufferSize());
-    writeBuffer_->threadPool_ = std::make_unique<ThreadPool>(Config::getInstance()->getMaxNumGlobalThreads());
-  } else {
-    writeBuffer_ = nullptr;
-  }
+#ifdef DIRECT_IO
+    posix_memalign(reinterpret_cast<void **>(&inMemBuffer_.buf_), 512, Config::getInstance()->getWriteBufferSize());
+#else
+    buf_ = (uint8_t*)malloc(buffer_size);
 #endif
+    inMemBuffer_.len_ = Config::getInstance()->getWriteBufferSize();
+  } else {
+    inMemBuffer_.len_ = 0;
+  }
+
+
+
 }
 
-IOModule::~IOModule()
-{
-  if (writeBuffer_ != nullptr) {
-    delete writeBuffer_;
-  }
-#if defined(CDARC)
-  free(weu_.buf_);
-#endif
-}
+IOModule::~IOModule() = default;
 
 uint32_t IOModule::addCacheDevice(char *filename)
 {
@@ -42,8 +35,6 @@ uint32_t IOModule::addCacheDevice(char *filename)
   cacheDevice_ = std::make_unique<BlockDevice>();
   cacheDevice_->_direct_io = Config::getInstance()->isDirectIOEnabled();
   cacheDevice_->open(filename, size);
-  if (writeBuffer_ != nullptr)
-    writeBuffer_->cacheDevice_ = cacheDevice_.get();
   return 0;
 }
 
@@ -68,17 +59,11 @@ uint32_t IOModule::read(DeviceType deviceType, uint64_t addr, void *buf, uint32_
     Stats::getInstance()->add_bytes_read_from_primary_disk(len);
   } else if (deviceType == CACHE_DEVICE) {
     BEGIN_TIMER();
-    if (writeBuffer_ != nullptr) {
-      ret = writeBuffer_->read(addr, (uint8_t*)buf, len);
-    } else {
-      ret = cacheDevice_->read(addr, (uint8_t*)buf, len);
-      Stats::getInstance()->add_bytes_read_from_cache_disk(len);
-    }
+    ret = cacheDevice_->read(addr, (uint8_t*)buf, len);
+    Stats::getInstance()->add_bytes_read_from_cache_disk(len);
     END_TIMER(io_ssd);
-#if defined(CDARC)
-  } else if (deviceType == 2) {
-    weu_.read(addr, (uint8_t*)buf, len);
-#endif
+  } else if (deviceType == IN_MEM_BUFFER) {
+    inMemBuffer_.read(addr, (uint8_t*)buf, len);
   }
   Stats::getInstance()->add_io_request(deviceType, 1, len);
   return ret;
@@ -93,26 +78,19 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
     END_TIMER(io_hdd);
   } else if (deviceType == CACHE_DEVICE) {
     BEGIN_TIMER();
-    if (writeBuffer_ != nullptr) {
-      writeBuffer_->write(addr, (uint8_t*)buf, len);
-    } else {
-      cacheDevice_->write(addr, (uint8_t*)buf, len);
-      Stats::getInstance()->add_bytes_written_to_cache_disk(len);
-    }
+    cacheDevice_->write(addr, (uint8_t*)buf, len);
+    Stats::getInstance()->add_bytes_written_to_cache_disk(len);
     END_TIMER(io_ssd);
-#if defined(CDARC)
-  } else if (deviceType == 2) {
-    weu_.write(addr, (uint8_t*)buf, len);
-#endif
+  } else if (deviceType == IN_MEM_BUFFER) {
+    inMemBuffer_.write(addr, (uint8_t*)buf, len);
   }
   Stats::getInstance()->add_io_request(deviceType, 0, len);
 }
 
-void IOModule::flush(uint64_t addr)
+void IOModule::flush(uint64_t addr, uint64_t bufferOffset, uint32_t len)
 {
-#if defined(CDARC)
-  cacheDevice_->write(addr, weu_.buf_, weu_.len_);
-#endif
+  if (len == ~0u) len = inMemBuffer_.len_;
+  cacheDevice_->write(addr, inMemBuffer_.buf_ + bufferOffset, len);
 }
 
 }

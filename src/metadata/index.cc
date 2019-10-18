@@ -1,4 +1,6 @@
 #include "index.h"
+
+#include <utility>
 #include "cache_policy.h"
 #include "common/config.h"
 #include "common/stats.h"
@@ -16,9 +18,8 @@ namespace cache {
     mutexes_(std::make_unique<std::mutex[]>(nBuckets))
   {}
 
-  LBAIndex::~LBAIndex() {}
-
-  FPIndex::~FPIndex() {}
+  LBAIndex::~LBAIndex() = default;
+  FPIndex::~FPIndex() = default;
 
   void Index::setCachePolicy(std::unique_ptr<CachePolicy> cachePolicy)
   { 
@@ -29,7 +30,7 @@ namespace cache {
       uint32_t nSlotsPerBucket, uint32_t nBuckets,
       std::shared_ptr<FPIndex> fpIndex) :
     Index(nBitsPerKey, nBitsPerValue, nSlotsPerBucket, nBuckets),
-    fpIndex_(fpIndex)
+    fpIndex_(std::move(fpIndex))
   {
     setCachePolicy(std::move(std::make_unique<LRU>()));
   }
@@ -37,7 +38,7 @@ namespace cache {
   bool LBAIndex::lookup(uint64_t lbaHash, uint64_t &fpHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
-    uint32_t signature = lbaHash & ((1 << nBitsPerKey_) - 1);
+    uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
     Stats::getInstance()->add_lba_index_bucket_hit(bucketId);
     return getLBABucket(bucketId)->lookup(signature, fpHash) != ~((uint32_t)0);
   }
@@ -45,14 +46,14 @@ namespace cache {
   void LBAIndex::promote(uint64_t lbaHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
-    uint32_t signature = lbaHash & ((1 << nBitsPerKey_) - 1);
+    uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
     getLBABucket(bucketId)->promote(signature);
   }
 
   void LBAIndex::update(uint64_t lbaHash, uint64_t fpHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
-    uint32_t signature = lbaHash & ((1 << nBitsPerKey_) - 1);
+    uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
     getLBABucket(bucketId)->update(signature, fpHash, fpIndex_);
 
     Stats::getInstance()->add_lba_bucket_update(bucketId);
@@ -68,43 +69,43 @@ namespace cache {
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucketId * nSlotsPerBucket_ + slotId) * 1LL *
+    return (bucketId * nSlotsPerBucket_ + slotId) * 1ull *
              Config::getInstance()->getSectorSize() + (uint64_t)nBuckets_ *
       nSlotsPerBucket_ * Config::getInstance()->getMetadataSize();
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)
   {
-    return (bucketId * nSlotsPerBucket_ + slotId) * 1LL * Config::getInstance()->getMetadataSize();
+    return (bucketId * nSlotsPerBucket_ + slotId) * 1ull * Config::getInstance()->getMetadataSize();
   }
 
   bool FPIndex::lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_,
-             signature = fpHash & ((1 << nBitsPerKey_) - 1),
+             signature = fpHash & ((1u << nBitsPerKey_) - 1),
              nSlotsOccupied = 0;
     uint32_t index = getFPBucket(bucketId)->lookup(signature, nSlotsOccupied);
-    if (index == ~((uint32_t)0)) return false;
+    if (index == ~0u) return false;
 
     compressedLevel = nSlotsOccupied - 1;
     cachedataLocation = computeCachedataLocation(bucketId, index);
     metadataLocation = computeMetadataLocation(bucketId, index);
 
-    Stats::getInstance()->add_fp_bucket_lookup(bucketId);
+    Stats::getInstance()->addFPBucketLookup(bucketId);
     return true;
   }
 
   void FPIndex::promote(uint64_t fpHash)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_,
-             signature = fpHash & ((1 << nBitsPerKey_) - 1);
+             signature = fpHash & ((1u << nBitsPerKey_) - 1);
     getFPBucket(bucketId)->promote(signature);
   }
 
   void FPIndex::update(uint64_t fpHash, uint32_t compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_,
-             signature = fpHash & ((1 << nBitsPerKey_) - 1),
+             signature = fpHash & ((1u << nBitsPerKey_) - 1),
              nSlotsToOccupy = compressedLevel + 1;
 
     Stats::getInstance()->add_fp_bucket_update(bucketId);
@@ -121,10 +122,6 @@ namespace cache {
           mutexes_[bucketId]));
   }
 
-  void LBAIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)
-  {
-  }
-
   std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fpHash)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_;
@@ -133,7 +130,4 @@ namespace cache {
           mutexes_[bucketId]));
   }
 
-  void FPIndex::unlock(std::unique_ptr<std::lock_guard<std::mutex>>)
-  {
-  }
 }

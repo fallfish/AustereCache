@@ -12,39 +12,39 @@ namespace cache {
   MetadataModule::MetadataModule(std::shared_ptr<IOModule> ioModule,
       std::shared_ptr<CompressionModule> compressionModule) {
     Config *config = Config::getInstance();
-    uint32_t fp_signature_len = config->getnBitsPerFPSignature(),
-             fp_bucket_no_len = config->getnBitsPerFPBucketId(),
-             lba_signature_len = config->getnBitsPerLBASignature(),
-             lba_bucket_no_len = config->getnBitsPerLBABucketId();
-    uint32_t ca_slots_per_bucket = config->getnFPSlotsPerBucket(),
-             lba_slots_per_bucket = config->getnLBASlotsPerBucket();
+    uint32_t nBitsPerFPSignature = config->getnBitsPerFPSignature(),
+             nBitsPerFPBucketId = config->getnBitsPerFPBucketId(),
+             nBitsPerLBASignature = config->getnBitsPerLBASignature(),
+             nBitsPerBucketId = config->getnBitsPerLBABucketId();
+    uint32_t nFPSlotsPerBucket = config->getnFPSlotsPerBucket(),
+             nLBASlotsPerBucket = config->getnLBASlotsPerBucket();
     fpIndex_ = std::make_shared<FPIndex>(
-      fp_signature_len, 4, ca_slots_per_bucket, (1 << fp_bucket_no_len));
+      nBitsPerFPSignature, 4, nFPSlotsPerBucket, (1 << nBitsPerFPBucketId));
     lbaIndex_ = std::make_unique<LBAIndex>(
-      lba_signature_len, (fp_signature_len + fp_bucket_no_len),
-      lba_slots_per_bucket, (1 << lba_bucket_no_len), fpIndex_);
+      nBitsPerLBASignature, (nBitsPerFPSignature + nBitsPerFPBucketId),
+      nLBASlotsPerBucket, (1 << nBitsPerBucketId), fpIndex_);
     // metaVerification_ and metaJournal_ should
     // hold a shared_ptr to ioModule_
     metaVerification_ = std::make_unique<MetaVerification>(ioModule, compressionModule);
     metaJournal_ = std::make_unique<MetaJournal>(ioModule);
-    std::cout << "Number of LBA buckets: " << (1 << lba_bucket_no_len) << std::endl;
-    std::cout << "Number of FP buckets: " << (1 << fp_bucket_no_len) << std::endl;
+    std::cout << "Number of LBA buckets: " << (1 << nBitsPerBucketId) << std::endl;
+    std::cout << "Number of FP buckets: " << (1 << nBitsPerFPBucketId) << std::endl;
 #ifdef CACHE_DEDUP
 #if defined(DLRU)
-    DLRU_SourceIndex::getInstance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len));
-    DLRU_FingerprintIndex::getInstance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
-    std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << fp_bucket_no_len)) << std::endl;
+    DLRU_SourceIndex::getInstance().init(nLBASlotsPerBucket * (1 << nBitsPerBucketId));
+    DLRU_FingerprintIndex::getInstance().init(nFPSlotsPerBucket * (1 << nBitsPerFPBucketId));
+    std::cout << "SourceIndex capacity: " << (nLBASlotsPerBucket * (1 << nBitsPerBucketId)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (nFPSlotsPerBucket * (1 << nBitsPerFPBucketId)) << std::endl;
 #elif defined(DARC)
-    DARC_SourceIndex::getInstance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
-    DARC_FingerprintIndex::getInstance().init(ca_slots_per_bucket * (1 << fp_bucket_no_len));
-    std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (ca_slots_per_bucket * (1 << fp_bucket_no_len)) << std::endl;
+    DARC_SourceIndex::getInstance().init(nLBASlotsPerBucket * (1 << nBitsPerBucketId), 0, 0);
+    DARC_FingerprintIndex::getInstance().init(nFPSlotsPerBucket * (1 << nBitsPerFPBucketId));
+    std::cout << "SourceIndex capacity: " << (nLBASlotsPerBucket * (1 << nBitsPerBucketId)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (nFPSlotsPerBucket * (1 << nBitsPerFPBucketId)) << std::endl;
 #elif defined(CDARC)
-    DARC_SourceIndex::getInstance().init(lba_slots_per_bucket * (1 << lba_bucket_no_len), 0, 0);
-    CDARC_FingerprintIndex::getInstance().init((1 << fp_bucket_no_len));
-    std::cout << "SourceIndex capacity: " << (lba_slots_per_bucket * (1 << lba_bucket_no_len)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (1 << fp_bucket_no_len) << std::endl;
+    DARC_SourceIndex::getInstance().init(nLBASlotsPerBucket * (1 << nBitsPerBucketId), 0, 0);
+    CDARC_FingerprintIndex::getInstance().init((1 << nBitsPerFPBucketId));
+    std::cout << "SourceIndex capacity: " << (nLBASlotsPerBucket * (1 << nBitsPerBucketId)) << std::endl;
+    std::cout << "FingerprintIndex capacity: " << (1 << nBitsPerFPBucketId) << std::endl;
 #endif
 #endif
   }
@@ -104,7 +104,7 @@ namespace cache {
 #elif defined(CDARC)
   void MetadataModule::dedup(Chunk &c)
   {
-    c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
+    c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
     if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
     else
@@ -114,7 +114,7 @@ namespace cache {
   {
     c.hitLBAIndex_ = DARC_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
     if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
+      c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
@@ -124,7 +124,7 @@ namespace cache {
   void MetadataModule::update(Chunk &c)
   {
     DARC_SourceIndex::getInstance().adjust_adaptive_factor(c.addr_);
-    c._evicted_weu_id = CDARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.weuId_, c._weu_offset, c.compressedLen_);
+    c.evictedWEUId_ = CDARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
     DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
   }
 #endif
@@ -138,98 +138,95 @@ namespace cache {
   // the lock status (the chunk has not obtained a ca lock)
   // to only do the ca verification.
 
-  void MetadataModule::dedup(Chunk &c)
+  void MetadataModule::dedup(Chunk &chunk)
   {
-    uint64_t fp_hash = ~0LL;
-    if (c.lbaBucketLock_.get() == nullptr) {
-      c.lbaBucketLock_ = std::move(lbaIndex_->lock(c.lbaHash_));
+    uint64_t fpHash = ~0ull;
+    if (chunk.lbaBucketLock_ == nullptr) {
+      chunk.lbaBucketLock_ = std::move(lbaIndex_->lock(chunk.lbaHash_));
     }
-    c.hitLBAIndex_ = lbaIndex_->lookup(c.lbaHash_, fp_hash) && (fp_hash == c.fingerprintHash_);
+    chunk.hitLBAIndex_ = lbaIndex_->lookup(chunk.lbaHash_, fpHash) && (fpHash == chunk.fingerprintHash_);
 
-    if (c.fpBucketLock_.get() == nullptr) {
-      c.fpBucketLock_ = std::move(fpIndex_->lock(c.fingerprintHash_));
+    if (chunk.fpBucketLock_ == nullptr) {
+      chunk.fpBucketLock_ = std::move(fpIndex_->lock(chunk.fingerprintHash_));
     }
-    c.hitFPIndex_ = fpIndex_->lookup(c.fingerprintHash_, c.compressedLevel_, c.cachedataLocation_, c.metadataLocation_);
+    chunk.hitFPIndex_ = fpIndex_->lookup(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
 
-    if (c.hitFPIndex_) {
-      c.verficationResult_ = metaVerification_->verify(c);
+    if (chunk.hitFPIndex_) {
+      chunk.verficationResult_ = metaVerification_->verify(chunk);
     }
 
-    if (c.hitFPIndex_ && c.hitLBAIndex_
-        && c.verficationResult_ == BOTH_LBA_AND_FP_VALID) {
+    if (chunk.hitFPIndex_ && chunk.hitLBAIndex_
+        && chunk.verficationResult_ == BOTH_LBA_AND_FP_VALID) {
       // duplicate write
-      c.dedupResult_ = DUP_WRITE;
-    } else if (c.hitFPIndex_ &&
-               (c.verficationResult_ == ONLY_FP_VALID ||
-                c.verficationResult_ == BOTH_LBA_AND_FP_VALID)){
+      chunk.dedupResult_ = DUP_WRITE;
+    } else if (chunk.hitFPIndex_ &&
+               (chunk.verficationResult_ == ONLY_FP_VALID ||
+                chunk.verficationResult_ == BOTH_LBA_AND_FP_VALID)){
       // duplicate content
-      c.dedupResult_ = DUP_CONTENT;
+      chunk.dedupResult_ = DUP_CONTENT;
     } else {
       // not duplicate
-      c.dedupResult_ = NOT_DUP;
+      chunk.dedupResult_ = NOT_DUP;
     }
   }
 
-  void MetadataModule::lookup(Chunk &c)
+  void MetadataModule::lookup(Chunk &chunk)
   {
     bool hitLBAIndex = false, hitFPIndex = false;
 
     // Obtain LBA bucket lock
-    c.lbaBucketLock_ = std::move(lbaIndex_->lock(c.lbaHash_));
-    c.hitLBAIndex_ = lbaIndex_->lookup(c.lbaHash_, c.fingerprintHash_);
-    if (c.hitLBAIndex_) {
-      c.fpBucketLock_ = std::move(fpIndex_->lock(c.fingerprintHash_));
-      c.hitFPIndex_ = fpIndex_->lookup(c.fingerprintHash_, c.compressedLevel_, c.cachedataLocation_, c.metadataLocation_);
-      if (c.hitFPIndex_) {
-        c.verficationResult_ = metaVerification_->verify(c);
+    chunk.lbaBucketLock_ = std::move(lbaIndex_->lock(chunk.lbaHash_));
+    chunk.hitLBAIndex_ = lbaIndex_->lookup(chunk.lbaHash_, chunk.fingerprintHash_);
+    if (chunk.hitLBAIndex_) {
+      chunk.fpBucketLock_ = std::move(fpIndex_->lock(chunk.fingerprintHash_));
+      chunk.hitFPIndex_ = fpIndex_->lookup(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
+      if (chunk.hitFPIndex_) {
+        chunk.verficationResult_ = metaVerification_->verify(chunk);
       }
     }
 
-    if (c.verficationResult_ == VerificationResult::ONLY_LBA_VALID) {
-      c.lookupResult_ = HIT;
+    if (chunk.verficationResult_ == VerificationResult::ONLY_LBA_VALID) {
+      chunk.compressedLen_ = chunk.metadata_.compressedLen_;
+      chunk.lookupResult_ = HIT;
     } else {
-      c.fpBucketLock_.reset();
-      assert(c.fpBucketLock_.get() == nullptr);
-      c.lookupResult_ = NOT_HIT;
+      chunk.fpBucketLock_.reset();
+      assert(chunk.fpBucketLock_.get() == nullptr);
+      chunk.lookupResult_ = NOT_HIT;
     }
   }
 
-  void MetadataModule::update(Chunk &c)
+  void MetadataModule::update(Chunk &chunk)
   {
-    // If a chunk hits lba and ca, it would check validity in the metadata.
-    // If the ca is not valid, it means a new chunk and the previous one
-    // should be evicted.
-
     BEGIN_TIMER();
-    if (c.lookupResult_ == HIT) {
-      fpIndex_->promote(c.fingerprintHash_);
-      lbaIndex_->promote(c.lbaHash_);
+    if (chunk.lookupResult_ == HIT) {
+      fpIndex_->promote(chunk.fingerprintHash_);
+      lbaIndex_->promote(chunk.lbaHash_);
     } else {
-      if (c.dedupResult_ == DUP_CONTENT || c.dedupResult_ == DUP_WRITE) {
-        fpIndex_->promote(c.fingerprintHash_);
+      // deduplication focus on the fingerprint part
+      if (chunk.dedupResult_ == DUP_CONTENT || chunk.dedupResult_ == DUP_WRITE) {
+        fpIndex_->promote(chunk.fingerprintHash_);
       } else {
-        fpIndex_->update(c.fingerprintHash_, c.compressedLevel_, c.cachedataLocation_, c.metadataLocation_);
+        fpIndex_->update(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
       }
-      if (c.hitLBAIndex_) {
-        lbaIndex_->promote(c.lbaHash_);
+      // Note that for a cache-candidate chunk, hitLBAIndex indicates both hit in the LBA index and fpHash match
+      if (chunk.hitLBAIndex_) {
+        lbaIndex_->promote(chunk.lbaHash_);
       } else {
-        lbaIndex_->update(c.lbaHash_, c.fingerprintHash_);
+        lbaIndex_->update(chunk.lbaHash_, chunk.fingerprintHash_);
       }
     }
 
-      metaJournal_->addUpdate(c);
+    metaJournal_->addUpdate(chunk);
 
     END_TIMER(update_index);
 
     // Cases when an on-ssd metadata update is needed
-    // 1. DUP_CONTENT (update lba lists in the on-ssd metadata)
+    // 1. DUP_CONTENT (update lba lists in the on-ssd metadata if the lba is not in the list)
     // 2. NOT_DUP (write a new metadata and a new cached data)
-    if ( (c.dedupResult_ == DUP_CONTENT && c.verficationResult_ != BOTH_LBA_AND_FP_VALID) ||
-        c.dedupResult_ == NOT_DUP) {
-      metaVerification_->update(c);
+    if ((chunk.dedupResult_ == DUP_CONTENT && chunk.verficationResult_ != BOTH_LBA_AND_FP_VALID) ||
+        chunk.dedupResult_ == NOT_DUP) {
+      metaVerification_->update(chunk);
     }
-
-    return ;
   }
 #endif
 }

@@ -22,15 +22,13 @@ namespace cache {
     data_(data), valid_(valid), bucketId_(slotId)
   {
     if (cachePolicy != nullptr) {
-      cachePolicy_ = std::move(cachePolicy->getExecutor(this));
+      cachePolicyExecutor_ = std::move(cachePolicy->getExecutor(this));
     } else {
-      cachePolicy_ = nullptr;
+      cachePolicyExecutor_ = nullptr;
     }
   }
 
-  Bucket::~Bucket()
-  {
-  }
+  Bucket::~Bucket() = default;
 
   uint32_t LBABucket::lookup(uint32_t lbaSignature, uint64_t &fpHash) {
     for (uint32_t slotId = 0; slotId < nSlots_; slotId++) {
@@ -48,7 +46,7 @@ namespace cache {
     uint64_t fingerprintHash = 0;
     uint32_t slotId = lookup(lbaSignature, fingerprintHash);
     //assert(slotId != ~((uint32_t)0));
-    cachePolicy_->promote(slotId);
+    cachePolicyExecutor_->promote(slotId);
   }
 
   void LBABucket::update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex) {
@@ -68,13 +66,13 @@ namespace cache {
     //          Any other design with larger number of slots should change this
     //          one.
     if (getValid32bits(0) == ~(uint32_t)0) {
-      cachePolicy_->clearObsolete(std::move(fingerprintIndex));
+      cachePolicyExecutor_->clearObsolete(std::move(fingerprintIndex));
     }
-    slotId = cachePolicy_->allocate();
+    slotId = cachePolicyExecutor_->allocate();
     setKey(slotId, lbaSignature);
     setValue(slotId, fingerprintHash);
     setValid(slotId);
-    cachePolicy_->promote(slotId);
+    cachePolicyExecutor_->promote(slotId);
   }
 
 
@@ -111,7 +109,7 @@ namespace cache {
     slot_id = lookup(fpSignature, n_slots_occupied);
     //assert(slot_id != ~((uint32_t)0));
 
-    cachePolicy_->promote(slot_id, n_slots_occupied);
+    cachePolicyExecutor_->promote(slot_id, n_slots_occupied);
   }
 
   uint32_t FPBucket::update(uint32_t fpSignature, uint32_t nSlotsToOccupy)
@@ -122,16 +120,14 @@ namespace cache {
       // TODO: Add it into the evicted data of dirty list 
       Stats::getInstance()->add_fp_index_eviction_caused_by_collision();
 #ifdef WRITE_BACK_CACHE
-      DirtyList::getInstance()->add_evicted_block(
-            /* Compute ssd location of the evicted data */
-            /* Actually, full FP and address is sufficient. */
-            (bucketId_ * nSlots_ + slotId) * 1LL *
-            (Config::getInstance()->get_sector_size() +
-             Config::getInstance()->get_metadata_size()),
-            nSlotsOccupied
-          );
+      DirtyList::getInstance()->addEvictedChunk(
+        /* Compute ssd location of the evicted data */
+        /* Actually, full FP and address is sufficient. */
+        FPIndex::computeCachedataLocation(bucketId_, slotId),
+        nSlotsOccupied * Config::getInstance()->getSectorSize()
+      );
 #endif
-          
+
       for (uint32_t _slotId = slotId;
           _slotId < slotId + nSlotsOccupied;
           ++_slotId) {
@@ -139,7 +135,7 @@ namespace cache {
       }
     }
 
-    slotId = cachePolicy_->allocate(nSlotsToOccupy);
+    slotId = cachePolicyExecutor_->allocate(nSlotsToOccupy);
     for (uint32_t _slotId = slotId;
         _slotId < slotId + nSlotsToOccupy;
         ++_slotId) {

@@ -17,19 +17,21 @@ namespace cache {
     auto &fingerprint = chunk.fingerprint_;
     uint64_t &metadataLocation = chunk.metadataLocation_;
     Metadata &metadata = chunk.metadata_;
+
     ioModule_->read(CACHE_DEVICE, metadataLocation, &metadata, 512);
 
     // check lba
     bool validLBA = false;
 
     for (uint32_t i = 0; i < metadata.numLBAs_; i++) {
+      if (i >= MAX_NUM_LBAS_PER_CACHED_CHUNK) break;
       if (metadata.LBAs_[i] == chunk.addr_) {
         validLBA = true;
         break;
       }
     }
-    if (metadata.numLBAs_ > 37) {
-      validLBA = frequentSlots_->query(chunk.fingerprintHash_, chunk.addr_);
+    if (!validLBA && metadata.numLBAs_ > MAX_NUM_LBAS_PER_CACHED_CHUNK) {
+      frequentSlots_->query(chunk.fingerprintHash_, lba);
     }
 
     // check fingerprint
@@ -38,8 +40,8 @@ namespace cache {
     bool validFingerprint = false;
     // Compute SHA1 and Compare Full fingerprint
     if (chunk.hasFingerprint_ && memcmp(
-      metadata.fingerprint_, chunk.fingerprint_,
-      Config::getInstance()->getFingerprintLength()) == 0)
+        metadata.fingerprint_, chunk.fingerprint_,
+        Config::getInstance()->getFingerprintLength()) == 0)
       validFingerprint = true;
 
     // To release computation burden for fingerprint computation
@@ -53,35 +55,36 @@ namespace cache {
     //           To avoid higher collision rate,
     //           when matched, compute a strong fingerprint (SHA1)
     //           and compare again against the strong fingerprint.
-    //{
-      //if (validFingerprint == true) {
-        //uint32_t chunk_size = Config::getInstance()->getChunkSize(),
-                 //metadata_size = Config::getInstance()->getMetadataSize(),
-                 //sector_size = Config::getInstance()->getSectorSize();
-        //uint32_t fingerprint_computation_method = Config::getInstance()->getFingerprintMode();
+    {
+      if (validFingerprint) {
+        uint32_t chunkSize = Config::getInstance()->getChunkSize(),
+                 metadataSize = Config::getInstance()->getMetadataSize(),
+                 sectorSize = Config::getInstance()->getSectorSize();
+        uint32_t fingerprintMode = Config::getInstance()->getFingerprintMode();
 
-        //if (fingerprint_computation_method == 1) {
-        //// Method 1: use weak hash + memcmp + decompression
-          //uint8_t compressed_data[chunk_size];
-          //uint8_t decompressed_data[chunk_size];
-          //// Fetch compressed data, decompress, and compare data content
-          //if (metadata.compressedLen_ != 0) {
-            //ioModule_->read(1, metadataLocation + 512, compressed_data,
-                //(metadata.compressedLen_ + sector_size - 1) / sector_size * sector_size);
-            //compressionModule_->decompress(compressed_data, decompressed_data,
-                //metadata.compressedLen_, chunk_size);
-          //} else {
-            //ioModule_->read(1, metadataLocation + 512, decompressed_data, chunk_size);
-          //}
-          //validFingerprint = (memcmp(decompressed_data, chunk.buf_, chunk_size) == 0);
-        //} else if (fingerprint_computation_method == 2) {
-        //// Method 2: use weak hash + strong hash
-          //chunk.computeStrongFingerprint();
-          //validFingerprint = (memcmp(chunk.strongFingerprint_, metadata.strongFingerprint_,
-                //Config::getInstance()->getStrongFingerprintLength()) == 0);
-        //}
-      //}
-    //}
+        if (fingerprintMode == 1) {
+        // Method 1: use weak hash + memcmp + decompression
+          uint8_t compressedData[chunkSize];
+          uint8_t decompressedData[chunkSize];
+          // Fetch compressed data, decompress, and compare data content
+          if (metadata.compressedLen_ != 0) {
+            ioModule_->read(CACHE_DEVICE, chunk.cachedataLocation_, compressedData,
+              (metadata.compressedLen_ + sectorSize - 1) / sectorSize * sectorSize);
+            compressionModule_->decompress(compressedData, decompressedData,
+              metadata.compressedLen_, chunkSize);
+          } else {
+            ioModule_->read(CACHE_DEVICE, chunk.cachedataLocation_,
+              decompressedData, chunkSize);
+          }
+          validFingerprint = (memcmp(decompressedData, chunk.buf_, chunkSize) == 0);
+        } else if (fingerprintMode == 2) {
+        // Method 2: use weak hash + strong hash
+          chunk.computeStrongFingerprint();
+          validFingerprint = (memcmp(chunk.strongFingerprint_, metadata.strongFingerprint_,
+                Config::getInstance()->getStrongFingerprintLength()) == 0);
+        }
+      }
+    }
 
     if (validLBA && validFingerprint)
       return BOTH_LBA_AND_FP_VALID;
@@ -103,9 +106,9 @@ namespace cache {
     // The data has been cached (duplicate);
     // We update the chunk metadata
     if (chunk.dedupResult_ == DUP_CONTENT) {
-      if (metadata.numLBAs_ >= 37) {
+      if (metadata.numLBAs_ >= MAX_NUM_LBAS_PER_CACHED_CHUNK) {
         // On-disk chunk_metadata cannot accommodate the new LBA
-        if (metadata.numLBAs_ == 37)
+        if (metadata.numLBAs_ == MAX_NUM_LBAS_PER_CACHED_CHUNK)
           frequentSlots_->allocate(chunk.fingerprintHash_);
         frequentSlots_->add(chunk.fingerprintHash_, chunk.addr_);
       } else {

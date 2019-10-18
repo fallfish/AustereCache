@@ -41,7 +41,7 @@ This function uses some most significant bits of `lba_hash` to find the bucket *
 
 **promote(lba_sig)**
 
-It assumes that `lba_sig` exists in the bucket. "Promote" means calling the `cachePolicy_` to improve the priority of the accessed value. (e.g. LRU)
+It assumes that `lba_sig` exists in the bucket. "Promote" means calling the `cachePolicyExecutor_` to improve the priority of the accessed value. (e.g. LRU)
 
 **update(lba_hash, ca_hash)**
 

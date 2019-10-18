@@ -7,33 +7,33 @@ namespace cache {
   class FPIndex;
 
   struct CachePolicyExecutor {
-    CachePolicyExecutor(Bucket *bucket);
+    explicit CachePolicyExecutor(Bucket *bucket);
 
     virtual void promote(uint32_t slotId, uint32_t nSlotsToOccupy = 1) = 0;
     virtual uint32_t allocate(uint32_t nSlotsToOccupy = 1) = 0;
     virtual void clearObsolete(std::shared_ptr<FPIndex> fpIndex) = 0;
 
-    Bucket *_bucket;
+    Bucket *bucket_;
   };
 
   struct LRUExecutor : public CachePolicyExecutor {
-    LRUExecutor(Bucket *bucket);
+    explicit LRUExecutor(Bucket *bucket);
 
-    void promote(uint32_t slotId, uint32_t nSlotsToOccupy = 1);
+    void promote(uint32_t slotId, uint32_t nSlotsToOccupy) override;
     // Only LBA Index would call this function
     // LBA signature only takes one slot.
     // So there is no need to care about the entry may take contiguous slots.
-    void clearObsolete(std::shared_ptr<FPIndex> fpIndex);
-    uint32_t allocate(uint32_t nSlotsToOccupy = 1);
+    void clearObsolete(std::shared_ptr<FPIndex> fpIndex) override;
+    uint32_t allocate(uint32_t nSlotsToOccupy) override;
   };
 
   struct CAClockExecutor : public CachePolicyExecutor {
     CAClockExecutor(Bucket *bucket, std::shared_ptr<Bucket> clock, uint32_t *clockPtr);
     ~CAClockExecutor();
 
-    void promote(uint32_t slotId, uint32_t nSlotsToOccupy = 1);
-    void clearObsolete(std::shared_ptr<FPIndex> fpIndex);
-    uint32_t allocate(uint32_t nSlotsToOccupy = 1);
+    void promote(uint32_t slotId, uint32_t nSlotsOccupied) override;
+    void clearObsolete(std::shared_ptr<FPIndex> fpIndex) override;
+    uint32_t allocate(uint32_t nSlotsToOccupy) override;
 
     inline void initClock(uint32_t index);
     inline uint32_t getClock(uint32_t index);
@@ -56,7 +56,7 @@ namespace cache {
     public:
       LRU();
         
-      std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket);
+      std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) override;
   };
 
   /**
@@ -68,15 +68,8 @@ namespace cache {
     public:
       CAClock(uint32_t nSlotsPerBucket, uint32_t nBuckets);
 
-      std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket);
-
-      std::shared_ptr<Bucket> getBucket(uint32_t bucketId) {
-        return std::make_shared<Bucket>(
-            0, 2, nSlotsPerBucket_,
-            clock_.get() + nBytesPerBucket_ * bucketId,
-            nullptr,
-            nullptr, bucketId);
-      }
+      std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) override;
+      std::shared_ptr<Bucket> getBucket(uint32_t bucketId);
 
 
       std::unique_ptr<uint8_t []> clock_;

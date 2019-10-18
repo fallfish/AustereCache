@@ -58,7 +58,7 @@ namespace cache {
         uint64_t v = 0;
         if (e - b > 32) {
           v = data_.getBits(b, b + 32);
-          v |= ((uint64_t) data_.getBits(b + 32, e)) << 32;
+          v |= (uint64_t) data_.getBits(b + 32, e) << 32u;
         } else {
           v = data_.getBits(b, e);
         }
@@ -72,7 +72,7 @@ namespace cache {
         initValue(index, b, e);
         if (e - b > 32) {
           data_.storeBits(b, b + 32, v & 0xffffffff);
-          data_.storeBits(b + 32, e, v >> 32);
+          data_.storeBits(b + 32, e, v >> 32u);
         } else {
           data_.storeBits(b, e, v);
         }
@@ -99,7 +99,7 @@ namespace cache {
 
       Bitmap::Manipulator data_;
       Bitmap::Manipulator valid_;
-      std::shared_ptr<CachePolicyExecutor> cachePolicy_;
+      std::shared_ptr<CachePolicyExecutor> cachePolicyExecutor_;
       uint32_t nBitsPerSlot_, nSlots_,
                nBitsPerKey_, nBitsPerValue_;
       uint32_t bucketId_;
@@ -142,7 +142,7 @@ namespace cache {
        *
        * @param lbaSignature
        * @param fingerprintHash
-       * @param fingerprintIndex used to evict obselete entries that has been evicted in ca_index
+       * @param fingerprintIndex used to evict obsolete entries that has been evicted in ca_index
        */
       void update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex);
   };

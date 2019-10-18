@@ -33,7 +33,7 @@ namespace cache {
     }
   }
 
-  void DirtyList::add_latest_update(uint64_t lba, uint64_t cachedataLocation, uint32_t len)
+  void DirtyList::addLatestUpdate(uint64_t lba, uint64_t cachedataLocation, uint32_t len)
   {
     // TODO: persist the dirty list
     latestUpdates_[lba] = std::make_pair(cachedataLocation, len);
@@ -49,15 +49,13 @@ namespace cache {
    *         We could persist to a special area in SSD and sync to HDD asynchronously.
    *          
    */
-  void DirtyList::add_evicted_block(uint64_t ssd_data_location, uint32_t len)
+  void DirtyList::addEvictedChunk(uint64_t cachedataLocation, uint32_t len)
   {
-    //std::cout << "Add evicted block! location: " << ssd_data_location << std::endl;
     EvictedBlock evicted_block;
-    evicted_block.cachedataLocation_ = ssd_data_location;
+    evicted_block.cachedataLocation_ = cachedataLocation;
     evicted_block.len_ = len;
 
     evictedBlocks_.push_back(evicted_block);
-
     flush();
   }
 
@@ -107,42 +105,45 @@ namespace cache {
       latestUpdates_.clear();
     }
   }
+#elif defined(CDARC)
 #else
   void DirtyList::flush() {
     alignas(512) uint8_t compressedData[Config::getInstance()->getChunkSize()];
     alignas(512) uint8_t uncompressedData[Config::getInstance()->getChunkSize()];
-    alignas(512) Metadata metadata;
-    uint32_t sector_size = Config::getInstance()->getSectorSize();
+    alignas(512) Metadata metadata{};
 
+    std::vector<uint64_t> lbasToFlush;
     // Case 1: We have a newly evicted block.
-    while (evictedBlocks_.size() != 0) {
-      uint64_t ssd_data_location = evictedBlocks_.front().cachedataLocation_;
-      uint64_t metadata_location = (ssd_data_location - 32LL *
-                                                          Config::getInstance()->getMetadataSize() *
-                                                          Config::getInstance()->getnBitsPerFPBucketId()
-          ) / Config::getInstance()->getSectorSize() * Config::getInstance()->getnBitsPerFPBucketId();
+    while (!evictedBlocks_.empty()) {
+      uint64_t cachedataLocation = evictedBlocks_.front().cachedataLocation_;
+      uint64_t metadataLocation =
+        (cachedataLocation - 32LL *
+                             Config::getInstance()->getMetadataSize() *
+                             Config::getInstance()->getnBitsPerFPBucketId()
+        ) / Config::getInstance()->getSectorSize() * Config::getInstance()->getnBitsPerFPBucketId();
       uint32_t len = evictedBlocks_.front().len_;
       evictedBlocks_.pop_front();
 
-      std::vector<uint64_t> lbas_to_flush;
-      lbas_to_flush.clear();
-      bool k = 0;
-      for (auto pr : latestUpdates_) {
-        if (pr.second.first == ssd_data_location) {
-          assert(pr.second.second == len);
-          lbas_to_flush.push_back(pr.first);
+      lbasToFlush.clear();
+      for (auto update : latestUpdates_) {
+        if (update.second.first == cachedataLocation) {
+          assert(update.second.second == len);
+          lbasToFlush.push_back(update.first);
         }
       }
       // Read chunk metadata (compressed length)
-      ioModule_->read(CACHE_DEVICE, metadata_location, &metadata, Config::getInstance()->getMetadataSize());
+      ioModule_->read(CACHE_DEVICE, metadataLocation, &metadata, Config::getInstance()->getMetadataSize());
       // Read cached data
-      ioModule_->read(CACHE_DEVICE, ssd_data_location, compressedData, len * Config::getInstance()->getSectorSize());
-      // Decompress cached data
-      memset(uncompressedData, 0, 32768);
-      compressionModule_->decompress(compressedData, uncompressedData,
-                                     metadata.compressedLen_, Config::getInstance()->getChunkSize());
-
-      for (auto lba : lbas_to_flush) {
+      if (len == Config::getInstance()->getChunkSize()) {
+        ioModule_->read(CACHE_DEVICE, cachedataLocation, uncompressedData, len);
+      } else {
+        ioModule_->read(CACHE_DEVICE, cachedataLocation, compressedData, len);
+        // Decompress cached data
+        memset(uncompressedData, 0, 32768);
+        compressionModule_->decompress(compressedData, uncompressedData,
+                                       metadata.compressedLen_, Config::getInstance()->getChunkSize());
+      }
+      for (auto lba : lbasToFlush) {
         ioModule_->write(PRIMARY_DEVICE, lba, uncompressedData,
                          Config::getInstance()->getChunkSize());
         latestUpdates_.erase(lba);
@@ -153,22 +154,27 @@ namespace cache {
     if (latestUpdates_.size() >= size_) {
       for (auto pr : latestUpdates_) {
         uint64_t lba = pr.first;
-        uint64_t ssd_data_location = pr.second.first;
-        uint64_t metadata_location = (ssd_data_location - 32LL *
-                                                            Config::getInstance()->getMetadataSize() *
-                                                            Config::getInstance()->getnBitsPerFPBucketId()
+        uint64_t cachedataLocation = pr.second.first;
+        uint64_t metadataLocation = (cachedataLocation - 32LL *
+                                                         Config::getInstance()->getMetadataSize() *
+                                                         Config::getInstance()->getnBitsPerFPBucketId()
             ) / Config::getInstance()->getSectorSize() * Config::getInstance()->getnBitsPerFPBucketId();
+        uint32_t len = pr.second.second;
 
-        // Read cached metadata (compressed length)
-        ioModule_->read(CACHE_DEVICE, metadata_location, &metadata, Config::getInstance()->getMetadataSize());
+        // Read chunk metadata (compressed length)
+        ioModule_->read(CACHE_DEVICE, metadataLocation, &metadata, Config::getInstance()->getMetadataSize());
         // Read cached data
-        ioModule_->read(CACHE_DEVICE, ssd_data_location, compressedData, pr.second.second *
-                                                              Config::getInstance()->getSectorSize());
-        // Decompress cached data
-        compressionModule_->decompress(compressedData, uncompressedData,
-                                       metadata.compressedLen_, Config::getInstance()->getChunkSize());
-        // Write uncompressed data into HDD
-        ioModule_->write(PRIMARY_DEVICE, lba, uncompressedData, Config::getInstance()->getChunkSize());
+        if (len == Config::getInstance()->getChunkSize()) {
+          ioModule_->read(CACHE_DEVICE, cachedataLocation, uncompressedData, len);
+        } else {
+          ioModule_->read(CACHE_DEVICE, cachedataLocation, compressedData, len);
+          // Decompress cached data
+          memset(uncompressedData, 0, Config::getInstance()->getChunkSize());
+          compressionModule_->decompress(compressedData, uncompressedData,
+                                         metadata.compressedLen_, Config::getInstance()->getChunkSize());
+        }
+        ioModule_->write(PRIMARY_DEVICE, lba, uncompressedData,
+                         Config::getInstance()->getChunkSize());
       }
       latestUpdates_.clear();
     }

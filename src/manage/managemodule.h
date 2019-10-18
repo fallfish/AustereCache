@@ -26,16 +26,17 @@ class ManageModule {
   bool generatePrimaryWriteRequest(
     Chunk &chunk, DeviceType &deviceType,
     uint64_t &addr, uint8_t *&buf, uint32_t &len);
-  void generateReadRequest(Chunk &c, DeviceType &deviceType, uint64_t &addr, uint8_t *&buf, uint32_t &len);
+  void generateReadRequest(Chunk &chunk, DeviceType &deviceType, uint64_t &addr, uint8_t *&buf, uint32_t &len);
+
 
 #if defined(CDARC)
   // maintain WEU to SSD locations
-  std::map<uint32_t, uint64_t> _weu_to_ssd_location;
+  std::map<uint32_t, uint64_t> weuToCachedataLocation_;
   uint32_t weuSize_;
-  uint32_t _current_weu_id;
-  uint64_t _current_ssd_location;
-#else
+  uint32_t currentWEUId_;
+  uint64_t currentCachedataLocation_;
 #endif
+  std::unique_ptr<WriteBuffer> writeBuffer_;
 };
 
 }

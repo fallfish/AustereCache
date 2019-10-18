@@ -1,7 +1,9 @@
 #include "managemodule.h"
+#include "writebuffer.h"
 #include "common/stats.h"
 #include "utils/utils.h"
 #include <cassert>
+
 namespace cache {
 
 ManageModule::ManageModule(
@@ -11,8 +13,13 @@ ManageModule::ManageModule(
 {
 #if defined(CDARC)
   weuSize_ = Config::getInstance()->getWriteBufferSize();
-  _current_ssd_location = 0;
-  _current_weu_id = 0;
+  currentCachedataLocation_ = 0;
+  currentWEUId_ = 0;
+#else
+  if (Config::getInstance()->getWriteBufferSize() != 0) {
+    writeBuffer_ = std::make_unique<WriteBuffer>(
+      Config::getInstance()->getWriteBufferSize());
+  }
 #endif
 }
 
@@ -24,49 +31,48 @@ ManageModule::ManageModule(
  */
 
 void ManageModule::generateReadRequest(
-      cache::Chunk &c, cache::DeviceType &deviceType,
+      cache::Chunk &chunk, cache::DeviceType &deviceType,
       uint64_t &addr, uint8_t *&buf, uint32_t &len)
 {
-  if (c.lookupResult_ == HIT) {
+  if (chunk.lookupResult_ == HIT) {
 #if defined(CACHE_DEDUP)
 
 #if defined(DLRU) || defined(DARC)
     deviceType = CACHE_DEVICE;
-    addr = c.cachedataLocation_;
-    buf = c.buf_;
-    len = c.len_;
+    addr = chunk.cachedataLocation_;
+    buf = chunk.buf_;
+    len = chunk.len_;
 #elif defined(CDARC)
-    if (_current_weu_id == c.weuId_) {
-      deviceType = WRITE_BUFFER;
-      addr = c._weu_offset;
+    if (currentWEUId_ == chunk.weuId_) {
+      deviceType = IN_MEM_BUFFER;
+      addr = chunk.weuOffset_;
     } else {
       deviceType = CACHE_DEVICE;
-      addr = _weu_to_ssd_location[c.weuId_] + c._weu_offset;
+      addr = weuToCachedataLocation_[chunk.weuId_] + chunk.weuOffset_;
     }
-    if (c.compressedLen_ == c.len_) {
-      buf = c.buf_;
+    if (chunk.compressedLen_ == chunk.len_) {
+      buf = chunk.buf_;
     } else {
-      buf = c.compressedBuf_;
+      buf = chunk.compressedBuf_;
     }
-    len = c.compressedLen_;
+    len = chunk.compressedLen_;
 #endif
 
 #else // ACDC
     deviceType = CACHE_DEVICE;
-    c.compressedLen_ = c.metadata_.compressedLen_;
-    if (c.compressedLen_ != 0) {
-      buf = c.compressedBuf_;
+    if (chunk.compressedLen_ != 0) {
+      buf = chunk.compressedBuf_;
     } else {
-      buf = c.buf_;
+      buf = chunk.buf_;
     }
-    addr = c.cachedataLocation_;
-    len = (c.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
+    addr = chunk.cachedataLocation_;
+    len = (chunk.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
 #endif
   } else {
     deviceType = PRIMARY_DEVICE;
-    addr = c.addr_;
-    buf = c.buf_;
-    len = c.len_;
+    addr = chunk.addr_;
+    buf = chunk.buf_;
+    len = chunk.len_;
   }
 }
 
@@ -77,7 +83,17 @@ int ManageModule::read(Chunk &chunk)
   uint8_t *buf;
   uint32_t len;
   generateReadRequest(chunk, deviceType, addr, buf, len);
-  ioModule_->read(deviceType, addr, buf, len);
+
+  if (writeBuffer_ != nullptr) {
+    auto indexAndOffset = writeBuffer_->prepareRead(addr, len);
+    auto index = indexAndOffset.first, offset = indexAndOffset.second;
+    if (index != ~0u) {
+      ioModule_->read(IN_MEM_BUFFER, offset, buf, len);
+    }
+    writeBuffer_->commitRead();
+  } else {
+    ioModule_->read(deviceType, addr, buf, len);
+  }
 
   return 0;
 }
@@ -104,41 +120,39 @@ bool ManageModule::generateCacheWriteRequest(
 {
   deviceType = CACHE_DEVICE;
   if (chunk.dedupResult_ == NOT_DUP) {
-#if defined(CACHE_DEDUP)
-
+#if !defined(CACHE_DEDUP)
+    addr = chunk.cachedataLocation_;
+    buf = chunk.compressedBuf_;
+    len = (chunk.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
+#else
 #if defined(DLRU) || defined(DARC)
     addr = chunk.cachedataLocation_;
     buf = chunk.buf_;
     len = chunk.len_;
 #elif defined(CDARC)
-    uint64_t evicted_ssd_location = -1;
-    if (_current_weu_id != chunk.weuId_) {
-      if (chunk._evicted_weu_id != _current_weu_id) {
-        if (chunk._evicted_weu_id != ~0) {
-          evicted_ssd_location = _weu_to_ssd_location[chunk._evicted_weu_id];
-          _weu_to_ssd_location.erase(chunk._evicted_weu_id);
+    uint64_t evictedCachedataLocation = -1;
+    if (currentWEUId_ != chunk.weuId_) {
+      if (chunk.evictedWEUId_ != currentWEUId_) {
+        if (chunk.evictedWEUId_ != ~0u) {
+          evictedCachedataLocation = weuToCachedataLocation_[chunk.evictedWEUId_];
+          weuToCachedataLocation_.erase(chunk.evictedWEUId_);
 
-          ioModule_->flush(evicted_ssd_location);
-          _weu_to_ssd_location[_current_weu_id] = evicted_ssd_location;
+          ioModule_->flush(evictedCachedataLocation, 0, weuSize_);
+          weuToCachedataLocation_[currentWEUId_] = evictedCachedataLocation;
         } else {
-          ioModule_->flush(_current_ssd_location);
-          _weu_to_ssd_location[_current_weu_id] = _current_ssd_location;
-          _current_ssd_location += weuSize_;
+          ioModule_->flush(currentCachedataLocation_, 0, weuSize_);
+          weuToCachedataLocation_[currentWEUId_] = currentCachedataLocation_;
+          currentCachedataLocation_ += weuSize_;
         }
       }
 
-      _current_weu_id = chunk.weuId_;
+      currentWEUId_ = chunk.weuId_;
     }
-    deviceType = WRITE_BUFFER;
-    addr = chunk._weu_offset;
+    deviceType = IN_MEM_BUFFER;
+    addr = chunk.weuOffset_;
     buf = chunk.compressedBuf_;
     len = chunk.compressedLen_;
 #endif
-
-#else  // ACDC
-    addr = chunk.cachedataLocation_;
-    buf = chunk.compressedBuf_;
-    len = (chunk.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
 #endif
     return true;
   }
@@ -151,13 +165,34 @@ int ManageModule::write(Chunk &chunk)
   uint64_t addr;
   uint8_t *buf;
   uint32_t len;
-#if !defined(WRITE_BACK_CACHE)
+#if defined(WRITE_BACK_CACHE) == 0 // If enable write back cache
   if (generatePrimaryWriteRequest(chunk, deviceType, addr, buf, len)) {
     ioModule_->write(deviceType, addr, buf, len);
   }
 #endif
   if (generateCacheWriteRequest(chunk, deviceType, addr, buf, len)) {
-    ioModule_->write(deviceType, addr, buf, len);
+    if (writeBuffer_ != nullptr) {
+      std::pair<uint32_t, uint32_t> indexAndOffset;
+      uint32_t index, offset;
+      do {
+        indexAndOffset = writeBuffer_->prepareWrite(addr, buf, len);
+        index = indexAndOffset.first;
+        offset = indexAndOffset.second;
+
+        if (index == ~0u) {
+          auto toFlush = writeBuffer_->flush();
+          for (WriteBuffer::Entry entry : toFlush) {
+            ioModule_->flush(entry.addr_, entry.off_, entry.len_);
+          }
+        } else {
+          ioModule_->write(IN_MEM_BUFFER, offset, buf, len);
+          break;
+        }
+      } while (true);
+      writeBuffer_->commitWrite(addr, offset, len, index);
+    } else {
+      ioModule_->write(deviceType, addr, buf, len);
+    }
   }
   return 0;
 }

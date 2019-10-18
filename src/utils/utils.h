@@ -8,9 +8,7 @@
 
 #define BEGIN_TIMER() \
   { \
-    struct timeval ts_begin_, ts_end_;\
-    memset(&ts_begin_, 0, sizeof(struct timeval)); \
-    memset(&ts_end_, 0, sizeof(struct timeval)); \
+    struct timeval ts_begin_{0}, ts_end_{0};\
     gettimeofday(&ts_begin_, NULL);
 
 #define END_TIMER(phase_name) \
