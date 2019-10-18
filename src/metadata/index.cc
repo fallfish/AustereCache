@@ -69,14 +69,14 @@ namespace cache {
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucketId * nSlotsPerBucket_ + slotId) * 1ull *
-             Config::getInstance()->getSectorSize() + (uint64_t)nBuckets_ *
-      nSlotsPerBucket_ * Config::getInstance()->getMetadataSize();
+    return (bucketId * Config::getInstance()->getnFPSlotsPerBucket() + slotId) * 1ull *
+             Config::getInstance()->getSectorSize() + (uint64_t)(1ull << Config::getInstance()->getnBitsPerFPBucketId()) *
+      Config::getInstance()->getnFPSlotsPerBucket() * Config::getInstance()->getMetadataSize();
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)
   {
-    return (bucketId * nSlotsPerBucket_ + slotId) * 1ull * Config::getInstance()->getMetadataSize();
+    return (bucketId * Config::getInstance()->getnFPSlotsPerBucket() + slotId) * 1ull * Config::getInstance()->getMetadataSize();
   }
 
   bool FPIndex::lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)

@@ -9,6 +9,7 @@
 #include <vector>
 #include <list>
 #include <mutex>
+#include <algorithm>
 #include "common/stats.h"
 
 namespace cache {

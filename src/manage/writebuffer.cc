@@ -1,7 +1,3 @@
-//
-// Created by 王秋平 on 10/18/19.
-//
-
 #include "writebuffer.h"
 
 namespace cache {
@@ -68,10 +64,10 @@ namespace cache {
       {
         std::lock_guard<std::mutex> l(readMutex_);
         std::vector<uint32_t> overwritten_entries;
-        for (uint32_t i = index_.size() - 1; i >= 0; --i) {
+        for (int i = index_.size() - 1; i >= 0; --i) {
           uint64_t addr_ = index_[i].addr_, len_ = index_[i].len_;
           if (addr_ == ~0ull) continue;
-          for (uint32_t j = i - 1; j >= 0; --j) {
+          for (int j = i - 1; j >= 0; --j) {
             if (index_[j].addr_ != ~0ull
                 && ((index_[j].addr_ <= addr_ && index_[j].addr_ + index_[j].len_ > addr_)
                     || (index_[j].addr_ < addr_ + len_ && index_[j].addr_ + index_[j].len_ >= addr_ + len_)
@@ -121,9 +117,6 @@ namespace cache {
     uint32_t WriteBuffer::commitWrite(uint64_t addr, uint32_t offset, uint32_t len, uint32_t currentIndex) {
       index_[currentIndex] = Entry(addr, offset, len);
       nWriters_.fetch_sub(1);
-      // add stats
-      Stats::getInstance()->add_bytes_written_to_write_buffer(len);
-
     }
 
     std::pair<uint32_t, uint32_t> WriteBuffer::prepareRead(uint64_t addr, uint32_t len) {
@@ -131,7 +124,7 @@ namespace cache {
       uint32_t res;
       {
         std::lock_guard<std::mutex> l(readMutex_);
-        for (uint32_t i = index_.size() - 1; i >= 0; --i) {
+        for (int i = index_.size() - 1; i >= 0; --i) {
           if (index_[i].addr_ == addr && index_[i].len_ == len) {
             index = i;
             offset = index_[i].off_;

@@ -175,7 +175,7 @@ int ManageModule::write(Chunk &chunk)
       std::pair<uint32_t, uint32_t> indexAndOffset;
       uint32_t index, offset;
       do {
-        indexAndOffset = writeBuffer_->prepareWrite(addr, buf, len);
+        indexAndOffset = writeBuffer_->prepareWrite(addr, len);
         index = indexAndOffset.first;
         offset = indexAndOffset.second;
 

@@ -1,4 +1,4 @@
-build
+build*
 third_party
 tags
 .idea
