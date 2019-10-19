@@ -185,7 +185,7 @@ namespace cache {
               /* Compute ssd location of the evicted data */
               /* Actually, full FP and address is sufficient. */
                 FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
-                (slotId - slot_id_begin + 1) * Config::getInstance()->getSectorSize()
+                (slotId - slot_id_begin) * Config::getInstance()->getSectorSize()
               );
 #endif
           Stats::getInstance()->add_fp_index_eviction_caused_by_capacity();

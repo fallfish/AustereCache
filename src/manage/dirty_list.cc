@@ -119,8 +119,8 @@ namespace cache {
       uint64_t metadataLocation =
         (cachedataLocation - 32LL *
                              Config::getInstance()->getMetadataSize() *
-                             Config::getInstance()->getnBitsPerFPBucketId()
-        ) / Config::getInstance()->getSectorSize() * Config::getInstance()->getnBitsPerFPBucketId();
+                             (1u << Config::getInstance()->getnBitsPerFPBucketId())
+        ) / Config::getInstance()->getSectorSize() * (1u << Config::getInstance()->getnBitsPerFPBucketId());
       uint32_t len = evictedBlocks_.front().len_;
       evictedBlocks_.pop_front();
 
@@ -157,8 +157,8 @@ namespace cache {
         uint64_t cachedataLocation = pr.second.first;
         uint64_t metadataLocation = (cachedataLocation - 32LL *
                                                          Config::getInstance()->getMetadataSize() *
-                                                         Config::getInstance()->getnBitsPerFPBucketId()
-            ) / Config::getInstance()->getSectorSize() * Config::getInstance()->getnBitsPerFPBucketId();
+                                                         (1u << Config::getInstance()->getnBitsPerFPBucketId())
+            ) / Config::getInstance()->getSectorSize() * (1u << Config::getInstance()->getnBitsPerFPBucketId());
         uint32_t len = pr.second.second;
 
         // Read chunk metadata (compressed length)

@@ -46,9 +46,9 @@ namespace cache {
         std::vector<WriteBuffer::Entry> flush();
         bool allocate(uint32_t &off, uint32_t len);
         std::pair<uint32_t, uint32_t> prepareWrite(uint64_t addr, uint32_t len);
-        uint32_t commitWrite(uint64_t addr, uint32_t offset, uint32_t len, uint32_t currentIndex);
+        void commitWrite(uint64_t addr, uint32_t offset, uint32_t len, uint32_t currentIndex);
         std::pair<uint32_t, uint32_t> prepareRead(uint64_t addr, uint32_t len);
-        uint32_t commitRead();
+        void commitRead();
     };
 }
 #endif //SSDDUP_WRITEBUFFER_H
