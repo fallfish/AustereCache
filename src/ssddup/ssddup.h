@@ -27,7 +27,6 @@ class SSDDup {
   void readSingleThread(uint64_t addr, void *buf, uint32_t len);
   inline void resetStatistics() { stats_->reset(); }
   inline void dumpStatistics() { stats_->dump(); }
-  inline void sync() { manageModule_->sync(); }
   void dumpMemoryUsage(double& vm_usage, double& resident_set)
   {
     using std::ios_base;
@@ -68,10 +67,6 @@ class SSDDup {
  private:
   void internalRead(Chunk &chunk);
   void internalWrite(Chunk &chunk);
-  std::unique_ptr<ChunkModule> chunkModule_;
-  std::unique_ptr<DeduplicationModule> deduplicationModule_;
-  std::shared_ptr<CompressionModule> compressionModule_;
-  std::unique_ptr<ManageModule> manageModule_;
 
   // Statistics
   Stats* stats_;

@@ -13,14 +13,12 @@ namespace cache {
 
 class ManageModule {
  public:
-  ManageModule(std::shared_ptr<IOModule> ioModule, std::shared_ptr<MetadataModule> metadataModule);
+  static ManageModule& getInstance();
   int read(Chunk &chunk);
   int write(Chunk &chunk);
   void updateMetadata(Chunk &chunk);
-  inline void sync() { ioModule_->sync(); }
  private:
-  std::shared_ptr<IOModule> ioModule_;
-  std::shared_ptr<MetadataModule> metadataModule_;
+  ManageModule();
   bool generateCacheWriteRequest(
     Chunk &chunk, DeviceType &deviceType,
     uint64_t &addr, uint8_t *&buf, uint32_t &len);
@@ -37,7 +35,6 @@ class ManageModule {
   uint32_t currentWEUId_;
   uint64_t currentCachedataLocation_;
 #endif
-  std::unique_ptr<WriteBuffer> writeBuffer_;
 };
 
 }

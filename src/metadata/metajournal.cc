@@ -1,9 +1,7 @@
 #include "metajournal.h"
 namespace cache {
 
-MetaJournal::MetaJournal(std::shared_ptr<cache::IOModule> ioModule) :
-  ioModule_(ioModule)
-{}
+MetaJournal::MetaJournal() = default;
 
 void MetaJournal::addUpdate(const cache::Chunk &c)
 {

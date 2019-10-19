@@ -75,21 +75,21 @@ class RunSystem {
       } else if (strcmp(param, "--wr-ratio") == 0) {
         _wr_ratio = atof(value);
       } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::getInstance()->setnBitsPerFPBucketId(atoi(value));
+        Config::getInstance().setnBitsPerFPBucketId(atoi(value));
       } else if (strcmp(param, "--lba-bits") == 0) {
-        Config::getInstance()->setnBitsPerLBABucketId(atoi(value));
+        Config::getInstance().setnBitsPerLBABucketId(atoi(value));
       } else if (strcmp(param, "--multi-thread") == 0) {
         _multi_thread = atoi(value);
       } else if (strcmp(param, "--num-workers") == 0) {
         _num_workers = atoi(value);
       } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
-        Config::getInstance()->setFingerprintAlgorithm(atoi(value));
+        Config::getInstance().setFingerprintAlgorithm(atoi(value));
       } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
-        Config::getInstance()->setFingerprintMode(atoi(value));
+        Config::getInstance().setFingerprintMode(atoi(value));
       } else if (strcmp(param, "--write-buffer-size") == 0) {
-        Config::getInstance()->setWriteBufferSize(atoi(value));
+        Config::getInstance().setWriteBufferSize(atoi(value));
       } else if (strcmp(param, "--direct-io") == 0) {
-        Config::getInstance()->enableDirectIO(atoi(value));
+        Config::getInstance().enableDirectIO(atoi(value));
       } else if (strcmp(param, "--access-pattern") == 0) {
         FILE *f = fopen(value, "r");
         int chunk_id, length;
@@ -115,14 +115,14 @@ class RunSystem {
       }
     }
     _workload_conf.print_current_parameters();
-    Config::getInstance()->setCacheDeviceName("./cache_device");
-    Config::getInstance()->setPrimaryDeviceName("./primary_device");
-    //Config::getInstance()->setCacheDeviceName("./ramdisk/cache_device");
-    //Config::getInstance()->setPrimaryDeviceName("./primary_device");
-    //Config::getInstance()->setPrimaryDeviceName("./ramdisk/primary_device");
-    //Config::getInstance()->setCacheDeviceName("./ramdisk/cache_device");
-    //Config::getInstance()->setPrimaryDeviceName("/dev/sdb");
-    //Config::getInstance()->setCacheDeviceName("/dev/sda");
+    Config::getInstance().setCacheDeviceName("./cache_device");
+    Config::getInstance().setPrimaryDeviceName("./primary_device");
+    //Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
+    //Config::getInstance().setPrimaryDeviceName("./primary_device");
+    //Config::getInstance().setPrimaryDeviceName("./ramdisk/primary_device");
+    //Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
+    //Config::getInstance().setPrimaryDeviceName("/dev/sdb");
+    //Config::getInstance().setCacheDeviceName("/dev/sda");
     _ssddup = std::make_unique<SSDDup>();
   }
 
@@ -138,7 +138,7 @@ class RunSystem {
 
   void work(int n_requests, std::atomic<uint64_t> &total_bytes)
   {
-    //for (uint64_t addr = 0; addr < Config::getInstance()->getPrimaryDeviceSize(); addr += chunkSize_) {
+    //for (uint64_t addr = 0; addr < Config::getInstance().getPrimaryDeviceSize(); addr += chunkSize_) {
       //std::cout << addr << std::endl;
       //_ssddup->read(addr, _read_data[0], chunkSize_);
     //}

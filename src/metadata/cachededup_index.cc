@@ -8,21 +8,16 @@
 #include <csignal>
 
 namespace cache {
-  DLRU_SourceIndex DLRU_SourceIndex::instance;
-  DLRU_FingerprintIndex DLRU_FingerprintIndex::instance;
-  DARC_SourceIndex DARC_SourceIndex::instance;
-  DARC_FingerprintIndex DARC_FingerprintIndex::instance;
-  CDARC_FingerprintIndex CDARC_FingerprintIndex::instance;
-
   DLRU_SourceIndex::DLRU_SourceIndex() {}
   DLRU_SourceIndex& DLRU_SourceIndex::getInstance()
   {
+    static DLRU_SourceIndex instance;
     return instance;
   }
 
-  void DLRU_SourceIndex::init(uint32_t capacity)
+  void DLRU_SourceIndex::init()
   {
-    capacity_ = capacity;
+    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize() * Config::getInstance().getLBAAmplifier();
   }
 
   /**
@@ -32,7 +27,7 @@ namespace cache {
     auto it = mp_.find(lba);
     if (it == mp_.end()) return false;
     else {
-      memcpy(fp, it->second.v_, Config::getInstance()->getFingerprintLength());
+      memcpy(fp, it->second.v_, Config::getInstance().getFingerprintLength());
       return true;
     }
   }
@@ -55,7 +50,7 @@ namespace cache {
     FP _fp;
     if (lookup(lba, _fp.v_)) {
       auto it = mp_.find(lba)->second.it_;
-      memcpy(mp_[lba].v_, fp, Config::getInstance()->getFingerprintLength());
+      memcpy(mp_[lba].v_, fp, Config::getInstance().getFingerprintLength());
       list_.erase(it);
       list_.push_front(lba);
       // renew the iterator stored in the mapping
@@ -63,12 +58,12 @@ namespace cache {
       return ;
     }
 
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     if (list_.size() == capacity_) {
       uint64_t lba_ = list_.back();
       list_.pop_back();
       mp_.erase(lba_);
-      Stats::getInstance()->add_lba_index_eviction_caused_by_capacity();
+      Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
     }
     list_.push_front(lba);
     _fp.it_ = list_.begin();
@@ -78,21 +73,22 @@ namespace cache {
   DLRU_FingerprintIndex::DLRU_FingerprintIndex() {}
   DLRU_FingerprintIndex& DLRU_FingerprintIndex::getInstance()
   {
+    static DLRU_FingerprintIndex instance;
     return instance;
   }
 
-  void DLRU_FingerprintIndex::init(uint32_t cap)
+  void DLRU_FingerprintIndex::init()
   {
-    capacity_ = cap;
-    spaceAllocator_.capacity_ = cap * Config::getInstance()->getChunkSize();
+    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize();
+    spaceAllocator_.capacity_ = capacity_ * Config::getInstance().getChunkSize();
     spaceAllocator_.nextLocation_ = 0;
-    spaceAllocator_.chunkSize_ = Config::getInstance()->getChunkSize();
+    spaceAllocator_.chunkSize_ = Config::getInstance().getChunkSize();
   }
 
   bool DLRU_FingerprintIndex::lookup(uint8_t *fp, uint64_t &cachedataLocation)
   {
     FP _fp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     auto it = mp_.find(_fp);
 
     if (it == mp_.end()) {
@@ -106,7 +102,7 @@ namespace cache {
   void DLRU_FingerprintIndex::promote(uint8_t *fp)
   {
     FP _fp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     auto it = mp_.find(_fp);
     assert(it != mp_.end());
     list_.erase(it->second.it_);
@@ -133,15 +129,15 @@ namespace cache {
       // assign the evicted free ssd location to the newly inserted data
       spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
-      DirtyList::getInstance()->addEvictedChunk(mp_[_fp].cachedataLocation_,
-          Config::getInstance()->getChunkSize());
+      DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
+          Config::getInstance().getChunkSize());
 #endif
       mp_.erase(_fp);
-      Stats::getInstance()->add_fp_index_eviction_caused_by_capacity();
+      Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
     }
     _dp.cachedataLocation_ = spaceAllocator_.allocate();
 
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     list_.push_front(_fp);
     _dp.it_ = list_.begin();
 
@@ -153,12 +149,13 @@ namespace cache {
 
   DARC_SourceIndex& DARC_SourceIndex::getInstance()
   {
+    static DARC_SourceIndex instance;
     return instance;
   }
 
-  void DARC_SourceIndex::init(uint32_t cap, uint32_t p, uint32_t x)
+  void DARC_SourceIndex::init(uint32_t p, uint32_t x)
   {
-    capacity_ = cap;
+    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize() * Config::getInstance().getLBAAmplifier();
     p_ = p;
     x_ = x;
   }
@@ -169,7 +166,7 @@ namespace cache {
     if (it == mp_.end()) {
       return false;
     } else {
-      memcpy(ca, it->second.v_, Config::getInstance()->getFingerprintLength());
+      memcpy(ca, it->second.v_, Config::getInstance().getFingerprintLength());
       return true;
     }
   }
@@ -199,7 +196,7 @@ namespace cache {
       check_metadata_cache(lba);
 
       t1_.push_front(lba);
-      memcpy(_fp.v_, ca, Config::getInstance()->getFingerprintLength());
+      memcpy(_fp.v_, ca, Config::getInstance().getFingerprintLength());
       _fp.it_ = t1_.begin();
       _fp.listId_ = 0;
 
@@ -227,7 +224,7 @@ namespace cache {
         if (it == mp_.end()) {
           // if check metadata cache remove current lba from the mp
           t1_.push_front(lba);
-          memcpy(_fp.v_, ca, Config::getInstance()->getFingerprintLength());
+          memcpy(_fp.v_, ca, Config::getInstance().getFingerprintLength());
           _fp.it_ = t1_.begin();
           _fp.listId_ = 0;
 
@@ -250,7 +247,7 @@ namespace cache {
 
       // If the request is a write, and the content has been changed,
       // we must deference the old fingerprint
-      //if (Stats::getInstance()->get_current_request_type() == 1
+      //if (Stats::getInstance().get_current_request_type() == 1
       if ((it->second.listId_ == 0 || it->second.listId_ == 1)) {
 #ifdef CDARC
         CDARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
@@ -277,7 +274,7 @@ namespace cache {
 #else
     DARC_FingerprintIndex::getInstance().reference(lba, ca);
 #endif
-    memcpy(mp_[lba].v_, ca, Config::getInstance()->getFingerprintLength());
+    memcpy(mp_[lba].v_, ca, Config::getInstance().getFingerprintLength());
   }
 
   void DARC_SourceIndex::check_metadata_cache(uint64_t lba)
@@ -410,19 +407,20 @@ namespace cache {
   DARC_FingerprintIndex::DARC_FingerprintIndex() {}
   DARC_FingerprintIndex &DARC_FingerprintIndex::getInstance()
   {
+    static DARC_FingerprintIndex instance;
     return instance;
   }
-  void DARC_FingerprintIndex::init(uint32_t cap)
+  void DARC_FingerprintIndex::init()
   {
-    capacity_ = cap;
-    spaceAllocator_.capacity_ = cap * Config::getInstance()->getChunkSize();
+    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize();
+    spaceAllocator_.capacity_ = capacity_ * Config::getInstance().getChunkSize();
     spaceAllocator_.nextLocation_ = 0;
-    spaceAllocator_.chunkSize_ = Config::getInstance()->getChunkSize();
+    spaceAllocator_.chunkSize_ = Config::getInstance().getChunkSize();
   }
 
   bool DARC_FingerprintIndex::lookup(uint8_t *fp, uint64_t &cachedataLocation) {
     FP _fp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
 
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
@@ -436,7 +434,7 @@ namespace cache {
   void DARC_FingerprintIndex::reference(uint64_t lba, uint8_t *fp)
   {
     FP _fp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
 
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
@@ -454,7 +452,7 @@ namespace cache {
   void DARC_FingerprintIndex::deference(uint64_t lba, uint8_t *ca)
   {
     FP _fp;
-    memcpy(_fp.v_, ca, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, ca, Config::getInstance().getFingerprintLength());
 
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
@@ -468,7 +466,7 @@ namespace cache {
       //DARC_SourceIndex::getInstance().check_zero_reference(_fp.v_);
     }
     // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
-    Stats::getInstance()->add_lba_index_eviction_caused_by_capacity();
+    Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
   }
 
   void DARC_FingerprintIndex::update(uint64_t lba, uint8_t *fp, uint64_t &cachedataLocation)
@@ -476,7 +474,7 @@ namespace cache {
     int _ = capacity_;
     FP _fp;
     DP _dp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     if (mp_.find(_fp) != mp_.end()) {
       return ;
     }
@@ -492,13 +490,13 @@ namespace cache {
 
       spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
-      DirtyList::getInstance()->addEvictedChunk(mp_[_fp].cachedataLocation_,
-          Config::getInstance()->getChunkSize());
+      DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
+          Config::getInstance().getChunkSize());
 #endif
       mp_.erase(_fp);
 
-      memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
-      Stats::getInstance()->add_fp_index_eviction_caused_by_capacity();
+      memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
+      Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
     }
 
     _dp.cachedataLocation_ = spaceAllocator_.allocate();
@@ -512,11 +510,12 @@ namespace cache {
   CDARC_FingerprintIndex::CDARC_FingerprintIndex() {}
   CDARC_FingerprintIndex &CDARC_FingerprintIndex::getInstance()
   {
+    static CDARC_FingerprintIndex instance;
     return instance;
   }
-  void CDARC_FingerprintIndex::init(uint32_t cap)
+  void CDARC_FingerprintIndex::init()
   {
-    capacity_ = cap;
+    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize();
     weuAllocator_.init();
   }
 
@@ -526,7 +525,7 @@ namespace cache {
   // or a sweep and clean procedure.
   bool CDARC_FingerprintIndex::lookup(uint8_t *fp, uint32_t &weuId, uint32_t &offset, uint32_t &len) {
     FP _fp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
 
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
@@ -546,7 +545,7 @@ namespace cache {
   void CDARC_FingerprintIndex::reference(uint64_t lba, uint8_t *fp)
   {
     FP _fp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
 
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
@@ -571,7 +570,7 @@ namespace cache {
   void CDARC_FingerprintIndex::deference(uint64_t lba, uint8_t *fp)
   {
     FP _fp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
 
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
@@ -584,7 +583,7 @@ namespace cache {
       zeroReferenceList_.push_front(weuId);
     }
     // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
-    Stats::getInstance()->add_lba_index_eviction_caused_by_capacity();
+    Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
   }
 
   uint32_t CDARC_FingerprintIndex::update(
@@ -594,7 +593,7 @@ namespace cache {
     uint32_t evicted_weu_id = ~0;
     FP _fp;
     DP _dp;
-    memcpy(_fp.v_, fp, Config::getInstance()->getFingerprintLength());
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     if (mp_.find(_fp) != mp_.end()) {
       return evicted_weu_id;
     }
@@ -611,7 +610,7 @@ namespace cache {
 
       weuAllocator_.recycle(weu_id);
       evicted_weu_id = weu_id;
-      Stats::getInstance()->add_fp_index_eviction_caused_by_capacity();
+      Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
     }
     _dp.len_ = len;
     weuAllocator_.allocate(_dp.weuId_, _dp.offset_, _dp.len_);
@@ -622,4 +621,5 @@ namespace cache {
     
     return evicted_weu_id;
   }
+
 }

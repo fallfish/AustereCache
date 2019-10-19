@@ -19,9 +19,11 @@
 namespace cache {
 
 class IOModule {
+private:
+    IOModule();
+    ~IOModule();
  public:
-  IOModule();
-  ~IOModule();
+    static IOModule& getInstance();
   uint32_t addCacheDevice(char *filename);
   uint32_t addPrimaryDevice(char *filename);
   uint32_t read(DeviceType deviceType, uint64_t addr, void *buf, uint32_t len);
@@ -32,7 +34,7 @@ class IOModule {
   // Currently, we assume that only one cache and one primary
   std::unique_ptr< BlockDevice > primaryDevice_;
   std::unique_ptr< BlockDevice > cacheDevice_;
-  Stats *stats_;
+  Stats *stats_{};
 
   struct {
     uint8_t *buf_;
@@ -45,7 +47,7 @@ class IOModule {
     {
       memcpy(buf_ + addr, buf, len);
     }
-  } inMemBuffer_;
+  } inMemBuffer_{};
 
   std::unique_ptr<WriteBuffer> writeBuffer_;
 };

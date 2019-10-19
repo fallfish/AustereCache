@@ -25,8 +25,8 @@
 namespace cache {
   class Index {
     public:
-      Index(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-          uint32_t nSlotsPerBucket, uint32_t nBuckets);
+      Index();
+      void init(uint32_t nBitsPerKey, uint32_t nBitsPerValue, uint32_t nSlotsPerBucket, uint32_t nBuckets);
       ~Index() = default;
 
       //virtual bool lookup(uint8_t *key, uint8_t *value) = 0;
@@ -34,10 +34,10 @@ namespace cache {
 
       void setCachePolicy(std::unique_ptr<CachePolicy> cachePolicy);
     protected:
-      uint32_t nBitsPerSlot_, nSlotsPerBucket_,
-               nBitsPerKey_, nBitsPerValue_,
-               nBytesPerBucket_, nBuckets_,
-               nBytesPerBucketForValid_;
+      uint32_t nBitsPerSlot_{}, nSlotsPerBucket_{},
+               nBitsPerKey_{}, nBitsPerValue_{},
+               nBytesPerBucket_{}, nBuckets_{},
+               nBytesPerBucketForValid_{};
       std::unique_ptr< uint8_t[] > data_;
       std::unique_ptr< uint8_t[] > valid_;
       std::unique_ptr< CachePolicy > cachePolicy_;
@@ -47,8 +47,7 @@ namespace cache {
   class FPIndex;
   class LBAIndex : Index {
     public:
-      LBAIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-          uint32_t nSlotsPerBucket, uint32_t nBuckets, std::shared_ptr<FPIndex> fpIndex);
+      LBAIndex(std::shared_ptr<FPIndex> fpIndex);
       ~LBAIndex();
       bool lookup(uint64_t lbaHash, uint64_t &fpHash);
       void promote(uint64_t lbaHash);
@@ -70,8 +69,7 @@ namespace cache {
   class FPIndex : Index {
     public:
       // n_bits_per_key = 12, n_bits_per_value = 4
-      FPIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-          uint32_t nSlotsPerBucket, uint32_t nBuckets);
+      FPIndex();
       ~FPIndex();
       bool lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation);
       void promote(uint64_t fpHash);

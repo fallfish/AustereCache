@@ -9,42 +9,36 @@
 #include <cassert>
 
 namespace cache {
-  MetadataModule::MetadataModule(std::shared_ptr<IOModule> ioModule,
-      std::shared_ptr<CompressionModule> compressionModule) {
-    Config *config = Config::getInstance();
-    uint32_t nBitsPerFPSignature = config->getnBitsPerFPSignature(),
-             nBitsPerFPBucketId = config->getnBitsPerFPBucketId(),
-             nBitsPerLBASignature = config->getnBitsPerLBASignature(),
-             nBitsPerBucketId = config->getnBitsPerLBABucketId();
-    uint32_t nFPSlotsPerBucket = config->getnFPSlotsPerBucket(),
-             nLBASlotsPerBucket = config->getnLBASlotsPerBucket();
-    fpIndex_ = std::make_shared<FPIndex>(
-      nBitsPerFPSignature, 4, nFPSlotsPerBucket, (1 << nBitsPerFPBucketId));
-    lbaIndex_ = std::make_unique<LBAIndex>(
-      nBitsPerLBASignature, (nBitsPerFPSignature + nBitsPerFPBucketId),
-      nLBASlotsPerBucket, (1 << nBitsPerBucketId), fpIndex_);
+  MetadataModule& MetadataModule::getInstance() {
+    static MetadataModule instance;
+    return instance;
+  }
+
+  MetadataModule::MetadataModule() {
+    fpIndex_ = std::make_shared<FPIndex>();
+    lbaIndex_ = std::make_unique<LBAIndex>(fpIndex_);
     // metaVerification_ and metaJournal_ should
     // hold a shared_ptr to ioModule_
-    metaVerification_ = std::make_unique<MetaVerification>(ioModule, compressionModule);
-    metaJournal_ = std::make_unique<MetaJournal>(ioModule);
-    std::cout << "Number of LBA buckets: " << (1 << nBitsPerBucketId) << std::endl;
-    std::cout << "Number of FP buckets: " << (1 << nBitsPerFPBucketId) << std::endl;
+    metaVerification_ = std::make_unique<MetaVerification>();
+    metaJournal_ = std::make_unique<MetaJournal>();
+    std::cout << "Number of LBA buckets: " << Config::getInstance().getnLBABucket() << std::endl;
+    std::cout << "Number of FP buckets: " << Config::getInstance().getnFPBuckets() << std::endl;
 #ifdef CACHE_DEDUP
 #if defined(DLRU)
-    DLRU_SourceIndex::getInstance().init(nLBASlotsPerBucket * (1 << nBitsPerBucketId));
-    DLRU_FingerprintIndex::getInstance().init(nFPSlotsPerBucket * (1 << nBitsPerFPBucketId));
-    std::cout << "SourceIndex capacity: " << (nLBASlotsPerBucket * (1 << nBitsPerBucketId)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (nFPSlotsPerBucket * (1 << nBitsPerFPBucketId)) << std::endl;
+    DLRU_SourceIndex::getInstance().init();
+    DLRU_FingerprintIndex::getInstance().init();
+    std::cout << "SourceIndex capacity: " <<  DLRU_SourceIndex::getInstance().capacity_ << std::endl;
+    std::cout << "FingerprintIndex capacity: " << DLRU_FingerprintIndex::getInstance().capacity_ << std::endl;
 #elif defined(DARC)
-    DARC_SourceIndex::getInstance().init(nLBASlotsPerBucket * (1 << nBitsPerBucketId), 0, 0);
-    DARC_FingerprintIndex::getInstance().init(nFPSlotsPerBucket * (1 << nBitsPerFPBucketId));
-    std::cout << "SourceIndex capacity: " << (nLBASlotsPerBucket * (1 << nBitsPerBucketId)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (nFPSlotsPerBucket * (1 << nBitsPerFPBucketId)) << std::endl;
+    DARC_SourceIndex::getInstance().init(0, 0);
+    DARC_FingerprintIndex::getInstance().init();
+    std::cout << "SourceIndex capacity: " << DARC_SourceIndex::getInstance().capacity_ << std::endl;
+    std::cout << "FingerprintIndex capacity: " <<  DARC_FingerprintIndex::getInstance().capacity_ << std::endl;
 #elif defined(CDARC)
-    DARC_SourceIndex::getInstance().init(nLBASlotsPerBucket * (1 << nBitsPerBucketId), 0, 0);
-    CDARC_FingerprintIndex::getInstance().init((1 << nBitsPerFPBucketId));
-    std::cout << "SourceIndex capacity: " << (nLBASlotsPerBucket * (1 << nBitsPerBucketId)) << std::endl;
-    std::cout << "FingerprintIndex capacity: " << (1 << nBitsPerFPBucketId) << std::endl;
+    DARC_SourceIndex::getInstance().init(0, 0);
+    CDARC_FingerprintIndex::getInstance().init();
+    std::cout << "SourceIndex capacity: " <<  DARC_SourceIndex::getInstance().capacity_ << std::endl;
+    std::cout << "FingerprintIndex capacity: " << CDARC_FingerprintIndex::getInstance().capacity_ << std::endl;
 #endif
 #endif
   }
@@ -172,8 +166,6 @@ namespace cache {
 
   void MetadataModule::lookup(Chunk &chunk)
   {
-    bool hitLBAIndex = false, hitFPIndex = false;
-
     // Obtain LBA bucket lock
     chunk.lbaBucketLock_ = std::move(lbaIndex_->lock(chunk.lbaHash_));
     chunk.hitLBAIndex_ = lbaIndex_->lookup(chunk.lbaHash_, chunk.fingerprintHash_);
@@ -228,5 +220,6 @@ namespace cache {
       metaVerification_->update(chunk);
     }
   }
+
 #endif
 }

@@ -17,27 +17,27 @@ namespace cache {
   void Chunk::computeFingerprint() {
     BEGIN_TIMER();
     Config *conf = Config::getInstance();
-    assert(len_ == conf->getChunkSize());
-    assert(addr_ % conf->getChunkSize() == 0);
+    assert(len_ == Config::getInstance().getChunkSize());
+    assert(addr_ % Config::getInstance().getChunkSize() == 0);
 
 #if defined(REPLAY_FIU) && defined(FAKE_IO)
-    memcpy(fingerprint_, conf->getCurrentFingerprint(), conf->getFingerprintLength());
+    memcpy(fingerprint_, Config::getInstance().getCurrentFingerprint(), Config::getInstance().getFingerprintLength());
 #elif defined(REPLAY_FIU) && !defined(FAKE_IO)
-    memset(buf_, 0, conf->getChunkSize());
+    memset(buf_, 0, Config::getInstance().getChunkSize());
     for (uint32_t offset = 0;
-         offset + conf->getFingerprintLength() < conf->getChunkSize();
-         offset += conf->getFingerprintLength()) {
-      memcpy(buf_, conf->getCurrentFingerprint(), conf->getFingerprintLength());
+         offset + Config::getInstance().getFingerprintLength() < Config::getInstance().getChunkSize();
+         offset += Config::getInstance().getFingerprintLength()) {
+      memcpy(buf_, Config::getInstance().getCurrentFingerprint(), Config::getInstance().getFingerprintLength());
     }
-    if (conf->getFingerprintAlg() == 0) {
+    if (Config::getInstance().getFingerprintAlg() == 0) {
       SHA1(buf_, len_, fingerprint_);
-    } else if (conf->getFingerprintAlg() == 1) {
+    } else if (Config::getInstance().getFingerprintAlg() == 1) {
       MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
     }
 #elif !define(REPLAY_FIU) && !defined(FAKE_IO) // Normal workload
-    if (conf->getFingerprintAlg() == 0) {
+    if (Config::getInstance().getFingerprintAlg() == 0) {
       SHA1(buf_, len_, fingerprint_);
-    } else if (conf->getFingerprintAlg() == 1) {
+    } else if (Config::getInstance().getFingerprintAlg() == 1) {
       MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
     }
 #endif
@@ -45,9 +45,9 @@ namespace cache {
 
     // compute hash value of fingerprint
     uint64_t tmp[2];
-    MurmurHash3_x64_128(fingerprint_, conf->getFingerprintLength(), 2, tmp);
+    MurmurHash3_x64_128(fingerprint_, Config::getInstance().getFingerprintLength(), 2, tmp);
     fingerprintHash_ = tmp[0];
-    fingerprintHash_ >>= 64 - (conf->getnBitsPerFPSignature() + conf->getnBitsPerFPBucketId());
+    fingerprintHash_ >>= 64 - (Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId());
     END_TIMER(fingerprinting);
   }
 
@@ -61,7 +61,7 @@ namespace cache {
     uint64_t tmp[2];
     MurmurHash3_x64_128(&addr_, 8, 3, tmp);
     lbaHash_ = tmp[0];
-    lbaHash_ >>= 64 - (conf->getnBitsPerLBASignature() + conf->getnBitsPerLBABucketId());
+    lbaHash_ >>= 64 - (Config::getInstance().getnBitsPerLBASignature() + Config::getInstance().getnBitsPerLBABucketId());
   }
 
   void Chunk::preprocessUnalignedChunk(uint8_t *buf) {
@@ -70,11 +70,11 @@ namespace cache {
     originalLen_ = len_;
     originalBuf_ = buf_;
 
-    addr_ = addr_ - addr_ % conf->getChunkSize();
-    len_ = conf->getChunkSize();
+    addr_ = addr_ - addr_ % Config::getInstance().getChunkSize();
+    len_ = Config::getInstance().getChunkSize();
     buf_ = buf;
 
-    memset(buf, 0, conf->getChunkSize());
+    memset(buf, 0, Config::getInstance().getChunkSize());
     computeLBAHash();
   }
 
@@ -83,7 +83,7 @@ namespace cache {
   // the delta chunk is a read chunk
   void Chunk::handleReadModifyWrite() {
     Config *conf = Config::getInstance();
-    uint32_t chunk_size = conf->getChunkSize();
+    uint32_t chunk_size = Config::getInstance().getChunkSize();
     assert(addr_ - addr_ % chunk_size == originalAddr_ - originalAddr_ % chunk_size);
 
     memcpy(buf_ + originalAddr_ % chunk_size, originalBuf_, originalLen_);
@@ -98,11 +98,11 @@ namespace cache {
 
   void Chunk::handleReadPartialChunk() {
     Config *conf = Config::getInstance();
-    memcpy(originalBuf_, buf_ + originalAddr_ % conf->getChunkSize(), originalLen_);
+    memcpy(originalBuf_, buf_ + originalAddr_ % Config::getInstance().getChunkSize(), originalLen_);
   }
 
   Chunker::Chunker(uint64_t addr, void *buf, uint32_t len) :
-    chunkSize_(Config::getInstance()->getChunkSize()),
+    chunkSize_(Config::getInstance().getChunkSize()),
     addr_(addr), len_(len), buf_((uint8_t*)buf)
   {}
 
@@ -170,5 +170,10 @@ namespace cache {
   {
     Chunker chunker(addr, buf, len);
     return chunker;
+  }
+
+  ChunkModule& ChunkModule::getInstance() {
+    static ChunkModule instance;
+    return instance;
   }
 }

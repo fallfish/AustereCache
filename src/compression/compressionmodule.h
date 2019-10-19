@@ -7,11 +7,12 @@
 namespace cache {
 
 class CompressionModule {
+  CompressionModule() = default;
  public:
-  CompressionModule() {}
-  void compress(Chunk &chunk);
-  void decompress(Chunk &chunk);
-  void decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_t compressedLen, uint32_t originalLen);
+  static CompressionModule& getInstance();
+  static void compress(Chunk &chunk);
+  static void decompress(Chunk &chunk);
+  static void decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_t compressedLen, uint32_t originalLen);
 };
 }
 

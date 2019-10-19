@@ -57,11 +57,11 @@ namespace cache {
       {
         bool has_ini_stat = false, has_config = false, has_access_pattern = false;
         char *param, *value;
-        Config::getInstance()->setCacheDeviceSize(16LL * 1024 * 1024 * 1024);
-        printf("cache device size: %" PRId64 " MiB\n", Config::getInstance()->getCacheDeviceSize() / 1024 / 1024);
-        Config::getInstance()->setPrimaryDeviceSize(300LL * 1024 * 1024 * 1024);
+        Config::getInstance().setCacheDeviceSize(16LL * 1024 * 1024 * 1024);
+        printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
+        Config::getInstance().setPrimaryDeviceSize(300LL * 1024 * 1024 * 1024);
         printf("primary device size: %" PRId64 " GiB\n",
-               Config::getInstance()->getPrimaryDeviceSize() / 1024 / 1024 / 1024);
+               Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
 
         for (int i = 1; i < argc; i += 2) {
           param = argv[i];
@@ -70,32 +70,32 @@ namespace cache {
           if (strcmp(param, "--wr-ratio") == 0) {
             _wr_ratio = atof(value);
           } else if (strcmp(param, "--ca-bits") == 0) {
-            Config::getInstance()->setnBitsPerFPBucketId(atoi(value));
+            Config::getInstance().setnBitsPerFPBucketId(atoi(value));
           } else if (strcmp(param, "--lba-bits") == 0) {
-            Config::getInstance()->setnBitsPerLBABucketId(atoi(value));
+            Config::getInstance().setnBitsPerLBABucketId(atoi(value));
           } else if (strcmp(param, "--multi-thread") == 0) {
             _multi_thread = atoi(value);
           } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
-            Config::getInstance()->setFingerprintAlgorithm(atoi(value));
+            Config::getInstance().setFingerprintAlgorithm(atoi(value));
           } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
-            Config::getInstance()->setFingerprintMode(atoi(value));
+            Config::getInstance().setFingerprintMode(atoi(value));
           } else if (strcmp(param, "--write-buffer-size") == 0) {
-            Config::getInstance()->setWriteBufferSize(atoi(value));
+            Config::getInstance().setWriteBufferSize(atoi(value));
           } else if (strcmp(param, "--direct-io") == 0) {
-            Config::getInstance()->enableDirectIO(atoi(value));
+            Config::getInstance().enableDirectIO(atoi(value));
           } else if (strcmp(param, "--access-pattern") == 0) {
             has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
           }
         }
 
-        //Config::getInstance()->setCacheDeviceName("./cache_device");
-        Config::getInstance()->setPrimaryDeviceName("./primary_device");
-        //Config::getInstance()->setCacheDeviceName("./ramdisk/cache_device");
-        //Config::getInstance()->setPrimaryDeviceName("./primary_device");
-        //Config::getInstance()->setPrimaryDeviceName("./ramdisk/primary_device");
-        Config::getInstance()->setCacheDeviceName("./ramdisk/cache_device");
-        //Config::getInstance()->setPrimaryDeviceName("/dev/sdb");
-        //Config::getInstance()->setCacheDeviceName("/dev/sda");
+        //Config::getInstance().setCacheDeviceName("./cache_device");
+        Config::getInstance().setPrimaryDeviceName("./primary_device");
+        //Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
+        //Config::getInstance().setPrimaryDeviceName("./primary_device");
+        //Config::getInstance().setPrimaryDeviceName("./ramdisk/primary_device");
+        Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
+        //Config::getInstance().setPrimaryDeviceName("/dev/sdb");
+        //Config::getInstance().setCacheDeviceName("/dev/sda");
         assert(has_access_pattern);
 
         _ssddup = std::make_unique<SSDDup>();
@@ -211,7 +211,7 @@ namespace cache {
         char sha1[50];
         char op[2];
         Config *conf = Config::getInstance();
-        int chunk_size = conf->getChunkSize();
+        int chunk_size = Config::getInstance().getChunkSize();
 
         int chunk_id, length;
         assert(f != nullptr);
@@ -222,7 +222,7 @@ namespace cache {
 
         while (fscanf(f, "%lld %d %s %s %lf", &req.addr, &req.len, op, req.sha1, &compressibility) != -1) {
           cnt++;
-          if (req.addr >= Config::getInstance()->getPrimaryDeviceSize()) {
+          if (req.addr >= Config::getInstance().getPrimaryDeviceSize()) {
             continue;
           }
 
@@ -265,7 +265,7 @@ namespace cache {
         //rwdata = (char*)malloc(32768 + 10);
         std::string s;
         Config* conf = Config::getInstance();
-        int chunk_size = conf->getChunkSize();
+        int chunk_size = Config::getInstance().getChunkSize();
 
         std::cout << _reqs.size() << std::endl;
         char sha1[23];
@@ -286,15 +286,15 @@ namespace cache {
           convertStr2Sha1(_reqs[i].sha1, sha1);
 
 #if defined(REPLAY_FIU)
-          conf->setCurrentFingerprint(sha1);
+          Config::getInstance().setCurrentFingerprint(sha1);
 #endif
 
           total_bytes.fetch_add(len, std::memory_order_relaxed);
 #if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
           if (_reqs[i].r) {
             //printf("compressed len: %d\n", _reqs[i].compressed_len);
-            conf->set_current_data(comp_data[_reqs[i].compressed_len], _reqs[i].compressed_len);
-            conf->set_current_compressed_len(_reqs[i].compressed_len);
+            Config::getInstance().set_current_data(comp_data[_reqs[i].compressed_len], _reqs[i].compressed_len);
+            Config::getInstance().set_current_compressed_len(_reqs[i].compressed_len);
           }
           else 
             memcpy(rwdata, comp_data[_reqs[i].compressed_len], chunk_size); 
@@ -341,7 +341,7 @@ namespace cache {
 
         char* data_a, *comp_data_a; 
         Config* conf = Config::getInstance();
-        int chunk_size = conf->getChunkSize();
+        int chunk_size = Config::getInstance().getChunkSize();
 
         data_a = (char*)malloc(sizeof(char) * chunk_size);
         comp_data_a = (char*)malloc(sizeof(char) * chunk_size);

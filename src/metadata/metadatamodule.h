@@ -10,9 +10,8 @@ namespace cache {
 
 class MetadataModule {
  public:
+  static MetadataModule& getInstance();
   // initialize all submodules and start the journalling thread
-  MetadataModule(std::shared_ptr<IOModule> ioModule,
-      std::shared_ptr<CompressionModule> compressionModule);
   void dedup(Chunk &chunk);
   void lookup(Chunk &chunk);
   void update(Chunk &chunk);
@@ -22,7 +21,7 @@ class MetadataModule {
   std::unique_ptr<MetaVerification> metaVerification_;
   std::unique_ptr<MetaJournal> metaJournal_;
  private:
-  std::mutex mutex_;
+  MetadataModule();
 };
 
 }

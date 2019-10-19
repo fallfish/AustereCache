@@ -6,17 +6,7 @@
 #include "common/stats.h"
 namespace cache {
 
-  Index::Index(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-      uint32_t nSlotsPerBucket, uint32_t nBuckets) :
-    nBitsPerKey_(nBitsPerKey), nBitsPerValue_(nBitsPerValue),
-    nBitsPerSlot_(nBitsPerKey + nBitsPerValue), nSlotsPerBucket_(nSlotsPerBucket),
-    nBytesPerBucket_(((nBitsPerKey + nBitsPerValue) * nSlotsPerBucket + 7) / 8),
-    nBytesPerBucketForValid_((1 * nSlotsPerBucket + 7) / 8),
-    nBuckets_(nBuckets),
-    data_(std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets)),
-    valid_(std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets)),
-    mutexes_(std::make_unique<std::mutex[]>(nBuckets))
-  {}
+  Index::Index() = default;
 
   LBAIndex::~LBAIndex() = default;
   FPIndex::~FPIndex() = default;
@@ -26,12 +16,20 @@ namespace cache {
     cachePolicy_ = std::move(cachePolicy);
   }
 
-  LBAIndex::LBAIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-      uint32_t nSlotsPerBucket, uint32_t nBuckets,
-      std::shared_ptr<FPIndex> fpIndex) :
-    Index(nBitsPerKey, nBitsPerValue, nSlotsPerBucket, nBuckets),
+  LBAIndex::LBAIndex(std::shared_ptr<FPIndex> fpIndex):
     fpIndex_(std::move(fpIndex))
   {
+    nBitsPerKey_ = Config::getInstance().getnBitsPerLBASignature();
+    nBitsPerValue_ = Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId();
+    nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
+    nBuckets_ = Config::getInstance().getnLBABucket();
+
+    nBytesPerBucket_ = (nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7 / 8;
+    nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
+    data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
+    valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
+    mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
+
     setCachePolicy(std::move(std::make_unique<LRU>()));
   }
 
@@ -39,7 +37,7 @@ namespace cache {
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
-    Stats::getInstance()->add_lba_index_bucket_hit(bucketId);
+    Stats::getInstance().add_lba_index_bucket_hit(bucketId);
     return getLBABucket(bucketId)->lookup(signature, fpHash) != ~((uint32_t)0);
   }
 
@@ -56,27 +54,35 @@ namespace cache {
     uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
     getLBABucket(bucketId)->update(signature, fpHash, fpIndex_);
 
-    Stats::getInstance()->add_lba_bucket_update(bucketId);
+    Stats::getInstance().add_lba_bucket_update(bucketId);
   }
 
-  FPIndex::FPIndex(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
-      uint32_t nSlotsPerBucket, uint32_t nBuckets) :
-    Index(nBitsPerKey, nBitsPerValue, nSlotsPerBucket, nBuckets)
+  FPIndex::FPIndex()
   {
-    cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket, nBuckets));
+    nBitsPerKey_ = Config::getInstance().getnBitsPerFPSignature();
+    nBitsPerValue_ = 4;
+    nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
+    nBuckets_ = Config::getInstance().getnFPBuckets();
+
+    nBytesPerBucket_ = (nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7 / 8;
+    nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
+    data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
+    valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
+    mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
+    cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
   }
 
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucketId * Config::getInstance()->getnFPSlotsPerBucket() + slotId) * 1ull *
-             Config::getInstance()->getSectorSize() + (uint64_t)(1ull << Config::getInstance()->getnBitsPerFPBucketId()) *
-      Config::getInstance()->getnFPSlotsPerBucket() * Config::getInstance()->getMetadataSize();
+    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
+             Config::getInstance().getSectorSize() + Config::getInstance().getnFPBuckets() *
+      Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)
   {
-    return (bucketId * Config::getInstance()->getnFPSlotsPerBucket() + slotId) * 1ull * Config::getInstance()->getMetadataSize();
+    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull * Config::getInstance().getMetadataSize();
   }
 
   bool FPIndex::lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)
@@ -91,7 +97,7 @@ namespace cache {
     cachedataLocation = computeCachedataLocation(bucketId, index);
     metadataLocation = computeMetadataLocation(bucketId, index);
 
-    Stats::getInstance()->addFPBucketLookup(bucketId);
+    Stats::getInstance().addFPBucketLookup(bucketId);
     return true;
   }
 
@@ -108,7 +114,7 @@ namespace cache {
              signature = fpHash & ((1u << nBitsPerKey_) - 1),
              nSlotsToOccupy = compressedLevel + 1;
 
-    Stats::getInstance()->add_fp_bucket_update(bucketId);
+    Stats::getInstance().add_fp_bucket_update(bucketId);
     uint32_t slotId = getFPBucket(bucketId)->update(signature, nSlotsToOccupy);
     cachedataLocation = computeCachedataLocation(bucketId, slotId);
     metadataLocation = computeMetadataLocation(bucketId, slotId);

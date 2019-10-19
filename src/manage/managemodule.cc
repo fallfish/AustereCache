@@ -5,14 +5,15 @@
 #include <cassert>
 
 namespace cache {
+ManageModule& ManageModule::getInstance() {
+  ManageModule instance;
+  return instance;
+}
 
-ManageModule::ManageModule(
-  std::shared_ptr<IOModule> ioModule,
-  std::shared_ptr<MetadataModule> metadataModule) :
-  ioModule_(ioModule), metadataModule_(metadataModule)
+ManageModule::ManageModule()
 {
 #if defined(CDARC)
-  weuSize_ = Config::getInstance()->getWriteBufferSize();
+  weuSize_ = Config::getInstance().getWriteBufferSize();
   currentCachedataLocation_ = 0;
   currentWEUId_ = 0;
 #else
@@ -62,7 +63,7 @@ void ManageModule::generateReadRequest(
       buf = chunk.buf_;
     }
     addr = chunk.cachedataLocation_;
-    len = (chunk.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
+    len = (chunk.compressedLevel_ + 1) * Config::getInstance().getSectorSize();
 #endif
   } else {
     deviceType = PRIMARY_DEVICE;
@@ -79,7 +80,7 @@ int ManageModule::read(Chunk &chunk)
   uint8_t *buf;
   uint32_t len;
   generateReadRequest(chunk, deviceType, addr, buf, len);
-  ioModule_->read(deviceType, addr, buf, len);
+  IOModule::getInstance().read(deviceType, addr, buf, len);
 
   return 0;
 }
@@ -109,7 +110,7 @@ bool ManageModule::generateCacheWriteRequest(
 #if !defined(CACHE_DEDUP)
     addr = chunk.cachedataLocation_;
     buf = chunk.compressedBuf_;
-    len = (chunk.compressedLevel_ + 1) * Config::getInstance()->getSectorSize();
+    len = (chunk.compressedLevel_ + 1) * Config::getInstance().getSectorSize();
 #else
 #if defined(DLRU) || defined(DARC)
     addr = chunk.cachedataLocation_;
@@ -123,10 +124,10 @@ bool ManageModule::generateCacheWriteRequest(
           evictedCachedataLocation = weuToCachedataLocation_[chunk.evictedWEUId_];
           weuToCachedataLocation_.erase(chunk.evictedWEUId_);
 
-          ioModule_->flush(evictedCachedataLocation, 0, weuSize_);
+          IOModule::getInstance().flush(evictedCachedataLocation, 0, weuSize_);
           weuToCachedataLocation_[currentWEUId_] = evictedCachedataLocation;
         } else {
-          ioModule_->flush(currentCachedataLocation_, 0, weuSize_);
+          IOModule::getInstance().flush(currentCachedataLocation_, 0, weuSize_);
           weuToCachedataLocation_[currentWEUId_] = currentCachedataLocation_;
           currentCachedataLocation_ += weuSize_;
         }
@@ -153,11 +154,11 @@ int ManageModule::write(Chunk &chunk)
   uint32_t len;
 #if defined(WRITE_BACK_CACHE) == 0 // If enable write back cache
   if (generatePrimaryWriteRequest(chunk, deviceType, addr, buf, len)) {
-    ioModule_->write(deviceType, addr, buf, len);
+    IOModule::getInstance().write(deviceType, addr, buf, len);
   }
 #endif
   if (generateCacheWriteRequest(chunk, deviceType, addr, buf, len)) {
-    ioModule_->write(deviceType, addr, buf, len);
+    IOModule::getInstance().write(deviceType, addr, buf, len);
   }
   return 0;
 }

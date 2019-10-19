@@ -37,7 +37,7 @@ namespace cache {
       freeLocation_ = location;
     }
     uint64_t allocate() {
-      uint64_t allocatedLocation = -1;
+      uint64_t allocatedLocation;
       if (nextLocation_ != capacity_) {
         allocatedLocation = nextLocation_;
         nextLocation_ += chunkSize_;
@@ -52,21 +52,20 @@ namespace cache {
     public:
       struct FP {
         FP() { memset(v_, 0, 20); }
-        uint8_t v_[20];
+        uint8_t v_[20]{};
         std::list<uint64_t>::iterator it_;
       };
 
       DLRU_SourceIndex();
       static DLRU_SourceIndex& getInstance();
-      void init(uint32_t capacity);
+      void init();
 
       bool lookup(uint64_t lba, uint8_t *fp);
       void promote(uint64_t lba);
       void update(uint64_t lba, uint8_t *fp);
 
-    private:
-      static DLRU_SourceIndex instance;
       uint32_t capacity_;
+  private:
       std::map<uint64_t, FP> mp_; // mapping from lba to ca and list iter
       std::list<uint64_t> list_;
   };
@@ -86,27 +85,27 @@ namespace cache {
     public:
       struct FP {
         FP() { memset(v_, 0, 20); }
-        uint8_t v_[20];
+        uint8_t v_[20]{};
         bool operator<(const FP &fp) const {
           return memcmp(v_, fp.v_, 20) < 0;
         }
       };
       struct DP {
-        uint64_t cachedataLocation_;
+        uint64_t cachedataLocation_{};
         std::list<FP>::iterator it_;
       };
 
       DLRU_FingerprintIndex();
       static DLRU_FingerprintIndex& getInstance();
-      void init(uint32_t cap);
+      void init();
 
 
       bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
       void promote(uint8_t *fp);
       void update(uint8_t *fp, uint64_t &cachedataLocation);
-    private:
-      static DLRU_FingerprintIndex instance;
+
       uint32_t capacity_;
+  private:
       std::map<FP, DP> mp_; // mapping from FP to list
       std::list<FP> list_;
       SpaceAllocator spaceAllocator_;
@@ -122,7 +121,7 @@ namespace cache {
           listId_ = 0;
         }
 
-        uint8_t v_[20];
+        uint8_t v_[20]{};
         /**
          * list_id: 
          */
@@ -131,7 +130,7 @@ namespace cache {
       };
       DARC_SourceIndex();
       static DARC_SourceIndex& getInstance();
-      void init(uint32_t cap, uint32_t p, uint32_t x);
+      void init(uint32_t p, uint32_t x);
 
       bool lookup(uint64_t lba, uint8_t *ca);
       void adjust_adaptive_factor(uint64_t lba);
@@ -157,7 +156,7 @@ namespace cache {
             lbas2.push_back(lba);
           }
         }
-        if (lbas2.size() != 0) {
+        if (!lbas2.empty()) {
           for (auto lba : lbas2) {
             std::cout << (int)mp_[lba].listId_ << std::endl;
           }
@@ -172,7 +171,7 @@ namespace cache {
         std::vector<uint64_t> lbas;
         std::vector<uint64_t> lbas2;
         for (auto lba : t1_) {
-          if (memcmp(mp_[lba].v_, ca, Config::getInstance()->getFingerprintLength()) == 0) {
+          if (memcmp(mp_[lba].v_, ca, Config::getInstance().getFingerprintLength()) == 0) {
             lbas.push_back(lba);
           }
           if (mp_[lba].listId_ != 0) {
@@ -180,7 +179,7 @@ namespace cache {
           }
         }
         for (auto lba : t2_) {
-          if (memcmp(mp_[lba].v_, ca, Config::getInstance()->getFingerprintLength()) == 0) {
+          if (memcmp(mp_[lba].v_, ca, Config::getInstance().getFingerprintLength()) == 0) {
             lbas.push_back(lba);
           }
           if (mp_[lba].listId_ != 1) {
@@ -188,29 +187,29 @@ namespace cache {
             lbas2.push_back(lba);
           }
         }
-        assert(lbas.size() == 0);
-        if (lbas2.size() != 0) {
+        assert(lbas.empty());
+        if (!lbas2.empty()) {
           for (auto lba : lbas2) {
             std::cout << (int)mp_[lba].listId_ << std::endl;
           }
         }
-        assert(lbas2.size() == 0);
+        assert(lbas2.empty());
       }
-    private:
-      static DARC_SourceIndex instance;
+
+      uint32_t capacity_;
+  private:
       std::map<uint64_t, FP> mp_;
       std::list<uint64_t> t1_, t2_, b1_, b2_, b3_;
-      uint32_t capacity_, p_, x_;
+      uint32_t p_, x_;
   };
 
   class DARC_FingerprintIndex {
     public:
       friend class DARC_SourceIndex;
 
-
       struct FP {
         FP() { memset(v_, 0, sizeof(v_)); }
-        uint8_t v_[20];
+        uint8_t v_[20]{};
         bool operator<(const FP &fp) const {
           return memcmp(v_, fp.v_, 20) < 0;
         }
@@ -223,45 +222,41 @@ namespace cache {
         }
       };
       struct DP {
-        uint64_t cachedataLocation_;
-        uint32_t referenceCount_;
+        uint64_t cachedataLocation_{};
+        uint32_t referenceCount_{};
         std::list<FP>::iterator zeroReferenceListIt_;
       };
 
       DARC_FingerprintIndex();
       static DARC_FingerprintIndex &getInstance();
-      void init(uint32_t cap);
+      void init();
       bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
       void reference(uint64_t lba, uint8_t *fp);
       void deference(uint64_t lba, uint8_t *fp);
       void update(uint64_t lba, uint8_t *fp, uint64_t &cachedataLocation);
-    private:
-      static DARC_FingerprintIndex instance;
+
+      uint32_t capacity_;
+  private:
       std::map<FP, DP> mp_;
       std::list<FP> zeroReferenceList_;
       SpaceAllocator spaceAllocator_;
-      uint32_t capacity_;
   };
  
   struct WEUAllocator {
     uint32_t weuId_ = 0;
-    uint32_t weuSize_;
-    uint32_t currentOffset;
+    uint32_t weuSize_{};
+    uint32_t currentOffset{};
     
-    WEUAllocator() {}
+    WEUAllocator() = default;
 
     void init()
     {
       // 2 MiB weu size
-      weuSize_ = Config::getInstance()->getWriteBufferSize();
+      weuSize_ = Config::getInstance().getWriteBufferSize();
       currentOffset = 0;
     }
     
     std::set<uint32_t> evictedWEUIds;
-
-    void clearEvictedWEUIds() {
-      evictedWEUIds.clear();
-    }
 
     bool hasRecycled(uint32_t weuId) {
       return evictedWEUIds.find(weuId) != evictedWEUIds.end();
@@ -294,7 +289,7 @@ namespace cache {
 
       struct FP {
         FP() { memset(v_, 0, sizeof(v_)); }
-        uint8_t v_[20];
+        uint8_t v_[20]{};
         bool operator<(const FP &fp) const {
           return memcmp(v_, fp.v_, 20) < 0;
         }
@@ -314,19 +309,19 @@ namespace cache {
 
       CDARC_FingerprintIndex();
       static CDARC_FingerprintIndex &getInstance();
-      void init(uint32_t cap);
+      void init();
       bool lookup(uint8_t *fp, uint32_t &weuId, uint32_t &offset, uint32_t &len);
       void reference(uint64_t lba, uint8_t *fp);
       void deference(uint64_t lba, uint8_t *fp);
       uint32_t update(uint64_t lba, uint8_t *fp, uint32_t &weuId,
           uint32_t &offset, uint32_t length);
-    private:
-      static CDARC_FingerprintIndex instance;
+
+      uint32_t capacity_;
+  private:
       std::map<FP, DP> mp_;
       std::map<uint32_t, uint32_t> weuReferenceCount_; // reference count for each weu
       std::list<uint32_t> zeroReferenceList_; // weu_ids
       WEUAllocator weuAllocator_;
-      uint32_t capacity_;
   };
 }
 #endif

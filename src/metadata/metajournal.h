@@ -8,10 +8,8 @@ namespace cache {
 
 class MetaJournal {
  public:
-  MetaJournal(std::shared_ptr<IOModule> ioModule);
+  MetaJournal();
   void addUpdate(const Chunk &c);
- private:
-  std::shared_ptr<IOModule> ioModule_;
 };
 }
 

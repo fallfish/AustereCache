@@ -11,36 +11,174 @@ namespace cache {
    * It is a singleton class with std::atomic to ensure
    * thread-safety.
    */
-  struct Stats {
-    static Stats* instance;
-    static Stats* getInstance() {
-      if (instance == nullptr) {
-        instance = new Stats();
-      }
+struct Stats {
+  public:
+    static Stats& getInstance() {
+      static Stats instance;
       return instance;
     }
 
-    static void release() {
-      if (instance != nullptr)
-        delete instance;
-    }
+    void dump()
+    {
+      std::cout << "Write: " << std::endl;
+      std::cout << "    Num total write: " << _n_write_dup_write + _n_write_dup_content + _n_write_not_dup << std::endl
+                << "    Num write dup write: " << _n_write_dup_write << std::endl
+                << "    Num write dup content: " << _n_write_dup_content << std::endl
+                << "    Num write not dup: " << _n_write_not_dup << std::endl
+                << "        Num write not dup caused by ca not hit: " << _n_write_not_dup_ca_not_hit << std::endl
+                << "        Num write not dup caused by ca not match: " << _n_write_not_dup_ca_not_match << std::endl
+                << std::endl;
 
-    Stats() {
+      std::cout << "Read: " << std::endl;
+      std::cout << "    Num total read: " << _n_read_hit + _n_read_not_hit << std::endl
+                << "    Num read hit: " << _n_read_hit << std::endl
+                << "    Num read not hit: " << _n_read_not_hit << std::endl
+                << "        Num read not hit caused by lba not hit: " << _n_read_not_hit_lba_not_hit << std::endl
+                << "        Num read not hit caused by ca not hit: " << _n_read_not_hit_ca_not_hit << std::endl
+                << "        Num read not hit caused by lba not match: " << _n_read_not_hit_lba_not_match << std::endl
+                << "            Num read not hit dup content: " << _n_read_not_hit_dup_content << std::endl
+                << "            Num read not hit not dup: " << _n_read_not_hit_not_dup << std::endl
+                << "                Num read not hit not dup caused by ca not hit: " << _n_read_not_hit_not_dup_ca_not_hit << std::endl
+                << "                Num read not hit not dup caused by ca not match: " << _n_read_not_hit_not_dup_ca_not_match << std::endl
+                << std::endl;
+
+      std::cout << "Index statistics: " << std::endl
+                << "    LBA Index eviction caused by hash collision: " << _n_lba_index_eviction_caused_by_collision << std::endl
+                << "    LBA Index eviction caused by full capacity: " << _n_lba_index_eviction_caused_by_capacity << std::endl
+                << "    FP Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
+                << "    FP Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
+                << std::endl;
+
 #if !defined(CACHE_DEDUP)
-      _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerLBABucketId());
-      _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerFPBucketId());
-      _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerLBABucketId());
-      _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance()->getnBitsPerFPBucketId());
+      uint32_t n_lba_bucket = 1 << Config::getInstance().getnBitsPerLBABucketId();
+      uint32_t n_fp_bucket = 1 << Config::getInstance().getnBitsPerFPBucketId();
+
+      std::cerr << "LBA Index Lookups: " << std::endl;
+      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
+        fprintf(stderr, "(%d,%d) ", i, _n_lookups_lba_buckets[i].load());
+      }
+      fprintf(stderr, "\n");
+      std::cerr << "LBA Index Updates: " << std::endl;
+      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
+        fprintf(stderr, "(%d,%d) ", i, _n_updates_lba_buckets[i].load());
+      }
+      fprintf(stderr, "\n");
+      std::cerr << "FP Index Lookups: " << std::endl;
+      for (uint32_t i = 0; i < n_fp_bucket; ++i) {
+        fprintf(stderr, "(%d,%d) ", i, _n_lookups_fp_buckets[i].load());
+      }
+      fprintf(stderr, "\n");
+      std::cerr << "FP Index Updates: " << std::endl;
+      for (uint32_t i = 0; i < n_fp_bucket; ++i) {
+        fprintf(stderr, "(%d,%d) ", i, _n_updates_fp_buckets[i].load());
+      }
+      fprintf(stderr, "\n");
+
 #endif
-      reset();
+
+      std::cout << "IO statistics: " << std::endl
+                << "    Num bytes metadata written to ssd: " <<          _n_metadata_bytes_written_to_ssd << std::endl
+                << "    Num bytes metadata read from ssd: " << _n_metadata_bytes_read_from_ssd << std::endl
+                << "    Num bytes data written to ssd: " << _n_data_bytes_written_to_ssd << std::endl
+                << "    Num bytes data read from ssd: " << _n_data_bytes_read_from_ssd << std::endl
+                << "    Num bytes data written to write buffer: " << _n_data_bytes_written_to_ssd << std::endl
+                << "    Num bytes data read from write buffer: " << _n_data_bytes_read_from_ssd << std::endl
+                << "    Num bytes written to hdd: " << _n_bytes_written_to_hdd << std::endl
+                << "    Num bytes read from hdd: " << _n_bytes_read_from_hdd << std::endl
+                << std::endl;
+
+      //std::cout << "Write buffer: " << std::endl
+        //<< _n_bytes_written_to_write_buffer << std::endl
+        //<< _n_bytes_written_to_cache_disk << std::endl
+        //<< _n_bytes_read_from_write_buffer << std::endl
+        //<< _n_bytes_read_from_cache_disk    << std::endl;
+
+      std::cout << std::fixed << std::setprecision(0) << "Time Elapsed: " << std::endl
+                << "    Time elpased for compression: " << _time_elapsed_compression << std::endl
+                << "    Time elpased for decompression: " << _time_elapsed_decompression << std::endl
+                << "    Time elpased for computeFingerprint: " << _time_elapsed_fingerprinting << std::endl
+                << "    Time elpased for dedup: " << _time_elapsed_dedup << std::endl
+                << "    Time elpased for lookup: " << _time_elapsed_lookup << std::endl
+                << "    Time elpased for update_index: " << _time_elapsed_update_index << std::endl
+                << "    Time elpased for io_ssd: " << _time_elapsed_io_ssd << std::endl
+                << "    Time elpased for io_hdd: " << _time_elapsed_io_hdd << std::endl
+                << "    Time elpased for debug: " << _time_elapsed_debug << std::endl
+                << std::endl;
+
+
+      std::cout << std::setprecision(2) << "Overall Stats: " << std::endl
+                << "    Hit ratio: " << _n_read_hit * 1.0 / (_n_read_hit + _n_read_not_hit) * 100.0 << "%" << std::endl
+                << "    Dup ratio: " << 1.0 * (_n_write_dup_write + _n_write_dup_content + _n_read_not_hit_dup_content) / (_n_write + _n_read_not_hit) * 100.0 << "%" << std::endl
+                << "    Dup write to the total write ratio: " << 1.0 * _n_write_dup_write / _n_write * 100.0 << "%" << std::endl;
+
+      std::cout << std::defaultfloat;
+
     }
 
-
-    int _current_request_type;
     inline void setCurrentRequestType(bool is_write) {
       if (is_write) _current_request_type = 1;
       else _current_request_type = 0;
     }
+
+    inline void addReadLookupStatistics(Chunk &c) {
+      if (c.lookupResult_ == HIT) {
+        _n_read_hit.fetch_add(1, std::memory_order_relaxed);
+      } else if (c.lookupResult_ == NOT_HIT) {
+        _n_read_not_hit.fetch_add(1, std::memory_order_relaxed);
+
+        if (c.hitLBAIndex_ == false) {
+          _n_read_not_hit_lba_not_hit.fetch_add(1, std::memory_order_relaxed);
+        } else {
+          if (c.hitFPIndex_ == false) {
+            _n_read_not_hit_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
+          } else {
+            // read request only match LBA
+            if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID) {
+              _n_read_not_hit_lba_not_match.fetch_add(1, std::memory_order_relaxed);
+            } else {
+              std::cout << c.hasFingerprint_ << std::endl;
+              std::cout << c.verficationResult_ << std::endl;
+              assert(0);
+            }
+          }
+        }
+      }
+    }
+
+    inline void add_read_post_dedup_stat(Chunk &c) {
+      _n_read_not_hit_not_dup.fetch_add(1, std::memory_order_relaxed);
+      if (c.hitFPIndex_ == false) {
+        _n_read_not_hit_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
+      } else {
+        if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
+            || c.verficationResult_ == ONLY_LBA_VALID) {
+          _n_read_not_hit_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
+        }
+      }
+    }
+
+    inline void add_write_stat(Chunk &c) {
+      _n_write.fetch_add(1, std::memory_order_relaxed);
+      if (c.dedupResult_ == DUP_WRITE) {
+        _n_write_dup_write.fetch_add(1, std::memory_order_relaxed);
+      } else if (c.dedupResult_ == DUP_CONTENT) {
+        _n_write_dup_content.fetch_add(1, std::memory_order_relaxed);
+      } else if (c.dedupResult_ == NOT_DUP) {
+        _n_write_not_dup.fetch_add(1, std::memory_order_relaxed);
+        if (!c.hitFPIndex_) {
+          _n_write_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
+        } else {
+          if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
+              || c.verficationResult_ == ONLY_LBA_VALID) {
+            _n_write_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
+          }
+        }
+      }
+    }
+
+
+    int _current_request_type;
+
     inline int get_current_request_type() {
       return _current_request_type;
     }
@@ -63,24 +201,6 @@ namespace cache {
     // ca not match - reflect the number of collision
     std::atomic<uint64_t> _n_write_not_dup_ca_not_hit;
     std::atomic<uint64_t> _n_write_not_dup_ca_not_match;
-    inline void add_write_stat(Chunk &c) {
-      _n_write.fetch_add(1, std::memory_order_relaxed);
-      if (c.dedupResult_ == DUP_WRITE) {
-        _n_write_dup_write.fetch_add(1, std::memory_order_relaxed);
-      } else if (c.dedupResult_ == DUP_CONTENT) {
-        _n_write_dup_content.fetch_add(1, std::memory_order_relaxed);
-      } else if (c.dedupResult_ == NOT_DUP) {
-        _n_write_not_dup.fetch_add(1, std::memory_order_relaxed);
-        if (c.hitFPIndex_ == false) {
-          _n_write_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
-        } else {
-          if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
-              || c.verficationResult_ == ONLY_LBA_VALID) {
-            _n_write_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
-          }
-        }
-      }
-    }
 
     /*
      * Read - consist of +-- hit     - cause - lba hit, ca hit, and lba match
@@ -114,41 +234,6 @@ namespace cache {
     // Note: ca not match causes a invalidation of the corresponding entry
     std::atomic<uint64_t> _n_read_not_hit_not_dup_ca_not_hit;
     std::atomic<uint64_t> _n_read_not_hit_not_dup_ca_not_match;
-    inline void addReadLookupStatistics(Chunk &c) {
-      if (c.lookupResult_ == HIT) {
-        _n_read_hit.fetch_add(1, std::memory_order_relaxed);
-      } else if (c.lookupResult_ == NOT_HIT) {
-        _n_read_not_hit.fetch_add(1, std::memory_order_relaxed);
-
-        if (c.hitLBAIndex_ == false) {
-          _n_read_not_hit_lba_not_hit.fetch_add(1, std::memory_order_relaxed);
-        } else {
-          if (c.hitFPIndex_ == false) {
-            _n_read_not_hit_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
-          } else {
-            // read request only match LBA
-            if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID) {
-              _n_read_not_hit_lba_not_match.fetch_add(1, std::memory_order_relaxed);
-            } else {
-              std::cout << c.hasFingerprint_ << std::endl;
-              std::cout << c.verficationResult_ << std::endl;
-              assert(0);
-            }
-          }
-        }
-      }
-    }
-    inline void add_read_post_dedup_stat(Chunk &c) {
-      _n_read_not_hit_not_dup.fetch_add(1, std::memory_order_relaxed);
-      if (c.hitFPIndex_ == false) {
-        _n_read_not_hit_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
-      } else {
-        if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
-            || c.verficationResult_ == ONLY_LBA_VALID) {
-          _n_read_not_hit_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
-        }
-      }
-    }
 
     /*
      * statistics for evictions
@@ -314,43 +399,42 @@ namespace cache {
       _compress_level[compress_level].fetch_add(1, std::memory_order_relaxed);
     }
 
-    void reset()
-    {
-      _n_bytes_written_to_write_buffer .store(0, std::memory_order_relaxed);
-      _n_bytes_written_to_cache_disk   .store(0, std::memory_order_relaxed);
-      _n_bytes_written_to_primary_disk .store(0, std::memory_order_relaxed);
-      _n_bytes_read_from_write_buffer  .store(0, std::memory_order_relaxed);
-      _n_bytes_read_from_cache_disk    .store(0, std::memory_order_relaxed);
-      _n_bytes_read_from_primary_disk  .store(0, std::memory_order_relaxed);
+    void reset() {
+      _n_bytes_written_to_write_buffer.store(0, std::memory_order_relaxed);
+      _n_bytes_written_to_cache_disk.store(0, std::memory_order_relaxed);
+      _n_bytes_written_to_primary_disk.store(0, std::memory_order_relaxed);
+      _n_bytes_read_from_write_buffer.store(0, std::memory_order_relaxed);
+      _n_bytes_read_from_cache_disk.store(0, std::memory_order_relaxed);
+      _n_bytes_read_from_primary_disk.store(0, std::memory_order_relaxed);
 
 
-      _n_write .store(0, std::memory_order_relaxed);
-      _n_write_dup_write .store(0, std::memory_order_relaxed);
-      _n_write_dup_content .store(0, std::memory_order_relaxed);
-      _n_write_not_dup .store(0, std::memory_order_relaxed);
-      _n_write_not_dup_ca_not_hit .store(0, std::memory_order_relaxed);
-      _n_write_not_dup_ca_not_match .store(0, std::memory_order_relaxed);
-      _n_read_hit .store(0, std::memory_order_relaxed);
-      _n_read_not_hit .store(0, std::memory_order_relaxed);
-      _n_read_not_hit_dup_content .store(0, std::memory_order_relaxed);
-      _n_read_not_hit_not_dup .store(0, std::memory_order_relaxed);
-      _n_read_not_hit_lba_not_hit .store(0, std::memory_order_relaxed);
-      _n_read_not_hit_ca_not_hit .store(0, std::memory_order_relaxed);
-      _n_read_not_hit_lba_not_match .store(0, std::memory_order_relaxed);
-      _n_read_not_hit_not_dup_ca_not_hit .store(0, std::memory_order_relaxed);
-      _n_read_not_hit_not_dup_ca_not_match .store(0, std::memory_order_relaxed);
-      _n_lba_index_eviction_caused_by_collision .store(0, std::memory_order_relaxed);
-      _n_lba_index_eviction_caused_by_capacity .store(0, std::memory_order_relaxed);
+      _n_write.store(0, std::memory_order_relaxed);
+      _n_write_dup_write.store(0, std::memory_order_relaxed);
+      _n_write_dup_content.store(0, std::memory_order_relaxed);
+      _n_write_not_dup.store(0, std::memory_order_relaxed);
+      _n_write_not_dup_ca_not_hit.store(0, std::memory_order_relaxed);
+      _n_write_not_dup_ca_not_match.store(0, std::memory_order_relaxed);
+      _n_read_hit.store(0, std::memory_order_relaxed);
+      _n_read_not_hit.store(0, std::memory_order_relaxed);
+      _n_read_not_hit_dup_content.store(0, std::memory_order_relaxed);
+      _n_read_not_hit_not_dup.store(0, std::memory_order_relaxed);
+      _n_read_not_hit_lba_not_hit.store(0, std::memory_order_relaxed);
+      _n_read_not_hit_ca_not_hit.store(0, std::memory_order_relaxed);
+      _n_read_not_hit_lba_not_match.store(0, std::memory_order_relaxed);
+      _n_read_not_hit_not_dup_ca_not_hit.store(0, std::memory_order_relaxed);
+      _n_read_not_hit_not_dup_ca_not_match.store(0, std::memory_order_relaxed);
+      _n_lba_index_eviction_caused_by_collision.store(0, std::memory_order_relaxed);
+      _n_lba_index_eviction_caused_by_capacity.store(0, std::memory_order_relaxed);
 
 
-      _n_ca_index_eviction_caused_by_collision .store(0, std::memory_order_relaxed);
-      _n_ca_index_eviction_caused_by_capacity .store(0, std::memory_order_relaxed);
-      _n_metadata_bytes_written_to_ssd .store(0, std::memory_order_relaxed);
-      _n_metadata_bytes_read_from_ssd .store(0, std::memory_order_relaxed);
-      _n_data_bytes_written_to_ssd .store(0, std::memory_order_relaxed);
-      _n_data_bytes_read_from_ssd .store(0, std::memory_order_relaxed);
-      _n_bytes_written_to_hdd .store(0, std::memory_order_relaxed);
-      _n_bytes_read_from_hdd .store(0, std::memory_order_relaxed);
+      _n_ca_index_eviction_caused_by_collision.store(0, std::memory_order_relaxed);
+      _n_ca_index_eviction_caused_by_capacity.store(0, std::memory_order_relaxed);
+      _n_metadata_bytes_written_to_ssd.store(0, std::memory_order_relaxed);
+      _n_metadata_bytes_read_from_ssd.store(0, std::memory_order_relaxed);
+      _n_data_bytes_written_to_ssd.store(0, std::memory_order_relaxed);
+      _n_data_bytes_read_from_ssd.store(0, std::memory_order_relaxed);
+      _n_bytes_written_to_hdd.store(0, std::memory_order_relaxed);
+      _n_bytes_read_from_hdd.store(0, std::memory_order_relaxed);
 
 #define _(str) \
       _time_elapsed_##str = 0;
@@ -364,108 +448,18 @@ namespace cache {
       _(io_hdd);
       _(debug);
 #undef _
-
-
-
-
     }
-
-    void dump()
-    {
-      std::cout << "Write: " << std::endl;
-      std::cout << "    Num total write: " << _n_write_dup_write + _n_write_dup_content + _n_write_not_dup << std::endl
-                << "    Num write dup write: " << _n_write_dup_write << std::endl
-                << "    Num write dup content: " << _n_write_dup_content << std::endl
-                << "    Num write not dup: " << _n_write_not_dup << std::endl
-                << "        Num write not dup caused by ca not hit: " << _n_write_not_dup_ca_not_hit << std::endl
-                << "        Num write not dup caused by ca not match: " << _n_write_not_dup_ca_not_match << std::endl
-                << std::endl;
-
-      std::cout << "Read: " << std::endl;
-      std::cout << "    Num total read: " << _n_read_hit + _n_read_not_hit << std::endl
-                << "    Num read hit: " << _n_read_hit << std::endl
-                << "    Num read not hit: " << _n_read_not_hit << std::endl
-                << "        Num read not hit caused by lba not hit: " << _n_read_not_hit_lba_not_hit << std::endl
-                << "        Num read not hit caused by ca not hit: " << _n_read_not_hit_ca_not_hit << std::endl
-                << "        Num read not hit caused by lba not match: " << _n_read_not_hit_lba_not_match << std::endl
-                << "            Num read not hit dup content: " << _n_read_not_hit_dup_content << std::endl
-                << "            Num read not hit not dup: " << _n_read_not_hit_not_dup << std::endl
-                << "                Num read not hit not dup caused by ca not hit: " << _n_read_not_hit_not_dup_ca_not_hit << std::endl
-                << "                Num read not hit not dup caused by ca not match: " << _n_read_not_hit_not_dup_ca_not_match << std::endl
-                << std::endl;
-
-      std::cout << "Index statistics: " << std::endl
-                << "    LBA Index eviction caused by hash collision: " << _n_lba_index_eviction_caused_by_collision << std::endl
-                << "    LBA Index eviction caused by full capacity: " << _n_lba_index_eviction_caused_by_capacity << std::endl
-                << "    FP Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
-                << "    FP Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
-                << std::endl;
-
+  private:
+      Stats() {
 #if !defined(CACHE_DEDUP)
-      uint32_t n_lba_bucket = 1 << Config::getInstance()->getnBitsPerLBABucketId();
-      uint32_t n_fp_bucket = 1 << Config::getInstance()->getnBitsPerFPBucketId();
-
-      std::cerr << "LBA Index Lookups: " << std::endl;
-      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_lookups_lba_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-      std::cerr << "LBA Index Updates: " << std::endl;
-      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_updates_lba_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-      std::cerr << "FP Index Lookups: " << std::endl;
-      for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_lookups_fp_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-      std::cerr << "FP Index Updates: " << std::endl;
-      for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_updates_fp_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-
+        _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLBABucketId());
+        _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFPBucketId());
+        _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLBABucketId());
+        _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFPBucketId());
 #endif
+        reset();
+      }
 
-      std::cout << "IO statistics: " << std::endl
-                << "    Num bytes metadata written to ssd: " <<          _n_metadata_bytes_written_to_ssd << std::endl
-                << "    Num bytes metadata read from ssd: " << _n_metadata_bytes_read_from_ssd << std::endl
-                << "    Num bytes data written to ssd: " << _n_data_bytes_written_to_ssd << std::endl
-                << "    Num bytes data read from ssd: " << _n_data_bytes_read_from_ssd << std::endl
-                << "    Num bytes data written to write buffer: " << _n_data_bytes_written_to_ssd << std::endl
-                << "    Num bytes data read from write buffer: " << _n_data_bytes_read_from_ssd << std::endl
-                << "    Num bytes written to hdd: " << _n_bytes_written_to_hdd << std::endl
-                << "    Num bytes read from hdd: " << _n_bytes_read_from_hdd << std::endl
-                << std::endl;
-
-      //std::cout << "Write buffer: " << std::endl
-        //<< _n_bytes_written_to_write_buffer << std::endl
-        //<< _n_bytes_written_to_cache_disk << std::endl
-        //<< _n_bytes_read_from_write_buffer << std::endl
-        //<< _n_bytes_read_from_cache_disk    << std::endl;
-
-      std::cout << std::fixed << std::setprecision(0) << "Time Elapsed: " << std::endl
-                << "    Time elpased for compression: " << _time_elapsed_compression << std::endl
-                << "    Time elpased for decompression: " << _time_elapsed_decompression << std::endl
-                << "    Time elpased for computeFingerprint: " << _time_elapsed_fingerprinting << std::endl
-                << "    Time elpased for dedup: " << _time_elapsed_dedup << std::endl
-                << "    Time elpased for lookup: " << _time_elapsed_lookup << std::endl
-                << "    Time elpased for update_index: " << _time_elapsed_update_index << std::endl
-                << "    Time elpased for io_ssd: " << _time_elapsed_io_ssd << std::endl
-                << "    Time elpased for io_hdd: " << _time_elapsed_io_hdd << std::endl
-                << "    Time elpased for debug: " << _time_elapsed_debug << std::endl
-                << std::endl;
-
-
-      std::cout << std::setprecision(2) << "Overall Stats: " << std::endl
-                << "    Hit ratio: " << _n_read_hit * 1.0 / (_n_read_hit + _n_read_not_hit) * 100.0 << "%" << std::endl
-                << "    Dup ratio: " << 1.0 * (_n_write_dup_write + _n_write_dup_content + _n_read_not_hit_dup_content) / (_n_write + _n_read_not_hit) * 100.0 << "%" << std::endl
-                << "    Dup write to the total write ratio: " << 1.0 * _n_write_dup_write / _n_write * 100.0 << "%" << std::endl;
-
-      std::cout << std::defaultfloat;
-
-    }
   };
 }
 

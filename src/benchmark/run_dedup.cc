@@ -46,13 +46,12 @@ class RunDeduplicationModule {
           exit(1);
         }
       } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::getInstance()->setnBitsPerFPBucketId(atoi(value));
+        Config::getInstance().setnBitsPerFPBucketId(atoi(value));
       }
     }
-    _io_module = std::make_shared<IOModule>();
-    _io_module->addCacheDevice("./ramdisk/cache_device");
+    IOModule::getInstance().addCacheDevice("./ramdisk/cache_device");
     //ioModule_->addCacheDevice("/dev/sda");
-    _metadata_module = std::make_shared<MetadataModule>(_io_module, nullptr);
+    _metadata_module = std::make_shared<MetadataModule>(nullptr);
     _deduplication_module = std::make_unique<DeduplicationModule>(_metadata_module);
   }
 
@@ -65,9 +64,9 @@ class RunDeduplicationModule {
       // in the trace, the hash value is all full 32 bit hash
       // while in the metadata module, we will have (signature + bucket_no) format
       _chunks[i].lbaHash_ >>= 32 -
-                              (conf->getnBitsPerLBASignature() + conf->getnBitsPerLBABucketId());
+                              (Config::getInstance().getnBitsPerLBASignature() + Config::getInstance().getnBitsPerLBABucketId());
       _chunks[i].fingerprintHash_ >>= 32 -
-        (conf->getnBitsPerFPSignature() + conf->getnBitsPerFPBucketId());
+        (Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId());
       memcpy(&c, _chunks + i, sizeof(Chunk));
       _deduplication_module->dedup(c);
       _metadata_module->update(c);
@@ -115,7 +114,6 @@ class RunDeduplicationModule {
   Chunk *_chunks;
   std::unique_ptr<DeduplicationModule> _deduplication_module;
   std::shared_ptr<MetadataModule> _metadata_module;
-  std::shared_ptr<IOModule> _io_module;
   WorkloadConfiguration _workload_conf;
   int _n_chunks;
 };

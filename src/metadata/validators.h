@@ -19,8 +19,8 @@ namespace cache {
       //}
 
       //bool validate_fp_collision(uint32_t bucket_id, uint32_t slot_id) {
-        //std::cout << memcmp(fp_slots[bucket_id][slot_id], current_fp, Config::getInstance()->getFingerprintLength()) << std::endl;
-        //return memcmp(fp_slots[bucket_id][slot_id], current_fp, Config::getInstance()->getFingerprintLength()) != 0;
+        //std::cout << memcmp(fp_slots[bucket_id][slot_id], current_fp, Config::getInstance().getFingerprintLength()) << std::endl;
+        //return memcmp(fp_slots[bucket_id][slot_id], current_fp, Config::getInstance().getFingerprintLength()) != 0;
       //}
 
       //void set_lba_slot(uint32_t bucket_id, uint32_t slot_id) {
@@ -44,9 +44,9 @@ namespace cache {
 
       //void print_current_fp_hash(uint32_t bucket_id, uint32_t slot_id) {
         //uint32_t tmp;
-        //MurmurHash3_x86_32(current_fp, Config::getInstance()->getFingerprintLength(), 2, &tmp);
+        //MurmurHash3_x86_32(current_fp, Config::getInstance().getFingerprintLength(), 2, &tmp);
         //std::cout << std::hex << tmp << std::endl;
-        //MurmurHash3_x86_32(fp_slots[bucket_id][slot_id], Config::getInstance()->getFingerprintLength(), 2, &tmp);
+        //MurmurHash3_x86_32(fp_slots[bucket_id][slot_id], Config::getInstance().getFingerprintLength(), 2, &tmp);
         //std::cout << std::hex << tmp << std::endl;
       //}
 

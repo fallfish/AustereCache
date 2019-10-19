@@ -93,7 +93,7 @@ namespace cache {
         uint32_t key = bucket_->getKey(slotId);
         while (slotId < nSlots
                && bucket_->getKey(slotId) == key) {
-          Stats::getInstance()->add_lba_index_eviction_caused_by_capacity();
+          Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
           bucket_->setInvalid(slotId);
           bucket_->setKey(slotId, 0);
           bucket_->setValue(slotId, 0);
@@ -181,14 +181,14 @@ namespace cache {
         }
         if (evicted) {
 #ifdef WRITE_BACK_CACHE
-          DirtyList::getInstance()->addEvictedChunk(
+          DirtyList::getInstance().addEvictedChunk(
               /* Compute ssd location of the evicted data */
               /* Actually, full FP and address is sufficient. */
                 FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
-                (slotId - slot_id_begin) * Config::getInstance()->getSectorSize()
+                (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
               );
 #endif
-          Stats::getInstance()->add_fp_index_eviction_caused_by_capacity();
+          Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
         }
       }
       *clockPtr_ = slotId;
@@ -210,7 +210,7 @@ namespace cache {
   }
   inline void CAClockExecutor::incClock(uint32_t index) {
     uint32_t v = clock_->getValue(index);
-    if (v != (1u << Config::getInstance()->getnBitsPerClock()) - 1) {
+    if (v != (1u << Config::getInstance().getnBitsPerClock()) - 1) {
       clock_->setValue(index, v + 1);
     }
   }
@@ -226,7 +226,7 @@ namespace cache {
 
   CAClock::CAClock(uint32_t nSlotsPerBucket, uint32_t nBuckets) : CachePolicy() {
     nSlotsPerBucket_ = nSlotsPerBucket;
-    nBytesPerBucket_ = (Config::getInstance()->getnBitsPerClock() * nSlotsPerBucket + 7) / 8;
+    nBytesPerBucket_ = (Config::getInstance().getnBitsPerClock() * nSlotsPerBucket + 7) / 8;
     clock_ = std::make_unique< uint8_t[] >(nBytesPerBucket_ * nBuckets);
     clockPtr_ = 0;
   }

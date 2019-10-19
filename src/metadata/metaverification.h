@@ -8,7 +8,7 @@
 namespace cache {
   class MetaVerification {
    public:
-    MetaVerification(std::shared_ptr<IOModule> ioModule, std::shared_ptr<CompressionModule> compressionModule);
+    MetaVerification(std::shared_ptr<CompressionModule> compressionModule);
     VerificationResult verify(Chunk &chunk);
     void update(Chunk &chunk);
    private:
@@ -18,7 +18,6 @@ namespace cache {
     // to avoid a second metadata read in update function.
 //    uint32_t cachedataLocation_;
 
-    std::shared_ptr<IOModule> ioModule_;
     std::unique_ptr<FrequentSlots> frequentSlots_;
     std::shared_ptr<CompressionModule> compressionModule_;
   };

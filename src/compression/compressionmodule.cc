@@ -10,6 +10,10 @@
 #include <csignal>
 
 namespace cache {
+CompressionModule& CompressionModule::getInstance() {
+  CompressionModule instance;
+  return instance;
+}
 
 void CompressionModule::compress(Chunk &chunk)
 {
@@ -58,8 +62,8 @@ void CompressionModule::decompress(Chunk &chunk)
 #endif
 
 #if defined(NORMAL_DIST_COMPRESSION)
-    chunk.compressedLen_ = Config::getInstance()->getCurrentCompressedLen();
-    memcpy(chunk.compressedBuf_, Config::getInstance()->getCurrentData(), chunk.compressedLen_);
+    chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
+    memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
 #endif
 
 #if !defined(FAKE_IO)
@@ -87,5 +91,6 @@ void CompressionModule::decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_
     memcpy(buf, compressedBuf, originalLen);
   }
   END_TIMER(decompression);
-  }
+}
+
 }

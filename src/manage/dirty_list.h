@@ -12,12 +12,10 @@ namespace cache {
   class DirtyList {
 
     public:
-      static DirtyList* instance;
       DirtyList();
       void setCompressionModule(std::shared_ptr<CompressionModule> compressionModule);
-      void setIOModule(std::shared_ptr<IOModule> ioModule);
 
-      static DirtyList* getInstance();
+      static DirtyList& getInstance();
       static void release();
 
       struct EvictedBlock {
@@ -36,7 +34,6 @@ namespace cache {
       std::map<uint64_t, uint64_t> latestUpdatesMetadataLocations_;
       std::list<EvictedBlock> evictedBlocks_;
       std::shared_ptr<CompressionModule> compressionModule_;
-      std::shared_ptr<IOModule> ioModule_;
       uint64_t size_;
   };
 }

@@ -8,17 +8,9 @@ namespace cache {
 class Config
 {
  public:
-  static Config* instance;
-  static Config* getInstance() {
-    if (instance == nullptr) {
-      instance = new Config(0);
-    }
+  static Config& getInstance() {
+    static Config instance;
     return instance;
-  }
-  static void release() {
-    if (instance != nullptr) {
-      delete instance;
-    }
   }
 
   // getters
@@ -31,14 +23,30 @@ class Config
   uint64_t getCacheDeviceSize() { return cacheDeviceSize_; }
 
   uint32_t getnBitsPerLBASignature() { return nBitsPerLBASignature_; }
-  uint32_t getnBitsPerLBABucketId() { return nBitsPerLBABucketId_; }
-  uint32_t getnLBASlotsPerBucket() { return nLBASlotsPerBucket_; }
   uint32_t getnBitsPerFPSignature() { return nBitsPerFPSignature_; }
-  uint32_t getnBitsPerFPBucketId() { return nBitsPerFPBucketId_; }
+
+  uint32_t getnBitsPerLBABucketId() {
+    return 32 - __builtin_clz(getnLBABucket());
+  }
+  uint32_t getnLBABucket() {
+    return cacheDeviceSize_ / (chunkSize_ * nLBASlotsPerBucket_) * lbaAmplifier_;
+  }
+  uint32_t getnBitsPerFPBucketId() {
+    return 32 - __builtin_clz(getnFPBuckets());
+  }
+  uint32_t getnFPBuckets() {
+    return cacheDeviceSize_ / (sectorSize_ * nFPSlotsPerBucket_);
+  }
+
+  uint32_t getLBAAmplifier() {
+    return lbaAmplifier_;
+  }
+  uint32_t getnLBASlotsPerBucket() { return nLBASlotsPerBucket_; }
   uint32_t getnFPSlotsPerBucket() { return nFPSlotsPerBucket_; }
   uint32_t getnBitsPerClock() { return nBitsPerClock_; }
 
-  uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
+
+    uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
   uint32_t getMaxNumLocalThreads() { return maxNumLocalThreads_; }
 
   char *getCacheDeviceName() { return cacheDeviceName_; }
@@ -58,8 +66,9 @@ class Config
   void setPrimaryDeviceSize(uint64_t primary_device_size) { primaryDeviceSize_ = primary_device_size; }
   void setCacheDeviceSize(uint64_t cache_device_size) { cacheDeviceSize_ = cache_device_size; }
 
-  void setnBitsPerLBABucketId(uint32_t lba_bucket_no_len) { nBitsPerLBABucketId_ = lba_bucket_no_len; }
-  void setnBitsPerFPBucketId(uint32_t fp_bucket_no_len) { nBitsPerFPBucketId_ = fp_bucket_no_len; }
+  void setLBAAmplifier(uint32_t v) {
+    lbaAmplifier_ = v;
+  }
 
   void setCacheDeviceName(char *cache_device_name) { cacheDeviceName_ = cache_device_name; }
   void setPrimaryDeviceName(char *primary_device_name) { primaryDeviceName_ = primary_device_name; }
@@ -98,9 +107,9 @@ class Config
   }
 
  private:
-  Config(uint32_t nBitsPerFpBucketId) : nBitsPerFPBucketId_(nBitsPerFpBucketId) {
+  Config() {
     // Initialize default configuration
-    // Conf format from caller to be imported 
+    // Conf format from caller to be imported
     chunkSize_ = 8192 * 4;
     sectorSize_ = 8192;
     metadataSize_ = 512;
@@ -114,12 +123,11 @@ class Config
     // To store all lbas without eviction
     // nBuckets_ = primary_storage_size / 32K / 32 = 512
     nBitsPerLBASignature_ = 12;
-    nBitsPerLBABucketId_ = 11;
     nLBASlotsPerBucket_ = 32;
     nBitsPerFPSignature_ = 12;
-    nBitsPerFPBucketId_ = 10;
     nFPSlotsPerBucket_ = 32;
     nBitsPerClock_ = 2;
+    lbaAmplifier_ = 1u;
 
     enableMultiThreads_ = false;
     maxNumGlobalThreads_ = 32;
@@ -146,10 +154,10 @@ class Config
   // To store all lbas without eviction
   // nBuckets_ = primary_storage_size / 32K / 32 = 512
   uint32_t nBitsPerLBASignature_;
-  uint32_t nBitsPerLBABucketId_;
   uint32_t nLBASlotsPerBucket_;
+  uint32_t lbaAmplifier_;
+
   uint32_t nBitsPerFPSignature_;
-  uint32_t nBitsPerFPBucketId_;
   uint32_t nFPSlotsPerBucket_;
   // bits for CLOCK policy
   uint32_t nBitsPerClock_;
@@ -169,18 +177,18 @@ class Config
 
   // chunk algorithm
   // 0 - Strong hash (SHA1), 1 - Weak hash (MurmurHash3)
-  uint32_t fingerprintAlgorithm_;
+  uint32_t fingerprintAlgorithm_{};
   // 0 - Strong hash, 1 - Weak hash + memcmp, 2 - Weak hash + Strong hash
   // If mode is set to 1 or 2, the fingerprintAlgorithm_ field must be 1
-  uint32_t fingerprintMode_;
+  uint32_t fingerprintMode_{};
 
   // Used when replaying FIU trace, for each request, we would fill in the fingerprint value
   // specified in the trace rather than the computed one.
-  char fingerprintOfCurrentChunk_[20];
+  char fingerprintOfCurrentChunk_[20]{};
 
   // Used when using NORMAL_DIST_COMPRESSION
   char* dataOfCurrentChunk_;
-  int compressedLenOfCurrentChunk_;
+  int compressedLenOfCurrentChunk_{};
 };
 
 }

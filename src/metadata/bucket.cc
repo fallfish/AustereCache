@@ -57,7 +57,7 @@ namespace cache {
         promote(lbaSignature);
         return ;
       }
-      Stats::getInstance()->add_lba_index_eviction_caused_by_collision();
+      Stats::getInstance().add_lba_index_eviction_caused_by_collision();
       setInvalid(slotId);
     }
 
@@ -118,13 +118,13 @@ namespace cache {
     uint32_t slotId = lookup(fpSignature, nSlotsOccupied);
     if (slotId != ~((uint32_t)0)) {
       // TODO: Add it into the evicted data of dirty list 
-      Stats::getInstance()->add_fp_index_eviction_caused_by_collision();
+      Stats::getInstance().add_fp_index_eviction_caused_by_collision();
 #ifdef WRITE_BACK_CACHE
-      DirtyList::getInstance()->addEvictedChunk(
+      DirtyList::getInstance().addEvictedChunk(
         /* Compute ssd location of the evicted data */
         /* Actually, full FP and address is sufficient. */
         FPIndex::computeCachedataLocation(bucketId_, slotId),
-        nSlotsOccupied * Config::getInstance()->getSectorSize()
+        nSlotsOccupied * Config::getInstance().getSectorSize()
       );
 #endif
 
