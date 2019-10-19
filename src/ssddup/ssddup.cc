@@ -21,6 +21,7 @@ namespace cache {
     double vm, rss;
     dumpMemoryUsage(vm, rss);
     std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
+    std::cout << sizeof(Metadata) << std::endl;
     chunkModule_ = std::make_unique<ChunkModule>();
     std::shared_ptr<IOModule> ioModule = std::make_shared<IOModule>();
     ioModule->addCacheDevice(Config::getInstance()->getCacheDeviceName());
@@ -38,7 +39,6 @@ namespace cache {
     DirtyList::getInstance()->setCompressionModule(compressionModule_);
 #endif
 
-    std::cout << sizeof(Metadata) << std::endl;
   }
 
   SSDDup::~SSDDup() {

@@ -1,4 +1,5 @@
 #include "writebuffer.h"
+#include <csignal>
 
 namespace cache {
     void WriteBuffer::recycle(uint32_t off, uint32_t len) {
@@ -35,13 +36,9 @@ namespace cache {
       std::lock_guard<std::mutex> l(readMutex_);
       while (nReaders_ != 0);
 
-      std::vector<int> threads;
-      int thread_id;
       for (auto &p : index_) {
         // stats related
-        if (p.addr_ != ~0ull) {
-          toFlush.emplace_back(p);
-        }
+        toFlush.emplace_back(p);
       }
 
       index_.clear();
@@ -62,28 +59,29 @@ namespace cache {
       }
       // current buffer is full, try to recycle previous overwritten entries
       {
+        //std::cout << "Before: " << index_.size() << std::endl;
         std::lock_guard<std::mutex> l(readMutex_);
-        std::vector<uint32_t> overwritten_entries;
-        for (int i = index_.size() - 1; i >= 0; --i) {
-          uint64_t addr_ = index_[i].addr_, len_ = index_[i].len_;
-          if (addr_ == ~0ull) continue;
-          for (int j = i - 1; j >= 0; --j) {
-            if (index_[j].addr_ != ~0ull
-                && ((index_[j].addr_ <= addr_ && index_[j].addr_ + index_[j].len_ > addr_)
-                    || (index_[j].addr_ < addr_ + len_ && index_[j].addr_ + index_[j].len_ >= addr_ + len_)
-                    || (index_[j].addr_ >= addr_ && index_[j].addr_ + index_[j].len_ <= addr_ + len_))) {
-              overwritten_entries.push_back(j);
-              index_[j].addr_ = ~0ull;
+        std::vector<std::vector<Entry>::reverse_iterator> overwritten_entries;
+        for (auto iter1 = index_.begin(); iter1 != index_.end(); ) {
+          uint64_t beg1 = iter1->addr_, end1 = beg1 + iter1->len_;
+          bool shouldErase = false;
+          auto iter2 = iter1; ++iter2;
+          for ( ; iter2 != index_.end(); ++iter2) {
+            uint64_t beg2 = iter2->addr_, end2 = beg2 + iter2->len_;
+            if ( (beg1 <= beg2 && end1 > beg2)
+                || (beg1 < end2 && end1 >= end2)
+                || (beg1 >= beg2 && end1 <= end2)) {
+              shouldErase = true;
+              break;
             }
           }
+          if (shouldErase) {
+            recycle(iter1->off_, iter1->len_);
+            iter1 = index_.erase(iter1);
+          } else {
+            ++iter1;
+          }
         }
-
-        std::sort(overwritten_entries.begin(), overwritten_entries.end());
-        for (auto i = overwritten_entries.rbegin(); i != overwritten_entries.rend(); ++i) {
-          recycle(index_[*i].off_, index_[*i].len_);
-          index_.erase(index_.begin() + *i);
-        }
-
         for (auto &entry : freeList_) {
           if (entry.len_ >= len) {
             off = entry.off_;
@@ -98,7 +96,7 @@ namespace cache {
     }
 
     std::pair<uint32_t, uint32_t> WriteBuffer::prepareWrite(uint64_t addr, uint32_t len) {
-      uint32_t offset = 0, currentIndex = ~0u;
+      uint32_t currentIndex = ~0u, offset = 0;
       {
         std::lock_guard<std::mutex> l(writeMutex_);
 
@@ -120,7 +118,7 @@ namespace cache {
     }
 
     std::pair<uint32_t, uint32_t> WriteBuffer::prepareRead(uint64_t addr, uint32_t len) {
-      uint32_t index = -1, offset = 0;
+      uint32_t index = ~0u, offset = 0;
       uint32_t res;
       {
         std::lock_guard<std::mutex> l(readMutex_);

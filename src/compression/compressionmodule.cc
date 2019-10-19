@@ -14,10 +14,6 @@ namespace cache {
 void CompressionModule::compress(Chunk &chunk)
 {
   BEGIN_TIMER();
-#if defined(FAKE_IO)
-  chunk.compressedLen_ = 0;
-  return ;
-#endif
 
 #if defined(CDARC)
   chunk.compressedLen_ = LZ4_compress_default(
@@ -28,9 +24,13 @@ void CompressionModule::compress(Chunk &chunk)
     chunk.compressedBuf_ = chunk.buf_;
   }
 #else // ACDC
+#if defined(FAKE_IO)
+  chunk.compressedLen_ = 0;
+#else
   chunk.compressedLen_ = LZ4_compress_default(
     (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
     chunk.len_, chunk.len_ * 0.75);
+#endif
   double compress_ratio = chunk.compressedLen_ * 1.0 / chunk.len_;
   if (compress_ratio > 0.75 || chunk.compressedLen_ == 0) {
     chunk.compressedLevel_ = 3;

@@ -79,7 +79,6 @@ int ManageModule::read(Chunk &chunk)
   uint8_t *buf;
   uint32_t len;
   generateReadRequest(chunk, deviceType, addr, buf, len);
-
   ioModule_->read(deviceType, addr, buf, len);
 
   return 0;

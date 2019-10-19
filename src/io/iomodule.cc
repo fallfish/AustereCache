@@ -61,11 +61,16 @@ uint32_t IOModule::read(DeviceType deviceType, uint64_t addr, void *buf, uint32_
     Stats::getInstance()->add_bytes_read_from_primary_disk(len);
   } else if (deviceType == CACHE_DEVICE) {
     BEGIN_TIMER();
+    uint32_t index, offset;
+    alignas(512) uint8_t _buf[32768];
+    memset(_buf, 0, 32768);
     if (writeBuffer_ != nullptr) {
       auto indexAndOffset = writeBuffer_->prepareRead(addr, len);
-      auto index = indexAndOffset.first, offset = indexAndOffset.second;
+      index = indexAndOffset.first, offset = indexAndOffset.second;
       if (index != ~0u) {
         inMemBuffer_.read(offset, static_cast<uint8_t *>(buf), len);
+      } else {
+        ret = cacheDevice_->read(addr, static_cast<uint8_t *>(buf), len);
       }
       writeBuffer_->commitRead();
     } else {
@@ -103,7 +108,7 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
             flush(entry.addr_, entry.off_, entry.len_);
           }
         } else {
-          inMemBuffer_.write(addr, (uint8_t*)buf, len);
+          inMemBuffer_.write(offset, (uint8_t*)buf, len);
           break;
         }
       } while (true);
@@ -121,7 +126,6 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
 
 void IOModule::flush(uint64_t addr, uint64_t bufferOffset, uint32_t len)
 {
-  if (len == ~0u) len = inMemBuffer_.len_;
   cacheDevice_->write(addr, inMemBuffer_.buf_ + bufferOffset, len);
 }
 
