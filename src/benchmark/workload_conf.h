@@ -2,16 +2,16 @@
 #include <cstring>
 namespace cache {
   struct WorkloadConfiguration {
-    char _buf[4][32768];
-    uint64_t _working_set_size;
-    uint32_t _chunk_size;
-    uint32_t _num_unique_chunks;
-    float    _duplication_ratios;
-    uint32_t _num_chunks;
-    uint32_t _distribution;
-    float _skewness;
+    char _buf[4][32768]{};
+    uint64_t _working_set_size{};
+    uint32_t _chunk_size{};
+    uint32_t _num_unique_chunks{};
+    float    _duplication_ratios{};
+    uint32_t _num_chunks{};
+    uint32_t _distribution{};
+    float _skewness{};
 
-    WorkloadConfiguration() {}
+    WorkloadConfiguration() = default;
     WorkloadConfiguration(
         char **buf,
         uint32_t chunk_size,
@@ -24,7 +24,7 @@ namespace cache {
       _num_chunks(num_chunks),
       _distribution(distribution),
       _skewness(skewness),
-      _working_set_size(_num_chunks * _chunk_size)
+      _working_set_size(num_chunks * chunk_size)
     {
       for (int i = 0; i < 4; i++) {
         memset(_buf[i], 0, 32768);

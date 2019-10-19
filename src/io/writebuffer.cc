@@ -112,7 +112,7 @@ namespace cache {
       return std::make_pair(currentIndex, offset);
     }
 
-    uint32_t WriteBuffer::commitWrite(uint64_t addr, uint32_t offset, uint32_t len, uint32_t currentIndex) {
+    void WriteBuffer::commitWrite(uint64_t addr, uint32_t offset, uint32_t len, uint32_t currentIndex) {
       index_[currentIndex] = Entry(addr, offset, len);
       nWriters_.fetch_sub(1);
     }
@@ -134,7 +134,7 @@ namespace cache {
       return std::make_pair(index, offset);
     }
 
-    uint32_t WriteBuffer::commitRead() {
+    void WriteBuffer::commitRead() {
       nReaders_.fetch_sub(1);
     }
 }

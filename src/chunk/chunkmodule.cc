@@ -19,9 +19,22 @@ namespace cache {
     Config *conf = Config::getInstance();
     assert(len_ == conf->getChunkSize());
     assert(addr_ % conf->getChunkSize() == 0);
-#ifdef REPLAY_FIU
+
+#if defined(REPLAY_FIU) && defined(FAKE_IO)
     memcpy(fingerprint_, conf->getCurrentFingerprint(), conf->getFingerprintLength());
-#else
+#elif defined(REPLAY_FIU) && !defined(FAKE_IO)
+    memset(buf_, 0, conf->getChunkSize());
+    for (uint32_t offset = 0;
+         offset + conf->getFingerprintLength() < conf->getChunkSize();
+         offset += conf->getFingerprintLength()) {
+      memcpy(buf_, conf->getCurrentFingerprint(), conf->getFingerprintLength());
+    }
+    if (conf->getFingerprintAlg() == 0) {
+      SHA1(buf_, len_, fingerprint_);
+    } else if (conf->getFingerprintAlg() == 1) {
+      MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
+    }
+#elif !define(REPLAY_FIU) && !defined(FAKE_IO) // Normal workload
     if (conf->getFingerprintAlg() == 0) {
       SHA1(buf_, len_, fingerprint_);
     } else if (conf->getFingerprintAlg() == 1) {

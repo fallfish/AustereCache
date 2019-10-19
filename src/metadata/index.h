@@ -27,7 +27,7 @@ namespace cache {
     public:
       Index(uint32_t nBitsPerKey, uint32_t nBitsPerValue,
           uint32_t nSlotsPerBucket, uint32_t nBuckets);
-      ~Index() {}
+      ~Index() = default;
 
       //virtual bool lookup(uint8_t *key, uint8_t *value) = 0;
       //virtual void set(uint8_t *key, uint8_t *value) = 0;

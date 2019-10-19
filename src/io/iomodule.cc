@@ -122,6 +122,8 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
     inMemBuffer_.write(addr, (uint8_t*)buf, len);
   }
   Stats::getInstance()->add_io_request(deviceType, 0, len);
+
+  return 0;
 }
 
 void IOModule::flush(uint64_t addr, uint64_t bufferOffset, uint32_t len)

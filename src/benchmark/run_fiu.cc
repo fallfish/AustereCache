@@ -236,7 +236,7 @@ namespace cache {
           req.r = (op[0] == 'r' || op[0] == 'R');
           _reqs.push_back(req);
         }
-        printf("%s: Go through %lld operations, selected %d\n", ap_file, cnt, _reqs.size());
+        printf("%s: Go through %lld operations, selected %lu\n", ap_file, cnt, _reqs.size());
 
         fclose(f);
       }
@@ -346,8 +346,8 @@ namespace cache {
         data_a = (char*)malloc(sizeof(char) * chunk_size);
         comp_data_a = (char*)malloc(sizeof(char) * chunk_size);
 
-        memset(data_a, 1, sizeof(data_a));
-        memset(comp_data_a, 1, sizeof(comp_data_a));
+        memset(data_a, 1, sizeof(char) * chunk_size);
+        memset(comp_data_a, 1, sizeof(char) * chunk_size);
 
         for (int i = 0; i < chunk_size; i+=8) {
 

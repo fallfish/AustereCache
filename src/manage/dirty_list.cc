@@ -51,7 +51,7 @@ namespace cache {
    */
   void DirtyList::addEvictedChunk(uint64_t cachedataLocation, uint32_t len)
   {
-    EvictedBlock evicted_block;
+    EvictedBlock evicted_block{};
     evicted_block.cachedataLocation_ = cachedataLocation;
     evicted_block.len_ = len;
 

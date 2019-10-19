@@ -183,8 +183,8 @@ namespace cache {
     if (chunk.lookupResult_ == NOT_HIT) {
       // dedup the data, the same procedure as in the write
       // process.
-      compressionModule_->compress(chunk);
       chunk.computeFingerprint();
+      compressionModule_->compress(chunk);
       deduplicationModule_->dedup(chunk);
       manageModule_->updateMetadata(chunk);
       if (chunk.dedupResult_ == NOT_DUP) {
