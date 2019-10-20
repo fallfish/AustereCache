@@ -21,7 +21,7 @@ namespace cache {
     // hold a shared_ptr to ioModule_
     metaVerification_ = std::make_unique<MetaVerification>();
     metaJournal_ = std::make_unique<MetaJournal>();
-    std::cout << "Number of LBA buckets: " << Config::getInstance().getnLBABucket() << std::endl;
+    std::cout << "Number of LBA buckets: " << Config::getInstance().getnLBABuckets() << std::endl;
     std::cout << "Number of FP buckets: " << Config::getInstance().getnFPBuckets() << std::endl;
 #ifdef CACHE_DEDUP
 #if defined(DLRU)

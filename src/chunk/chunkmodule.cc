@@ -16,7 +16,6 @@ namespace cache {
 
   void Chunk::computeFingerprint() {
     BEGIN_TIMER();
-    Config *conf = Config::getInstance();
     assert(len_ == Config::getInstance().getChunkSize());
     assert(addr_ % Config::getInstance().getChunkSize() == 0);
 
@@ -34,7 +33,7 @@ namespace cache {
     } else if (Config::getInstance().getFingerprintAlg() == 1) {
       MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
     }
-#elif !define(REPLAY_FIU) && !defined(FAKE_IO) // Normal workload
+#elif !defined(REPLAY_FIU) && !defined(FAKE_IO) // Normal workload
     if (Config::getInstance().getFingerprintAlg() == 0) {
       SHA1(buf_, len_, fingerprint_);
     } else if (Config::getInstance().getFingerprintAlg() == 1) {
@@ -48,6 +47,10 @@ namespace cache {
     MurmurHash3_x64_128(fingerprint_, Config::getInstance().getFingerprintLength(), 2, tmp);
     fingerprintHash_ = tmp[0];
     fingerprintHash_ >>= 64 - (Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId());
+    fingerprintHash_ =
+      ((fingerprintHash_ >> Config::getInstance().getnBitsPerFPSignature()) % Config::getInstance().getnFPBuckets()) |
+        (fingerprintHash_ & ((1u << Config::getInstance().getnBitsPerFPSignature()) - 1u));
+
     END_TIMER(fingerprinting);
   }
 
@@ -57,15 +60,16 @@ namespace cache {
 
   void Chunk::computeLBAHash()
   {
-    Config *conf = Config::getInstance();
     uint64_t tmp[2];
     MurmurHash3_x64_128(&addr_, 8, 3, tmp);
     lbaHash_ = tmp[0];
     lbaHash_ >>= 64 - (Config::getInstance().getnBitsPerLBASignature() + Config::getInstance().getnBitsPerLBABucketId());
+    lbaHash_ =
+      ((lbaHash_ >> Config::getInstance().getnBitsPerLBASignature()) % Config::getInstance().getnLBABuckets()) |
+      (lbaHash_ & ((1u << Config::getInstance().getnBitsPerLBASignature()) - 1u));
   }
 
   void Chunk::preprocessUnalignedChunk(uint8_t *buf) {
-    Config *conf = Config::getInstance();
     originalAddr_ = addr_;
     originalLen_ = len_;
     originalBuf_ = buf_;
@@ -82,7 +86,6 @@ namespace cache {
   // the base chunk is an unaligned write chunk
   // the delta chunk is a read chunk
   void Chunk::handleReadModifyWrite() {
-    Config *conf = Config::getInstance();
     uint32_t chunk_size = Config::getInstance().getChunkSize();
     assert(addr_ - addr_ % chunk_size == originalAddr_ - originalAddr_ % chunk_size);
 
@@ -97,7 +100,6 @@ namespace cache {
   }
 
   void Chunk::handleReadPartialChunk() {
-    Config *conf = Config::getInstance();
     memcpy(originalBuf_, buf_ + originalAddr_ % Config::getInstance().getChunkSize(), originalLen_);
   }
 

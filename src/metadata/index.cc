@@ -22,7 +22,7 @@ namespace cache {
     nBitsPerKey_ = Config::getInstance().getnBitsPerLBASignature();
     nBitsPerValue_ = Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId();
     nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
-    nBuckets_ = Config::getInstance().getnLBABucket();
+    nBuckets_ = Config::getInstance().getnLBABuckets();
 
     nBytesPerBucket_ = (nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7 / 8;
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;

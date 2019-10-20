@@ -26,9 +26,9 @@ class Config
   uint32_t getnBitsPerFPSignature() { return nBitsPerFPSignature_; }
 
   uint32_t getnBitsPerLBABucketId() {
-    return 32 - __builtin_clz(getnLBABucket());
+    return 32 - __builtin_clz(getnLBABuckets());
   }
-  uint32_t getnLBABucket() {
+  uint32_t getnLBABuckets() {
     return cacheDeviceSize_ / (chunkSize_ * nLBASlotsPerBucket_) * lbaAmplifier_;
   }
   uint32_t getnBitsPerFPBucketId() {
