@@ -58,21 +58,21 @@ namespace cache {
         bool has_ini_stat = false, has_config = false, has_access_pattern = false;
         char *param, *value;
         Config::getInstance().setCacheDeviceSize(16LL * 1024 * 1024 * 1024);
-        printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
         Config::getInstance().setPrimaryDeviceSize(300LL * 1024 * 1024 * 1024);
-        printf("primary device size: %" PRId64 " GiB\n",
-               Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
 
         for (int i = 1; i < argc; i += 2) {
           param = argv[i];
           value = argv[i + 1];
           assert(value != nullptr);
-          if (strcmp(param, "--wr-ratio") == 0) {
+          if (strcmp(param, "--cache-device-size") == 0) {
+            uint64_t cacheSize = 0;
+            sscanf(value, "%llu", &cacheSize);
+            Config::getInstance().setCacheDeviceSize(cacheSize);
+          } else if (strcmp(param, "--lba-amplifier") == 0) {
+            Config::getInstance().setLBAAmplifier(atoi(value));
+            printf("LBAAmplifier: %d\n", atoi(value));
+          } else if (strcmp(param, "--wr-ratio") == 0) {
             _wr_ratio = atof(value);
-          } else if (strcmp(param, "--ca-bits") == 0) {
-            Config::getInstance().setnBitsPerFPBucketId(atoi(value));
-          } else if (strcmp(param, "--lba-bits") == 0) {
-            Config::getInstance().setnBitsPerLBABucketId(atoi(value));
           } else if (strcmp(param, "--multi-thread") == 0) {
             _multi_thread = atoi(value);
           } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
@@ -98,36 +98,9 @@ namespace cache {
         //Config::getInstance().setCacheDeviceName("/dev/sda");
         assert(has_access_pattern);
 
+        printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
+        printf("primary device size: %" PRId64 " GiB\n", Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
         _ssddup = std::make_unique<SSDDup>();
-      }
-
-      /**
-       * function created by jhli
-       * 
-       * Read the configuration file
-       * (Although i don't know what it is now)
-       */
-      void readConfiguration(char* fileName) {
-        // read workload configuration
-        int fd = open(fileName, O_RDONLY);
-        int n = read(fd, &_workload_conf, sizeof(cache::WorkloadConfiguration));
-        assert(n == sizeof(cache::WorkloadConfiguration));
-
-        // parse workload configuration
-        _chunk_size = _workload_conf._chunk_size;
-        _num_unique_chunks = _workload_conf._num_unique_chunks;
-        _num_chunks = _workload_conf._num_chunks;
-        _working_set_size = _chunk_size * _num_chunks;
-        _distribution = _workload_conf._distribution;
-        _skewness = _workload_conf._skewness;
-        std::cout << "chunk size: " << _chunk_size << std::endl
-          << "num unique chunks: " << _num_unique_chunks << std::endl
-          << "num cuhks: " << _num_chunks << std::endl 
-          << "working set size: " << _working_set_size << std::endl
-          << "distribution: " << _distribution << std::endl
-          << "skewness: " << _skewness << std::endl;
-
-        close(fd);
       }
 
       /**
@@ -210,7 +183,6 @@ namespace cache {
         uint32_t len;
         char sha1[50];
         char op[2];
-        Config *conf = Config::getInstance();
         int chunk_size = Config::getInstance().getChunkSize();
 
         int chunk_id, length;
@@ -264,7 +236,6 @@ namespace cache {
         posix_memalign(reinterpret_cast<void **>(&rwdata), 512, 32768 + 10);
         //rwdata = (char*)malloc(32768 + 10);
         std::string s;
-        Config* conf = Config::getInstance();
         int chunk_size = Config::getInstance().getChunkSize();
 
         std::cout << _reqs.size() << std::endl;
@@ -293,8 +264,8 @@ namespace cache {
 #if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
           if (_reqs[i].r) {
             //printf("compressed len: %d\n", _reqs[i].compressed_len);
-            Config::getInstance().set_current_data(comp_data[_reqs[i].compressed_len], _reqs[i].compressed_len);
-            Config::getInstance().set_current_compressed_len(_reqs[i].compressed_len);
+            Config::getInstance().setCurrentData(comp_data[_reqs[i].compressed_len], _reqs[i].compressed_len);
+            Config::getInstance().setCurrentCompressedLen(_reqs[i].compressed_len);
           }
           else 
             memcpy(rwdata, comp_data[_reqs[i].compressed_len], chunk_size); 
@@ -340,7 +311,6 @@ namespace cache {
         random_bytes_engine rbe;
 
         char* data_a, *comp_data_a; 
-        Config* conf = Config::getInstance();
         int chunk_size = Config::getInstance().getChunkSize();
 
         data_a = (char*)malloc(sizeof(char) * chunk_size);

@@ -48,7 +48,8 @@ namespace cache {
     fingerprintHash_ = tmp[0];
     fingerprintHash_ >>= 64 - (Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId());
     fingerprintHash_ =
-      ((fingerprintHash_ >> Config::getInstance().getnBitsPerFPSignature()) % Config::getInstance().getnFPBuckets()) |
+      (((fingerprintHash_ >> Config::getInstance().getnBitsPerFPSignature()) % Config::getInstance().getnFPBuckets())
+      << Config::getInstance().getnBitsPerFPSignature()) |
         (fingerprintHash_ & ((1u << Config::getInstance().getnBitsPerFPSignature()) - 1u));
 
     END_TIMER(fingerprinting);
@@ -65,7 +66,8 @@ namespace cache {
     lbaHash_ = tmp[0];
     lbaHash_ >>= 64 - (Config::getInstance().getnBitsPerLBASignature() + Config::getInstance().getnBitsPerLBABucketId());
     lbaHash_ =
-      ((lbaHash_ >> Config::getInstance().getnBitsPerLBASignature()) % Config::getInstance().getnLBABuckets()) |
+      (((lbaHash_ >> Config::getInstance().getnBitsPerLBASignature()) % Config::getInstance().getnLBABuckets())
+      << Config::getInstance().getnBitsPerFPSignature()) |
       (lbaHash_ & ((1u << Config::getInstance().getnBitsPerLBASignature()) - 1u));
   }
 

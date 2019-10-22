@@ -6,7 +6,7 @@
 
 namespace cache {
 ManageModule& ManageModule::getInstance() {
-  ManageModule instance;
+  static ManageModule instance;
   return instance;
 }
 
@@ -166,7 +166,7 @@ int ManageModule::write(Chunk &chunk)
 void ManageModule::updateMetadata(Chunk &chunk)
 {
   BEGIN_TIMER();
-  metadataModule_->update(chunk);
+  MetadataModule::getInstance().update(chunk);
   END_TIMER(update_index);
 }
 

@@ -11,7 +11,7 @@
 
 namespace cache {
 CompressionModule& CompressionModule::getInstance() {
-  CompressionModule instance;
+  static CompressionModule instance;
   return instance;
 }
 
@@ -19,22 +19,29 @@ void CompressionModule::compress(Chunk &chunk)
 {
   BEGIN_TIMER();
 
-#if defined(CDARC)
+#if defined(NORMAL_DIST_COMPRESSION) // Fill the synthentic compression buffer in
+  chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
+  memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
+#elif defined(FAKE_IO)
+  chunk.compressedLen_ = 0;
+#else // real IO, synthentic compression info
+#ifdef CDARC
   chunk.compressedLen_ = LZ4_compress_default(
       (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
       chunk.len_, chunk.len_ - 1);
+#else // ACDC
+  chunk.compressedLen_ = LZ4_compress_default(
+    (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
+    chunk.len_, chunk.len_ * 0.75);
+#endif
+#endif
+
+#ifdef CDARC
   if (chunk.compressedLen_ == 0) {
     chunk.compressedLen_ = chunk.len_;
     chunk.compressedBuf_ = chunk.buf_;
   }
 #else // ACDC
-#if defined(FAKE_IO)
-  chunk.compressedLen_ = 0;
-#else
-  chunk.compressedLen_ = LZ4_compress_default(
-    (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
-    chunk.len_, chunk.len_ * 0.75);
-#endif
   double compress_ratio = chunk.compressedLen_ * 1.0 / chunk.len_;
   if (compress_ratio > 0.75 || chunk.compressedLen_ == 0) {
     chunk.compressedLevel_ = 3;
@@ -49,21 +56,23 @@ void CompressionModule::compress(Chunk &chunk)
     }
   }
 #endif
+
   END_TIMER(compression);
 }
 
 void CompressionModule::decompress(Chunk &chunk)
 {
   BEGIN_TIMER();
+
 #if defined(CDARC)
   if (chunk.compressedLen_ != chunk.len_) {
 #else // ACDC
   if (chunk.compressedLen_ != 0) {
 #endif
 
-#if defined(NORMAL_DIST_COMPRESSION)
-    chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
+#if defined(NORMAL_DIST_COMPRESSION) // Fill the synthentic compression buffer in
     memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
+    chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
 #endif
 
 #if !defined(FAKE_IO)
@@ -83,12 +92,15 @@ void CompressionModule::decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_
 #else
   if (compressedLen != 0) {
 #endif
+
 #if !defined(FAKE_IO)
-    int res = LZ4_decompress_safe((const char*)compressedBuf, (char*)buf,
-                                  compressedLen, originalLen);
+  int res = LZ4_decompress_safe((const char*)compressedBuf, (char*)buf,
+                                compressedLen, originalLen);
 #endif
   } else {
+#if !defined(FAKE_IO)
     memcpy(buf, compressedBuf, originalLen);
+#endif
   }
   END_TIMER(decompression);
 }

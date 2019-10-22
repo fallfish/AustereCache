@@ -157,7 +157,7 @@ namespace cache {
   {
     capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize() * Config::getInstance().getLBAAmplifier();
     p_ = p;
-    x_ = x;
+    x_ = x; // capacity_;
   }
 
   bool DARC_SourceIndex::lookup(uint64_t lba, uint8_t *ca)
@@ -515,7 +515,7 @@ namespace cache {
   }
   void CDARC_FingerprintIndex::init()
   {
-    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize();
+    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getWriteBufferSize();
     weuAllocator_.init();
   }
 
@@ -558,6 +558,7 @@ namespace cache {
       mp_.erase(it);
       return;
     }
+
     if (weuReferenceCount_.find(weu_id) == weuReferenceCount_.end()) {
       weuReferenceCount_[weu_id] = 0;
     }
@@ -601,9 +602,12 @@ namespace cache {
     if (weuAllocator_.isCurrentWEUFull(len) && weuReferenceCount_.size() == capacity_) {
       // current cache is full, evict an old entry and
       // allocate its ssd location to the new one
+      int nEvictions = 0;
       while (zeroReferenceList_.size() == 0) {
+        nEvictions += 1;
         DARC_SourceIndex::getInstance().manage_metadata_cache(lba);
       }
+      std::cout << nEvictions << " " << zeroReferenceList_.size() << std::endl;
       uint32_t weu_id = zeroReferenceList_.back();
       zeroReferenceList_.pop_back();
       weuReferenceCount_.erase(weu_id);

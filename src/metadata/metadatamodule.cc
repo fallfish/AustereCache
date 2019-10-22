@@ -15,14 +15,6 @@ namespace cache {
   }
 
   MetadataModule::MetadataModule() {
-    fpIndex_ = std::make_shared<FPIndex>();
-    lbaIndex_ = std::make_unique<LBAIndex>(fpIndex_);
-    // metaVerification_ and metaJournal_ should
-    // hold a shared_ptr to ioModule_
-    metaVerification_ = std::make_unique<MetaVerification>();
-    metaJournal_ = std::make_unique<MetaJournal>();
-    std::cout << "Number of LBA buckets: " << Config::getInstance().getnLBABuckets() << std::endl;
-    std::cout << "Number of FP buckets: " << Config::getInstance().getnFPBuckets() << std::endl;
 #ifdef CACHE_DEDUP
 #if defined(DLRU)
     DLRU_SourceIndex::getInstance().init();
@@ -40,6 +32,15 @@ namespace cache {
     std::cout << "SourceIndex capacity: " <<  DARC_SourceIndex::getInstance().capacity_ << std::endl;
     std::cout << "FingerprintIndex capacity: " << CDARC_FingerprintIndex::getInstance().capacity_ << std::endl;
 #endif
+#else
+    fpIndex_ = std::make_shared<FPIndex>();
+    lbaIndex_ = std::make_unique<LBAIndex>(fpIndex_);
+    // metaVerification_ and metaJournal_ should
+    // hold a shared_ptr to ioModule_
+    metaVerification_ = std::make_unique<MetaVerification>();
+    metaJournal_ = std::make_unique<MetaJournal>();
+    std::cout << "Number of LBA buckets: " << Config::getInstance().getnLBABuckets() << std::endl;
+    std::cout << "Number of FP buckets: " << Config::getInstance().getnFPBuckets() << std::endl;
 #endif
   }
 
@@ -119,6 +120,7 @@ namespace cache {
   {
     DARC_SourceIndex::getInstance().adjust_adaptive_factor(c.addr_);
     c.evictedWEUId_ = CDARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
+    //printf("%d %d %d %d\n", c.evictedWEUId_, c.weuId_, c.weuOffset_, c.compressedLen_);
     DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
   }
 #endif

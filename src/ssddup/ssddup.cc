@@ -26,7 +26,6 @@ namespace cache {
 
   SSDDup::~SSDDup() {
     Stats::getInstance().dump();
-    DirtyList::release();
     double vm, rss;
     dumpMemoryUsage(vm, rss);
     std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
@@ -119,14 +118,14 @@ namespace cache {
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
   void SSDDup::internalRead(Chunk &chunk)
   {
-    DeduplicationModule::getInstance().lookup(chunk);
+    DeduplicationModule::lookup(chunk);
     Stats::getInstance().addReadLookupStatistics(chunk);
     // printf("TEST: %s, manageModule_ read\n", __func__);
     ManageModule::getInstance().read(chunk);
 
     if (chunk.lookupResult_ == NOT_HIT) {
       chunk.computeFingerprint();
-      DeduplicationModule::getInstance().dedup(chunk);
+      DeduplicationModule::dedup(chunk);
       ManageModule::getInstance().updateMetadata(chunk);
       if (chunk.dedupResult_ == NOT_DUP) {
         ManageModule::getInstance().write(chunk);
@@ -141,7 +140,7 @@ namespace cache {
   void SSDDup::internalWrite(Chunk &chunk)
   {
     chunk.computeFingerprint();
-    DeduplicationModule::getInstance().dedup(chunk);
+    DeduplicationModule::dedup(chunk);
     ManageModule::getInstance().updateMetadata(chunk);
     ManageModule::getInstance().write(chunk);
 #if defined(WRITE_BACK_CACHE)

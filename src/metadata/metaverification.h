@@ -8,7 +8,7 @@
 namespace cache {
   class MetaVerification {
    public:
-    MetaVerification(std::shared_ptr<CompressionModule> compressionModule);
+    MetaVerification();
     VerificationResult verify(Chunk &chunk);
     void update(Chunk &chunk);
    private:

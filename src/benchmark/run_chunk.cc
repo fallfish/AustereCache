@@ -57,8 +57,6 @@ class RunChunkModule {
         }
       } else if (strcmp(param, "--wr-ratio") == 0) {
         wr_ratio = atof(value);
-      } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::getInstance().setnBitsPerFPBucketId(atoi(value));
       } else if (strcmp(param, "--multi-thread") == 0) {
         _multi_thread = atoi(value);
       } else if (strcmp(param, "--num-workers") == 0) {
@@ -72,7 +70,6 @@ class RunChunkModule {
       exit(1);
     }
     _workload_conf.print_current_parameters();
-    _chunk_module = std::make_unique<ChunkModule>();
   }
 
   void warm_up()
@@ -82,7 +79,7 @@ class RunChunkModule {
   void work()
   {
     Config::getInstance().setFingerprintAlgorithm(1);
-    Chunker chunker = _chunk_module->createChunker(0, _original_data, _workload_conf._working_set_size);
+    Chunker chunker = ChunkModule::getInstance().createChunker(0, _original_data, _workload_conf._working_set_size);
     Chunk chunk;
     while (chunker.next(chunk)) {
       chunk.computeFingerprint();
@@ -98,8 +95,6 @@ class RunChunkModule {
 
   char *_original_data;
   int _multi_thread;
-  std::unique_ptr<ChunkModule> _chunk_module;
-
  public:
   WorkloadConfiguration _workload_conf; 
   int _num_workers;

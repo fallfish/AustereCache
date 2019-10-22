@@ -78,9 +78,7 @@ class TraceGenerator {
 
   void generate_chunk()
   {
-    CompressionModule compression_module;
-    ChunkModule chunk_module;
-    Chunker chunker = chunk_module.createChunker(0, _workload_chunks, _num_chunks * _chunk_size);
+    Chunker chunker = ChunkModule::getInstance().createChunker(0, _workload_chunks, _num_chunks * _chunk_size);
     uint8_t tmp_buf[_chunk_size];
 
     char _fingerprint_file[100];
@@ -96,7 +94,7 @@ class TraceGenerator {
       _chunks[index].computeFingerprint();
       _chunks[index].computeLBAHash();
       _chunks[index].compressedBuf_ = tmp_buf;
-      compression_module.compress(_chunks[index]);
+      CompressionModule::compress(_chunks[index]);
       ++ index;
     }
 

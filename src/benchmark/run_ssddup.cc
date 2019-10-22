@@ -74,10 +74,6 @@ class RunSystem {
         n = read(fd, _unique_chunks, _num_unique_chunks * _chunk_size);
       } else if (strcmp(param, "--wr-ratio") == 0) {
         _wr_ratio = atof(value);
-      } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::getInstance().setnBitsPerFPBucketId(atoi(value));
-      } else if (strcmp(param, "--lba-bits") == 0) {
-        Config::getInstance().setnBitsPerLBABucketId(atoi(value));
       } else if (strcmp(param, "--multi-thread") == 0) {
         _multi_thread = atoi(value);
       } else if (strcmp(param, "--num-workers") == 0) {

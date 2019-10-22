@@ -13,8 +13,6 @@ class RunCompressionModule {
  public:
   RunCompressionModule()
   {
-    _compression_module = std::make_unique<CompressionModule>();
-    _chunk_module = std::make_unique<ChunkModule>();
   }
 
   void parse_argument(int argc, char **argv)
@@ -59,7 +57,7 @@ class RunCompressionModule {
 
   void warm_up()
   {
-    Chunker chunker = _chunk_module->createChunker(
+    Chunker chunker = ChunkModule::getInstance().createChunker(
       0, _original_data, _workload_conf._working_set_size);
 
     _n_chunks = _workload_conf._working_set_size / _workload_conf._chunk_size;
@@ -77,7 +75,7 @@ class RunCompressionModule {
   void compress()
   {
     for (int i = 0; i < _n_chunks; i++) {
-      _compression_module->compress(_chunks[i]);
+      CompressionModule::compress(_chunks[i]);
     }
   }
 
@@ -85,7 +83,7 @@ class RunCompressionModule {
   {
     for (int i = 0; i < _n_chunks; i++) {
       if (_chunks[i].compressedLen_ != 0)
-        _compression_module->decompress(_chunks[i]);
+        CompressionModule::decompress(_chunks[i]);
     }
   }
 
@@ -94,8 +92,6 @@ class RunCompressionModule {
   }
  private:
   Chunk *_chunks;
-  std::unique_ptr<CompressionModule> _compression_module;
-  std::unique_ptr<ChunkModule> _chunk_module;
   WorkloadConfiguration _workload_conf;
   uint8_t *_original_data;
   uint8_t *_compressed_data;

@@ -45,19 +45,14 @@ class RunDeduplicationModule {
           std::cout << "RunDeduplicationModule: read working set failed!" << std::endl; 
           exit(1);
         }
-      } else if (strcmp(param, "--ca-bits") == 0) {
-        Config::getInstance().setnBitsPerFPBucketId(atoi(value));
       }
     }
     IOModule::getInstance().addCacheDevice("./ramdisk/cache_device");
     //ioModule_->addCacheDevice("/dev/sda");
-    _metadata_module = std::make_shared<MetadataModule>(nullptr);
-    _deduplication_module = std::make_unique<DeduplicationModule>(_metadata_module);
   }
 
   void warm_up()
   {
-    Config *conf = Config::getInstance();
     for (int i = 0; i < _n_chunks; i++) {
     alignas(512) Chunk c;
       // the lba hash and ca hash should be adapted to the metadata configuration
@@ -68,8 +63,8 @@ class RunDeduplicationModule {
       _chunks[i].fingerprintHash_ >>= 32 -
         (Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId());
       memcpy(&c, _chunks + i, sizeof(Chunk));
-      _deduplication_module->dedup(c);
-      _metadata_module->update(c);
+      DeduplicationModule::dedup(c);
+      MetadataModule::getInstance().update(c);
     }
   }
 
@@ -92,7 +87,7 @@ class RunDeduplicationModule {
               c.hasFingerprint_ = false;
               c.verficationResult_ = cache::VERIFICATION_UNKNOWN;
             }
-            _deduplication_module->lookup(c);
+            DeduplicationModule::lookup(c);
             if (c.lookupResult_ == NOT_HIT) {
               memcpy(c.fingerprint_, _chunks[j].fingerprint_, 16);
               c.fingerprintHash_ = _chunks[j].fingerprintHash_;
@@ -101,7 +96,7 @@ class RunDeduplicationModule {
             } else if (c.lookupResult_ == HIT) {
               ++n_hits;
             }
-            _metadata_module->update(c);
+            MetadataModule::getInstance().update(c);
           //}
         //));
       }
@@ -112,8 +107,6 @@ class RunDeduplicationModule {
   }
  private:
   Chunk *_chunks;
-  std::unique_ptr<DeduplicationModule> _deduplication_module;
-  std::shared_ptr<MetadataModule> _metadata_module;
   WorkloadConfiguration _workload_conf;
   int _n_chunks;
 };

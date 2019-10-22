@@ -3,8 +3,7 @@
 #include <cstring>
 
 namespace cache {
-  MetaVerification::MetaVerification(std::shared_ptr<CompressionModule> compressionModule) :
-    compressionModule_(compressionModule)
+  MetaVerification::MetaVerification()
   {
     frequentSlots_ = std::make_unique<FrequentSlots>();
   }
@@ -69,7 +68,7 @@ namespace cache {
           if (metadata.compressedLen_ != 0) {
             IOModule::getInstance().read(CACHE_DEVICE, chunk.cachedataLocation_, compressedData,
               (metadata.compressedLen_ + sectorSize - 1) / sectorSize * sectorSize);
-            compressionModule_->decompress(compressedData, decompressedData,
+            CompressionModule::decompress(compressedData, decompressedData,
               metadata.compressedLen_, chunkSize);
           } else {
             IOModule::getInstance().read(CACHE_DEVICE, chunk.cachedataLocation_,
