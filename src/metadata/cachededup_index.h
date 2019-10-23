@@ -114,18 +114,21 @@ namespace cache {
   class DARC_SourceIndex {
     public:
       friend class DARC_FingerprintIndex;
-      
+
+      enum EntryLocation {
+          INVALID, IN_T1, IN_T2, IN_B1, IN_B2, IN_B3
+      };
       struct FP {
         FP() {
           memset(v_, 0, 20);
-          listId_ = 0;
+          listId_ = INVALID;
         }
 
         uint8_t v_[20]{};
         /**
          * list_id: 
          */
-        uint8_t listId_;
+        EntryLocation listId_;
         std::list<uint64_t>::iterator it_;
       };
       DARC_SourceIndex();
@@ -135,7 +138,7 @@ namespace cache {
       bool lookup(uint64_t lba, uint8_t *ca);
       void adjust_adaptive_factor(uint64_t lba);
       void promote(uint64_t lba);
-      void update(uint64_t lba, uint8_t *ca);
+      void update(uint64_t lba, uint8_t *fp);
       void check_metadata_cache(uint64_t lba);
       void manage_metadata_cache(uint64_t lba);
       void replace_in_metadata_cache(uint64_t lba);
@@ -201,6 +204,8 @@ namespace cache {
       std::map<uint64_t, FP> mp_;
       std::list<uint64_t> t1_, t2_, b1_, b2_, b3_;
       uint32_t p_, x_;
+
+      void moveFromAToB(EntryLocation from, EntryLocation to);
   };
 
   class DARC_FingerprintIndex {
@@ -235,11 +240,11 @@ namespace cache {
       void deference(uint64_t lba, uint8_t *fp);
       void update(uint64_t lba, uint8_t *fp, uint64_t &cachedataLocation);
 
-      uint32_t capacity_;
+      uint32_t capacity_{};
   private:
       std::map<FP, DP> mp_;
       std::list<FP> zeroReferenceList_;
-      SpaceAllocator spaceAllocator_;
+      SpaceAllocator spaceAllocator_{};
   };
  
   struct WEUAllocator {

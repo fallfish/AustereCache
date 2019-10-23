@@ -186,179 +186,180 @@ namespace cache {
   {
   }
 
-
-  void DARC_SourceIndex::update(uint64_t lba, uint8_t *ca)
+  void DARC_SourceIndex::moveFromAToB(EntryLocation from, EntryLocation to)
   {
-    FP _fp;
+    uint64_t lba = 0;
+    if (from == IN_T1) {
+      lba = t1_.back();
+      t1_.pop_back();
+    } else if (from == IN_T2) {
+      lba = t2_.back();
+      t2_.pop_back();
+    } else if (from == IN_B1) {
+      lba = b1_.back();
+      b1_.pop_back();
+    } else if (from == IN_B2) {
+      lba = b2_.back();
+      b2_.pop_back();
+    } else if (from == IN_B3) {
+      lba = b3_.back();
+      b3_.pop_back();
+    }
+
+
     auto it = mp_.find(lba);
-
-    if (it == mp_.end()) {
-      check_metadata_cache(lba);
-
-      t1_.push_front(lba);
-      memcpy(_fp.v_, ca, Config::getInstance().getFingerprintLength());
-      _fp.it_ = t1_.begin();
-      _fp.listId_ = 0;
-
-      mp_[lba] = _fp;
-      // add reference count
+    if (from == IN_T1 || from == IN_T2) {
+      // dec reference count
 #ifdef CDARC
-      CDARC_FingerprintIndex::getInstance().reference(lba, ca);
+      CDARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
 #else
-      DARC_FingerprintIndex::getInstance().reference(lba, ca);
+      DARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
 #endif
-      return ;
+    }
+    if (to == IN_T1 || to == IN_T2) {
+      // dec reference count
+#ifdef CDARC
+      CDARC_FingerprintIndex::getInstance().reference(lba, it->second.v_);
+#else
+      DARC_FingerprintIndex::getInstance().reference(lba, it->second.v_);
+#endif
     }
 
-
-    if (it->second.listId_ >= 0 && it->second.listId_ <= 3) {
-      if (it->second.listId_ == 0) {
-        // entry is in T1 and be referenced again, move to T2
-        t1_.erase(it->second.it_);
-      } else if (it->second.listId_ == 1) {
-        // entry is in T2, move to the head
-        t2_.erase(it->second.it_);
-      } else {
-        check_metadata_cache(lba);
-        it = mp_.find(lba);
-        if (it == mp_.end()) {
-          // if check metadata cache remove current lba from the mp
-          t1_.push_front(lba);
-          memcpy(_fp.v_, ca, Config::getInstance().getFingerprintLength());
-          _fp.it_ = t1_.begin();
-          _fp.listId_ = 0;
-
-          mp_[lba] = _fp;
-          // add reference count
-#ifdef CDARC
-          CDARC_FingerprintIndex::getInstance().reference(lba, ca);
-#else
-          DARC_FingerprintIndex::getInstance().reference(lba, ca);
-#endif
-          return ;
-        } else if (it->second.listId_ == 2) {
-          // entry is in B1, move to T2
-          b1_.erase(it->second.it_);
-        } else if (it->second.listId_ == 3) {
-          // entry is in B2, move to T2
-          b2_.erase(it->second.it_);
-        }
-      }
-
-      // If the request is a write, and the content has been changed,
-      // we must deference the old fingerprint
-      //if (Stats::getInstance().get_current_request_type() == 1
-      if ((it->second.listId_ == 0 || it->second.listId_ == 1)) {
-#ifdef CDARC
-        CDARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
-#else
-        DARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
-#endif
-      }
-
+    it->second.listId_ = to;
+    if (to == IN_T1) {
+      t1_.push_front(lba);
+      it->second.it_ = t1_.begin();
+    } else if (to == IN_T2) {
       t2_.push_front(lba);
-      mp_[lba].listId_ = 1;
-      mp_[lba].it_ = t2_.begin();
-    } else if (it->second.listId_ == 4) {
-      // entry is in B3
-      b3_.erase(it->second.it_);
+      it->second.it_ = t2_.begin();
+    } else if (to == IN_B1) {
+      b1_.push_front(lba);
+      it->second.it_ = b1_.begin();
+    } else if (to == IN_B2) {
+      b2_.push_front(lba);
+      it->second.it_ = b2_.begin();
+    } else if (to == IN_B3) {
+      b3_.push_front(lba);
+      it->second.it_ = b3_.begin();
+    }
+  }
 
-      t1_.push_front(lba);
-      mp_[lba].listId_ = 0;
-      mp_[lba].it_ = t1_.begin();
+  void DARC_SourceIndex::update(uint64_t lba, uint8_t *fp)
+  {
+    EntryLocation result = INVALID;
+    FP _fp;
+    auto iter = mp_.find(lba); // lookup
+
+    if (iter == mp_.end()) {
+      result = INVALID;
+    } else {
+      result = iter->second.listId_;
     }
 
-      // add reference count
+    if (result == IN_B1 || result == IN_B2 || result == IN_B3) {
+      check_metadata_cache(lba);
+      iter = mp_.end();
+      if (iter == mp_.end()) {
+        result = INVALID;
+      } else {
+        result = iter->second.listId_;
+      }
+    }
+
+    enum {
+      INSERT_TO_T1, INSERT_TO_T2
+    } action;
+
+    if (result == INVALID) {
+      check_metadata_cache(lba);
+      action = INSERT_TO_T1;
+    } else {
+      if (result == IN_T1) {
+        t1_.erase(iter->second.it_);
+        action = INSERT_TO_T2;
+      } else if (result == IN_T2) {
+        t2_.erase(iter->second.it_);
+        action = INSERT_TO_T2;
+      } else if (result == IN_B1) {
+        b1_.erase(iter->second.it_);
+        action = INSERT_TO_T1;
+      } else if (result == IN_B2) {
+        b2_.erase(iter->second.it_);
+        action = INSERT_TO_T1;
+      } else if (result == IN_B3) {
+        b3_.erase(iter->second.it_);
+        action = INSERT_TO_T1;
+      }
 #ifdef CDARC
-    CDARC_FingerprintIndex::getInstance().reference(lba, ca);
+      CDARC_FingerprintIndex::getInstance().deference(lba, iter->second.v_);
 #else
-    DARC_FingerprintIndex::getInstance().reference(lba, ca);
+      DARC_FingerprintIndex::getInstance().deference(lba, iter->second.v_);
 #endif
-    memcpy(mp_[lba].v_, ca, Config::getInstance().getFingerprintLength());
+    }
+
+    if (action == INSERT_TO_T1) // push to t1
+    {
+      t1_.push_front(lba);
+      _fp.it_ = t1_.begin();
+      _fp.listId_ = IN_T1;
+    } else {
+      t2_.push_front(lba);
+      _fp.it_ = t2_.begin();
+      _fp.listId_ = IN_T2;
+    }
+
+    memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
+    mp_[lba] = _fp;
+    // add reference count
+#ifdef CDARC
+    CDARC_FingerprintIndex::getInstance().reference(lba, fp);
+#else
+    DARC_FingerprintIndex::getInstance().reference(lba, fp);
+#endif
   }
 
   void DARC_SourceIndex::check_metadata_cache(uint64_t lba)
   {
-    uint64_t lba_;
     if (t1_.size() + t2_.size() + b3_.size() == capacity_ + x_) {
-      if (b3_.size() == 0) {
+      if (b3_.empty()) {
         manage_metadata_cache(lba);
       }
-      if (b3_.size() != 0) {
-        lba_ = b3_.back();
+      if (!b3_.empty()) {
+        uint64_t lba_ = b3_.back();
         b3_.pop_back();
         mp_.erase(lba_);
       }
     }
   }
 
+  /*
+   * if |T1| + |B1| >= cap
+   * -- if |T1| < cap, move LRU from B1 to B3, Do replace
+   * -- else, move LRU from T1 to B1, then LRU from B1 to B3
+   * else
+   * -- if |B1| + |B2| > cap, move LRU from B2 to B3
+   * -- Do replace
+   */
   void DARC_SourceIndex::manage_metadata_cache(uint64_t lba)
   {
-    uint64_t lba_;
+    uint64_t lba_ = 0;
+    bool shouldReplace = true;
+    bool moveToB3 = false;
     if (t1_.size() + b1_.size() >= capacity_) {
-      if (t1_.size() < capacity_) {
-        // move LRU from b1 to b3
-        lba_ = b1_.back();
-        b1_.pop_back();
-        b3_.push_front(lba_);
-
-        auto it = mp_.find(lba_);
-        it->second.listId_ = 4;
-        it->second.it_ = b3_.begin();
-
-        replace_in_metadata_cache(lba);
-      } else {
-        if (b1_.size() > 0) {
-          // move LRU from b1 to b3
-          lba_ = b1_.back();
-          b1_.pop_back();
-          b3_.push_front(lba_);
-
-          auto it = mp_.find(lba_);
-          it->second.listId_ = 4;
-          it->second.it_ = b3_.begin();
-          // move LRU from t1 to b1
-          lba_ = t1_.back();
-          t1_.pop_back();
-          b1_.push_front(lba_);
-
-          it = mp_.find(lba_);
-          it->second.listId_ = 2;
-          it->second.it_ = b1_.begin();
-          // dec reference count
-#ifdef CDARC
-          CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#else
-          DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#endif
-        } else {
-          // move LRU from t1 to b3
-          lba_ = t1_.back();
-          t1_.pop_back();
-          b3_.push_front(lba_);
-
-          auto it = mp_.find(lba_);
-          it->second.listId_ = 4;
-          it->second.it_ = b3_.begin();
-          // dec reference count
-#ifdef CDARC
-          CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#else
-          DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#endif
-        }
+      if (t1_.size() >= capacity_) {
+        moveFromAToB(IN_T1, IN_B1);
+        shouldReplace = false;
       }
+      // move LRU from b1 to b3
+      moveFromAToB(IN_B1, IN_B3);
     } else {
       if (b1_.size() + b2_.size() >= capacity_) {
         // move LRU from b2 to b3
-        lba_ = b2_.back();
-        b2_.pop_back();
-        b3_.push_front(lba_);
-
-        auto it = mp_.find(lba_);
-        it->second.listId_ = 4;
-        it->second.it_ = b3_.begin();
+        moveFromAToB(IN_B2, IN_B3);
       }
+    }
+
+    if (shouldReplace) {
       replace_in_metadata_cache(lba);
     }
   }
@@ -367,44 +368,13 @@ namespace cache {
   {
     uint64_t lba_;
     auto tmp_ = mp_.find(lba);
-    if (t1_.size() > 0 &&
-        (t1_.size() > p_ ||
-         (t1_.size() == p_ && (mp_.find(lba) != mp_.end() && mp_.find(lba)->second.listId_ == 3))
-        || t2_.size() == 0)) {
-      // move LRU from T1 to B1
-      lba_ = t1_.back();
-      t1_.pop_back();
-      b1_.push_front(lba_);
-
-      auto it = mp_.find(lba_);
-      it->second.listId_ = 2;
-      it->second.it_ = b1_.begin();
-
-      // dec reference count
-#ifdef CDARC
-      CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#else
-      DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#endif
-    } else {
-      // move LRU from T2 to B2
-      lba_ = t2_.back();
-      t2_.pop_back();
-      b2_.push_front(lba_);
-
-      auto it = mp_.find(lba_);
-      it->second.listId_ = 3;
-      it->second.it_ = b2_.begin();
-      // dec reference count
-#ifdef CDARC
-      CDARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#else
-      DARC_FingerprintIndex::getInstance().deference(lba_, it->second.v_);
-#endif
-    }
+    moveFromAToB(!t1_.empty() &&
+                 (t1_.size() > p_ ||
+                  (t1_.size() == p_ && (mp_.find(lba) != mp_.end() && mp_.find(lba)->second.listId_ == IN_B2))
+                 ) ? IN_T1 : IN_T2, IN_B1);
   }
 
-  DARC_FingerprintIndex::DARC_FingerprintIndex() {}
+  DARC_FingerprintIndex::DARC_FingerprintIndex() = default;
   DARC_FingerprintIndex &DARC_FingerprintIndex::getInstance()
   {
     static DARC_FingerprintIndex instance;
