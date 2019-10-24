@@ -45,7 +45,7 @@ namespace cache {
 #endif
       }
       ~RunSystem() {
-        free(_workload_chunks);
+        _reqs.clear();
         for (auto it : comp_data) free(it.second); 
         for (auto it : comp_original_data) free(it.second); 
         comp_data.clear();
@@ -357,8 +357,6 @@ namespace cache {
           << "--fingerprint-computation-method: indicate the fingerprint computation optimization, 0 - SHA1, 1 - weak hash + memcmp, 2 - weak hash + SHA1" << std::endl
           << "--access-pattern: input access pattern file" << std::endl;
       }
-
-      char *_workload_chunks, *_unique_chunks;
 
       WorkloadConfiguration _workload_conf; 
       uint32_t _working_set_size;

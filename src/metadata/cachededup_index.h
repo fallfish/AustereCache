@@ -149,19 +149,21 @@ namespace cache {
       void check_list_id_consistency() {
         std::vector<uint64_t> lbas2;
         for (auto lba : t1_) {
-          if (mp_[lba].listId_ != 0) {
+          if (mp_[lba].listId_ != IN_T1) {
             lbas2.push_back(lba);
           }
         }
+        int t = 0;
         for (auto lba : t2_) {
-          if (mp_[lba].listId_ != 1) {
-            std::cout << "Should be in " << (int)mp_[lba].listId_ << " while in t2" << std::endl;
+          ++t;
+          if (mp_[lba].listId_ != IN_T2) {
+            std::cout << "index " << t << " " << lba << " " << "Should be in " << (int)mp_[lba].listId_ << " while in t2" << std::endl;
             lbas2.push_back(lba);
           }
         }
         if (!lbas2.empty()) {
           for (auto lba : lbas2) {
-            std::cout << (int)mp_[lba].listId_ << std::endl;
+            std::cout << lba << " " << (int)mp_[lba].listId_ << std::endl;
           }
           assert(0);
         }
@@ -177,7 +179,7 @@ namespace cache {
           if (memcmp(mp_[lba].v_, ca, Config::getInstance().getFingerprintLength()) == 0) {
             lbas.push_back(lba);
           }
-          if (mp_[lba].listId_ != 0) {
+          if (mp_[lba].listId_ != IN_T1) {
             lbas2.push_back(lba);
           }
         }
@@ -185,7 +187,7 @@ namespace cache {
           if (memcmp(mp_[lba].v_, ca, Config::getInstance().getFingerprintLength()) == 0) {
             lbas.push_back(lba);
           }
-          if (mp_[lba].listId_ != 1) {
+          if (mp_[lba].listId_ != IN_T2) {
             std::cout << "Should be in " << (int)mp_[lba].listId_ << " while in t2" << std::endl;
             lbas2.push_back(lba);
           }
@@ -200,7 +202,7 @@ namespace cache {
       }
 
       uint32_t capacity_;
-  private:
+  public:
       std::map<uint64_t, FP> mp_;
       std::list<uint64_t> t1_, t2_, b1_, b2_, b3_;
       uint32_t p_, x_;
