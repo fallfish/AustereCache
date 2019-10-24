@@ -16,7 +16,6 @@ namespace cache {
       void setCompressionModule(std::shared_ptr<CompressionModule> compressionModule);
 
       static DirtyList& getInstance();
-      static void release();
 
       struct EvictedBlock {
         uint64_t cachedataLocation_;

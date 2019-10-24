@@ -115,7 +115,7 @@ namespace cache {
     }
   }
 
-#if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
+#if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC) || defined(BUCKETDLRU))
   void SSDDup::internalRead(Chunk &chunk)
   {
     DeduplicationModule::lookup(chunk);

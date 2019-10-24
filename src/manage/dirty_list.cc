@@ -57,7 +57,7 @@ namespace cache {
    *   Secondly, if there is a dirty data block, read it from ssd
    *   Thirdly, write it to the hdd
    */
-#if defined(DLRU) || defined(DARC)
+#if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
   void DirtyList::flush() {
     alignas(512) uint8_t data[Config::getInstance().getChunkSize()];
     while (evictedBlocks_.size() != 0) {

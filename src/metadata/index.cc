@@ -21,7 +21,7 @@ namespace cache {
   {
     nBitsPerKey_ = Config::getInstance().getnBitsPerLBASignature();
     nBitsPerValue_ = Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId();
-    nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
+    nSlotsPerBucket_ = Config::getInstance().getnLBASlotsPerBucket();
     nBuckets_ = Config::getInstance().getnLBABuckets();
 
     nBytesPerBucket_ = (nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7 / 8;
@@ -135,5 +135,4 @@ namespace cache {
         std::make_unique<std::lock_guard<std::mutex>>(
           mutexes_[bucketId]));
   }
-
 }
