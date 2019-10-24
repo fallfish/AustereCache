@@ -31,7 +31,10 @@ namespace cache {
     CDARC_FingerprintIndex::getInstance().init();
     std::cout << "SourceIndex capacity: " <<  DARC_SourceIndex::getInstance().capacity_ << std::endl;
     std::cout << "FingerprintIndex capacity: " << CDARC_FingerprintIndex::getInstance().capacity_ << std::endl;
+#elif defined(BUCKETDLRU)
+
 #endif
+
 #else
     fpIndex_ = std::make_shared<FPIndex>();
     lbaIndex_ = std::make_unique<LBAIndex>(fpIndex_);
@@ -123,6 +126,32 @@ namespace cache {
     //printf("%d %d %d %d\n", c.evictedWEUId_, c.weuId_, c.weuOffset_, c.compressedLen_);
     DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
   }
+#else
+  void MetadataModule::dedup(Chunk &c)
+  {
+    c.hitFPIndex_ = BucketizedDLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
+    if (c.hitFPIndex_)
+      c.dedupResult_ = DUP_CONTENT;
+    else
+      c.dedupResult_ = NOT_DUP;
+  }
+  void MetadataModule::lookup(Chunk &c)
+  {
+    c.hitLBAIndex_ = BucketizedDLRU_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
+    if (c.hitLBAIndex_) {
+      c.hitFPIndex_ = BucketizedDLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
+    }
+    if (c.hitLBAIndex_ && c.hitFPIndex_)
+      c.lookupResult_ = HIT;
+    else
+      c.lookupResult_ = NOT_HIT;
+  }
+  void MetadataModule::update(Chunk &c)
+  {
+    BucketizedDLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
+    BucketizedDLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
+  }
+#endif
 #endif
 #else
   // Note: 

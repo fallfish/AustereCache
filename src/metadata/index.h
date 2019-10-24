@@ -88,6 +88,5 @@ namespace cache {
 
       //std::map< uint8_t [], std::pair<uint32_t> > collide_fingeprints;
   };
-
 }
 #endif

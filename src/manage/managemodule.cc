@@ -34,7 +34,7 @@ void ManageModule::generateReadRequest(
   if (chunk.lookupResult_ == HIT) {
 #if defined(CACHE_DEDUP)
 
-#if defined(DLRU) || defined(DARC)
+#if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
     deviceType = CACHE_DEVICE;
     addr = chunk.cachedataLocation_;
     buf = chunk.buf_;
@@ -112,7 +112,7 @@ bool ManageModule::generateCacheWriteRequest(
     buf = chunk.compressedBuf_;
     len = (chunk.compressedLevel_ + 1) * Config::getInstance().getSectorSize();
 #else
-#if defined(DLRU) || defined(DARC)
+#if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
     addr = chunk.cachedataLocation_;
     buf = chunk.buf_;
     len = chunk.len_;

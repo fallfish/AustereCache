@@ -9,6 +9,10 @@
 
 namespace cache {
   DLRU_SourceIndex::DLRU_SourceIndex() {}
+  DLRU_SourceIndex::DLRU_SourceIndex(uint32_t capacity) {
+    capacity_ = capacity;
+  }
+
   DLRU_SourceIndex& DLRU_SourceIndex::getInstance()
   {
     static DLRU_SourceIndex instance;
@@ -70,7 +74,8 @@ namespace cache {
     mp_[lba] = _fp;
   }
 
-  DLRU_FingerprintIndex::DLRU_FingerprintIndex() {}
+
+    DLRU_FingerprintIndex::DLRU_FingerprintIndex() {}
   DLRU_FingerprintIndex& DLRU_FingerprintIndex::getInstance()
   {
     static DLRU_FingerprintIndex instance;
@@ -145,7 +150,11 @@ namespace cache {
     cachedataLocation = _dp.cachedataLocation_;
   }
 
-  DARC_SourceIndex::DARC_SourceIndex() {}
+    DLRU_FingerprintIndex::DLRU_FingerprintIndex(uint32_t capacity) {
+      capacity_ = capacity;
+    }
+
+    DARC_SourceIndex::DARC_SourceIndex() {}
 
   DARC_SourceIndex& DARC_SourceIndex::getInstance()
   {
@@ -595,5 +604,6 @@ namespace cache {
     
     return evicted_weu_id;
   }
+
 
 }

@@ -20,6 +20,7 @@
 #include <vector>
 #include <set>
 #include <cassert>
+#include <utils/MurmurHash3.h>
 #include "common/config.h"
 
 namespace cache {
@@ -57,6 +58,7 @@ namespace cache {
       };
 
       DLRU_SourceIndex();
+      explicit DLRU_SourceIndex(uint32_t capacity);
       static DLRU_SourceIndex& getInstance();
       void init();
 
@@ -96,6 +98,7 @@ namespace cache {
       };
 
       DLRU_FingerprintIndex();
+      explicit DLRU_FingerprintIndex(uint32_t capacity);
       static DLRU_FingerprintIndex& getInstance();
       void init();
 
@@ -330,5 +333,80 @@ namespace cache {
       std::list<uint32_t> zeroReferenceList_; // weu_ids
       WEUAllocator weuAllocator_;
   };
+
+
+  class BucketizedDLRU_SourceIndex {
+  public:
+      BucketizedDLRU_SourceIndex() {
+        nSlotsPerBucket_ = Config::getInstance().getnLBASlotsPerBucket();
+        nBuckets_ = Config::getInstance().getnLBABuckets();
+        buckets_ = new DLRU_SourceIndex*[nBuckets_];
+        for (int i = 0; i < nBuckets_; ++i) {
+          buckets_[i] = new DLRU_SourceIndex(nSlotsPerBucket_);
+        }
+      }
+
+      void promote(uint64_t lba) {
+        buckets_[computeBucketId(lba)]->promote(lba);
+      }
+      void update(uint64_t lba, uint8_t *fp) {
+        buckets_[computeBucketId(lba)]->lookup(lba, fp);
+      }
+
+      uint32_t computeBucketId(uint64_t lba) {
+        uint32_t hash;
+        MurmurHash3_x86_32(reinterpret_cast<const void *>(lba), 8, 1, &hash);
+        return hash % nBuckets_;
+      }
+
+      uint32_t nSlotsPerBucket_;
+      uint32_t nBuckets_;
+      DLRU_SourceIndex **buckets_;
+      static BucketizedDLRU_SourceIndex& getInstance() {
+        static BucketizedDLRU_SourceIndex instance;
+        return instance;
+      }
+
+      bool lookup(uint64_t lba, uint8_t *fp) {
+        return buckets_[computeBucketId(lba)]->lookup(lba, fp);
+      }
+  };
+
+    class BucketizedDLRU_FingerprintIndex {
+    public:
+        BucketizedDLRU_FingerprintIndex() {
+          nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
+          nBuckets_ = Config::getInstance().getnFPBuckets();
+          buckets_ = new DLRU_FingerprintIndex*[nBuckets_];
+          for (int i = 0; i < nBuckets_; ++i) {
+            buckets_[i] = new DLRU_FingerprintIndex(nSlotsPerBucket_);
+          }
+        }
+
+        static BucketizedDLRU_FingerprintIndex getInstance() {
+          static BucketizedDLRU_FingerprintIndex instance;
+          return instance;
+        }
+
+        bool lookup(uint8_t *fp, uint64_t &cachedataLocation) {
+          return buckets_[computeBucketId(fp)]->lookup(fp, cachedataLocation);
+        }
+        void promote(uint8_t *fp) {
+          buckets_[computeBucketId(fp)]->promote(fp);
+        }
+        void update(uint8_t *fp, uint64_t &cachedataLocation) {
+          buckets_[computeBucketId(fp)]->update(fp, cachedataLocation);
+        }
+
+        uint32_t computeBucketId(uint8_t *fp) {
+          uint32_t hash;
+          MurmurHash3_x86_32(fp, Config::getInstance().getFingerprintLength(), 2, &hash);
+          return hash % nBuckets_;
+        }
+
+        uint32_t nSlotsPerBucket_;
+        uint32_t nBuckets_;
+        DLRU_FingerprintIndex **buckets_;
+    };
 }
 #endif
