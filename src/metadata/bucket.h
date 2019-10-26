@@ -96,6 +96,9 @@ namespace cache {
 
       inline uint32_t getnSlots() { return nSlots_; }
       inline uint32_t getBucketId() { return bucketId_; }
+      inline void setEvictedSignature(uint64_t signature) {
+        evictedSignature_ = signature;
+      }
 
       Bitmap::Manipulator data_;
       Bitmap::Manipulator valid_;
@@ -103,6 +106,7 @@ namespace cache {
       uint32_t nBitsPerSlot_, nSlots_,
                nBitsPerKey_, nBitsPerValue_;
       uint32_t bucketId_;
+      uint64_t evictedSignature_ = ~0ull;
   };
 
   /**

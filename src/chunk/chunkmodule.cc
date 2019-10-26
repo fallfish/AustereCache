@@ -48,7 +48,7 @@ namespace cache {
     fingerprintHash_ = tmp[0];
     fingerprintHash_ >>= 64 - (Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId());
     fingerprintHash_ =
-      (((fingerprintHash_ >> Config::getInstance().getnBitsPerFPSignature()) % Config::getInstance().getnFPBuckets())
+      ((uint64_t)((fingerprintHash_ >> Config::getInstance().getnBitsPerFPSignature()) % Config::getInstance().getnFPBuckets())
       << Config::getInstance().getnBitsPerFPSignature()) |
         (fingerprintHash_ & ((1u << Config::getInstance().getnBitsPerFPSignature()) - 1u));
 
@@ -66,8 +66,8 @@ namespace cache {
     lbaHash_ = tmp[0];
     lbaHash_ >>= 64 - (Config::getInstance().getnBitsPerLBASignature() + Config::getInstance().getnBitsPerLBABucketId());
     lbaHash_ =
-      (((lbaHash_ >> Config::getInstance().getnBitsPerLBASignature()) % Config::getInstance().getnLBABuckets())
-      << Config::getInstance().getnBitsPerFPSignature()) |
+      ((uint64_t)((lbaHash_ >> Config::getInstance().getnBitsPerLBASignature()) % Config::getInstance().getnLBABuckets())
+      << Config::getInstance().getnBitsPerLBASignature()) |
       (lbaHash_ & ((1u << Config::getInstance().getnBitsPerLBASignature()) - 1u));
   }
 

@@ -39,7 +39,7 @@ namespace cache {
         bucket_->setValid(slotId);
       }
     }
-    // Store the promoted slots to the front
+    // Store the promoted slots to the front (higher slotId is the front)
     for ( ; slotId < nSlots; ++slotId) {
       bucket_->setKey(slotId, k);
       bucket_->setValue(slotId, v);
@@ -91,6 +91,7 @@ namespace cache {
         if (!bucket_->isValid(slotId)) { ++slotId; continue; }
 
         uint32_t key = bucket_->getKey(slotId);
+        bucket_->setEvictedSignature(bucket_->getValue(slotId));
         while (slotId < nSlots
                && bucket_->getKey(slotId) == key) {
           Stats::getInstance().add_lba_index_eviction_caused_by_capacity();

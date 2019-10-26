@@ -231,15 +231,15 @@ namespace cache {
         fpIndex_->promote(chunk.fingerprintHash_);
       } else {
         fpIndex_->update(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
-        fpIndex_->reference(chunk.fingerprintHash_);
       }
       if (chunk.hitLBAIndex_) {
         lbaIndex_->promote(chunk.lbaHash_);
       } else {
         removedFingerprintHash = lbaIndex_->update(chunk.lbaHash_, chunk.fingerprintHash_);
-      }
-      if (removedFingerprintHash != chunk.fingerprintHash_) {
-        fpIndex_->dereference(removedFingerprintHash);
+        fpIndex_->reference(chunk.fingerprintHash_);
+        if (removedFingerprintHash != ~0ull && removedFingerprintHash != chunk.fingerprintHash_) {
+          fpIndex_->dereference(removedFingerprintHash);
+        }
       }
     }
 

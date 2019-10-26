@@ -159,9 +159,12 @@ namespace cache {
     cachedataLocation = _dp.cachedataLocation_;
   }
 
-    DLRU_FingerprintIndex::DLRU_FingerprintIndex(uint32_t capacity) {
-      capacity_ = capacity;
-    }
+  DLRU_FingerprintIndex::DLRU_FingerprintIndex(uint32_t capacity) {
+    capacity_ = capacity;
+    spaceAllocator_.capacity_ = capacity_ * Config::getInstance().getChunkSize();
+    spaceAllocator_.nextLocation_ = 0;
+    spaceAllocator_.chunkSize_ = Config::getInstance().getChunkSize();
+  }
 
     DARC_SourceIndex::DARC_SourceIndex() {}
 

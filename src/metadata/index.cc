@@ -25,7 +25,7 @@ namespace cache {
     nBuckets_ = Config::getInstance().getnLBABuckets();
 
     nBytesPerBucket_ = (nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7 / 8;
-    nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
+    nBytesPerBucketForValid_ = (2 * nSlotsPerBucket_ + 7) / 8;
     data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
     valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
     mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
@@ -53,9 +53,11 @@ namespace cache {
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
-    getLBABucket(bucketId)->update(signature, fpHash, fpIndex_);
+    uint64_t evictedFPHash = getLBABucket(bucketId)->update(signature, fpHash, fpIndex_);
 
     Stats::getInstance().add_lba_bucket_update(bucketId);
+
+    return evictedFPHash;
   }
 
   FPIndex::FPIndex()
@@ -138,17 +140,22 @@ namespace cache {
   }
 
   void FPIndex::reference(uint64_t fpHash) {
+    if (referenceMap_.find(fpHash) == referenceMap_.end()) {
+      referenceMap_[fpHash] = 0;
+    }
     referenceMap_[fpHash] += 1;
   }
   void FPIndex::dereference(uint64_t fpHash) {
+    if (referenceMap_.find(fpHash) == referenceMap_.end()) {
+      assert(0);
+    }
+    //std::cout << referenceMap_[fpHash] << std::endl;
     referenceMap_[fpHash] -= 1;
     if (referenceMap_[fpHash] == 0) {
       uint32_t bucketId = fpHash >> nBitsPerKey_,
         signature = fpHash & ((1u << nBitsPerKey_) - 1);
-
       getFPBucket(bucketId)->evict(signature);
+      referenceMap_.erase(fpHash);
     }
-
-
   }
 }

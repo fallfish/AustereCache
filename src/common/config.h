@@ -29,7 +29,7 @@ class Config
     return 32 - __builtin_clz(getnLBABuckets());
   }
   uint32_t getnLBABuckets() {
-    return cacheDeviceSize_ / (chunkSize_ * nLBASlotsPerBucket_) * lbaAmplifier_;
+    return cacheDeviceSize_ / (chunkSize_ * nLBASlotsPerBucket_) * 2;
   }
   uint32_t getnBitsPerFPBucketId() {
     return 32 - __builtin_clz(getnFPBuckets());

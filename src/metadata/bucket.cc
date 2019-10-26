@@ -52,32 +52,32 @@ namespace cache {
   // If the request modified an existing chunk, return the previous fingerprintHash
   uint64_t LBABucket::update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex) {
     uint64_t _fingerprintHash = 0;
-    uint64_t oldFingerprintHash = ~0ull;
     uint32_t slotId = lookup(lbaSignature, _fingerprintHash);
     if (slotId != ~((uint32_t)0)) {
       if (fingerprintHash == getValue(slotId)) {
         promote(lbaSignature);
+        return evictedSignature_;
       } else {
         Stats::getInstance().add_lba_index_eviction_caused_by_collision();
-        oldFingerprintHash = getValue(slotId);
+        setEvictedSignature(getValue(slotId));
         setInvalid(slotId);
       }
-    } else {
-      // If is full, clear all obsoletes first
-      // Warning: Number of slots is 32, so a uint32_t comparison is efficient.
-      //          Any other design with larger number of slots should change this
-      //          one.
-      if (getValid32bits(0) == ~(uint32_t) 0) {
-        cachePolicyExecutor_->clearObsolete(std::move(fingerprintIndex));
-      }
-      slotId = cachePolicyExecutor_->allocate();
-      setKey(slotId, lbaSignature);
-      setValue(slotId, fingerprintHash);
-      setValid(slotId);
-      cachePolicyExecutor_->promote(slotId);
     }
-    return oldFingerprintHash;
+    // If is full, clear all obsoletes first
+    // Warning: Number of slots is 32, so a uint32_t comparison is efficient.
+    //          Any other design with larger number of slots should change this
+    //          one.
+    //if (getValid32bits(0) == ~(uint32_t) 0) {
+      //cachePolicyExecutor_->clearObsolete(std::move(fingerprintIndex));
+    //}
+    slotId = cachePolicyExecutor_->allocate();
+    setKey(slotId, lbaSignature);
+    setValue(slotId, fingerprintHash);
+    setValid(slotId);
+    cachePolicyExecutor_->promote(slotId);
+    return evictedSignature_;
   }
+
 
 
   /*
@@ -107,7 +107,7 @@ namespace cache {
   }
 
 
-  void FPBucket::promote(uint32_t fpSignature)
+  void FPBucket::promote(uint64_t fpSignature)
   {
     uint32_t slot_id = 0, compressibility_level = 0, n_slots_occupied;
     slot_id = lookup(fpSignature, n_slots_occupied);
@@ -151,6 +151,7 @@ namespace cache {
   }
 
   void FPBucket::evict(uint64_t fpSignature) {
+      //std::cout << "Evict " << fpSignature << std::endl;
     for (uint32_t index = 0; index < nSlots_; index++) {
       if (getKey(index) == fpSignature) {
         setInvalid(index);
