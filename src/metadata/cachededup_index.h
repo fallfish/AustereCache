@@ -22,6 +22,7 @@
 #include <cassert>
 #include <utils/MurmurHash3.h>
 #include "common/config.h"
+#include <csignal>
 
 namespace cache {
   /*
@@ -66,6 +67,14 @@ namespace cache {
       void promote(uint64_t lba);
       void update(uint64_t lba, uint8_t *fp);
 
+    void check_no_reference_to_fp(uint8_t *fp) {
+      for (auto pr : mp_) {
+        if (memcmp(fp, pr.second.v_, Config::getInstance().getFingerprintLength()) == 0) {
+          assert(0);
+        }
+      }
+    }
+
       uint32_t capacity_;
   private:
       std::map<uint64_t, FP> mp_; // mapping from lba to ca and list iter
@@ -91,16 +100,50 @@ namespace cache {
         bool operator<(const FP &fp) const {
           return memcmp(v_, fp.v_, 20) < 0;
         }
+        bool operator==(const FP &fp) const {
+          return memcmp(v_, fp.v_, 20) == 0;
+        }
       };
       struct DP {
         uint64_t cachedataLocation_{};
+        uint32_t referenceCount_{};
         std::list<FP>::iterator it_;
+        std::list<FP>::iterator zeroReferenceListIter_;
       };
 
       DLRU_FingerprintIndex();
       explicit DLRU_FingerprintIndex(uint32_t capacity);
       static DLRU_FingerprintIndex& getInstance();
       void init();
+
+      void reference(uint64_t lba, uint8_t *fp) {
+        FP _fp;
+        memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
+        if (mp_.find(_fp) == mp_.end()) {
+          return ;
+        }
+        mp_[_fp].referenceCount_ += 1;
+        if (mp_[_fp].referenceCount_ == 1) {
+          if (mp_[_fp].zeroReferenceListIter_ != zeroReferenceList_.end()) {
+            zeroReferenceList_.erase(mp_[_fp].zeroReferenceListIter_);
+          }
+        }
+      }
+
+      void deference(uint64_t lba, uint8_t *fp) {
+        FP _fp;
+        memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
+        if (mp_.find(_fp) == mp_.end()) {
+          return ;
+        }
+        if (mp_[_fp].referenceCount_ != 0) {
+          mp_[_fp].referenceCount_ -= 1;
+          if (mp_[_fp].referenceCount_ == 0) {
+            zeroReferenceList_.push_front(_fp);
+            mp_[_fp].zeroReferenceListIter_ = zeroReferenceList_.begin();
+          }
+        }
+      }
 
 
       bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
@@ -111,6 +154,7 @@ namespace cache {
   private:
       std::map<FP, DP> mp_; // mapping from FP to list
       std::list<FP> list_;
+      std::list<FP> zeroReferenceList_;
       SpaceAllocator spaceAllocator_;
   };
 
@@ -235,11 +279,13 @@ namespace cache {
         uint64_t cachedataLocation_{};
         uint32_t referenceCount_{};
         std::list<FP>::iterator zeroReferenceListIt_;
+        std::list<FP>::iterator it_;
       };
 
       DARC_FingerprintIndex();
       static DARC_FingerprintIndex &getInstance();
       void init();
+      void promote(uint8_t *fp);
       bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
       void reference(uint64_t lba, uint8_t *fp);
       void deference(uint64_t lba, uint8_t *fp);
@@ -249,6 +295,7 @@ namespace cache {
   private:
       std::map<FP, DP> mp_;
       std::list<FP> zeroReferenceList_;
+      std::list<FP> list_;
       SpaceAllocator spaceAllocator_{};
   };
  
@@ -341,6 +388,7 @@ namespace cache {
         nSlotsPerBucket_ = Config::getInstance().getnLBASlotsPerBucket();
         nBuckets_ = Config::getInstance().getnLBABuckets();
         buckets_ = new DLRU_SourceIndex*[nBuckets_];
+        std::cout << "Number of LBA buckets: " << nBuckets_ << std::endl;
         for (int i = 0; i < nBuckets_; ++i) {
           buckets_[i] = new DLRU_SourceIndex(nSlotsPerBucket_);
         }
@@ -350,12 +398,12 @@ namespace cache {
         buckets_[computeBucketId(lba)]->promote(lba);
       }
       void update(uint64_t lba, uint8_t *fp) {
-        buckets_[computeBucketId(lba)]->lookup(lba, fp);
+        buckets_[computeBucketId(lba)]->update(lba, fp);
       }
 
       uint32_t computeBucketId(uint64_t lba) {
         uint32_t hash;
-        MurmurHash3_x86_32(reinterpret_cast<const void *>(lba), 8, 1, &hash);
+        MurmurHash3_x86_32(reinterpret_cast<const void *>(&lba), 8, 1, &hash);
         return hash % nBuckets_;
       }
 
@@ -375,9 +423,10 @@ namespace cache {
     class BucketizedDLRU_FingerprintIndex {
     public:
         BucketizedDLRU_FingerprintIndex() {
-          nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
+          nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket() / 4;
           nBuckets_ = Config::getInstance().getnFPBuckets();
           buckets_ = new DLRU_FingerprintIndex*[nBuckets_];
+          std::cout << "Number of FP buckets: " << nBuckets_ << std::endl;
           for (int i = 0; i < nBuckets_; ++i) {
             buckets_[i] = new DLRU_FingerprintIndex(nSlotsPerBucket_);
           }

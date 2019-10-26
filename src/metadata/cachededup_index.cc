@@ -52,26 +52,26 @@ namespace cache {
    */
   void DLRU_SourceIndex::update(uint64_t lba, uint8_t *fp) {
     FP _fp;
-    if (lookup(lba, _fp.v_)) {
-      auto it = mp_.find(lba)->second.it_;
-      memcpy(mp_[lba].v_, fp, Config::getInstance().getFingerprintLength());
-      list_.erase(it);
-      list_.push_front(lba);
-      // renew the iterator stored in the mapping
-      mp_[lba].it_ = list_.begin();
-      return ;
-    }
-
     memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
-    if (list_.size() == capacity_) {
-      uint64_t lba_ = list_.back();
-      list_.pop_back();
-      mp_.erase(lba_);
-      Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
+    if (mp_.find(lba) != mp_.end()) {
+      list_.erase(mp_.find(lba)->second.it_);
+      list_.push_front(lba);
+      mp_[lba].it_ = list_.begin();
+      DLRU_FingerprintIndex::getInstance().deference(lba, mp_[lba].v_);
+    } else {
+      memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
+      if (list_.size() == capacity_) {
+        uint64_t lba_ = list_.back();
+        list_.pop_back();
+        DLRU_FingerprintIndex::getInstance().deference(lba_, mp_[lba_].v_);
+        mp_.erase(lba_);
+        Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
+      }
+      list_.push_front(lba);
+      _fp.it_ = list_.begin();
+      mp_[lba] = _fp;
     }
-    list_.push_front(lba);
-    _fp.it_ = list_.begin();
-    mp_[lba] = _fp;
+    DLRU_FingerprintIndex::getInstance().reference(lba, fp);
   }
 
 
@@ -129,8 +129,15 @@ namespace cache {
     if (list_.size() == capacity_) {
       // current cache is full, evict an old entry and
       // allocate its ssd location to the new one
-      _fp = list_.back();
-      list_.pop_back();
+      do {
+        if (zeroReferenceList_.empty()) {
+          _fp = list_.back();
+          list_.pop_back();
+        } else {
+          _fp = zeroReferenceList_.back();
+          zeroReferenceList_.pop_back();
+        }
+      } while (mp_.find(_fp) == mp_.end());
       // assign the evicted free ssd location to the newly inserted data
       spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
@@ -145,6 +152,8 @@ namespace cache {
     memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     list_.push_front(_fp);
     _dp.it_ = list_.begin();
+    _dp.zeroReferenceListIter_ = zeroReferenceList_.end();
+    _dp.referenceCount_ = 1;
 
     mp_[_fp] = _dp;
     cachedataLocation = _dp.cachedataLocation_;

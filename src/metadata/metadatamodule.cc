@@ -152,7 +152,6 @@ namespace cache {
     BucketizedDLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 #endif
-#endif
 #else
   // Note: 
   // For read request, the chunk should already obtain the lba
