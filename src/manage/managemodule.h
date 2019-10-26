@@ -7,7 +7,7 @@
 #include "io/iomodule.h"
 #include "chunk/chunkmodule.h"
 #include "compression/compressionmodule.h"
-#include "metadata/metadatamodule.h"
+#include "metadata/MetadataModule.h"
 
 namespace cache {
 

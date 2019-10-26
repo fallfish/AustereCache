@@ -1,5 +1,5 @@
 #include "common/env.h"
-#include "metadatamodule.h"
+#include "MetadataModule.h"
 #include "metaverification.h"
 #include "metajournal.h"
 #include "frequentslots.h"

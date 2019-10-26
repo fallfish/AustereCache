@@ -4,6 +4,7 @@
 #include "common/stats.h"
 #include "common/config.h"
 #include "manage/dirty_list.h"
+#include "ReferenceCounter.h"
 
 #include <memory>
 #include <csignal>
@@ -133,6 +134,41 @@ namespace cache {
         ++nSlotsAvailable;
       } else {
         nSlotsAvailable = 0;
+      }
+    }
+
+    // try to evict those zero referenced fingerprint first
+    if (nSlotsAvailable < nSlotsToOccupy) {
+      nSlotsAvailable = 0;
+      slotId = 0;
+      for ( ; slotId < nSlots; ) {
+        // to allocate
+        if (nSlotsAvailable >= nSlotsToOccupy) break;
+        if (!bucket_->isValid(slotId)) {
+          ++nSlotsAvailable;
+          ++slotId;
+          continue;
+        }
+        uint32_t key = bucket_->getKey(slotId);
+        bool shouldEvict = ReferenceCounter::getInstance().query((bucket_->bucketId_ << bucket_->nBitsPerKey_) || key);
+        uint32_t slot_id_begin = slotId;
+        while (slotId < nSlots
+               && key == bucket_->getKey(slotId)) {
+          if (shouldEvict) {
+            bucket_->setInvalid(slotId);
+            ++nSlotsAvailable;
+          }
+          ++slotId;
+        }
+#ifdef WRITE_BACK_CACHE
+        DirtyList::getInstance().addEvictedChunk(
+          /* Compute ssd location of the evicted data */
+          /* Actually, full FP and address is sufficient. */
+          FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
+          (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
+        );
+#endif
+        Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
       }
     }
 

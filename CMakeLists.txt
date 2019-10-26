@@ -43,7 +43,7 @@ add_library(cache
   src/metadata/index.cc
   src/metadata/metaverification.cc
   src/metadata/metajournal.cc
-  src/metadata/metadatamodule.cc
+        src/metadata/MetadataModule.cc
   src/metadata/cache_policy.cc
   src/metadata/cachededup_index.cc
 
@@ -62,7 +62,7 @@ add_library(cache
   src/manage/dirty_list.cc
 
   src/utils/MurmurHash3.cpp
-        src/io/writebuffer.cc src/io/writebuffer.h)
+        src/io/writebuffer.cc src/io/writebuffer.h src/metadata/ReferenceCounter.cc src/metadata/ReferenceCounter.h)
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
 set (OPENSSL_ROOT_DIR ${CMAKE_SOURCE_DIR}/third_party/openssl)

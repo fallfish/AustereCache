@@ -2,7 +2,7 @@
 #define __DEDUP_H__
 #include <memory>
 #include "common/common.h"
-#include "metadata/metadatamodule.h"
+#include "metadata/MetadataModule.h"
 #include "compression/compressionmodule.h"
 #include "chunk/chunkmodule.h"
 

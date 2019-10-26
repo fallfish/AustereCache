@@ -4,6 +4,8 @@
 #include "cache_policy.h"
 #include "common/config.h"
 #include "common/stats.h"
+#include "ReferenceCounter.h"
+
 namespace cache {
 
   Index::Index() = default;
@@ -140,18 +142,11 @@ namespace cache {
   }
 
   void FPIndex::reference(uint64_t fpHash) {
-    if (referenceMap_.find(fpHash) == referenceMap_.end()) {
-      referenceMap_[fpHash] = 0;
-    }
-    referenceMap_[fpHash] += 1;
+    ReferenceCounter::getInstance().reference(fpHash);
   }
   void FPIndex::dereference(uint64_t fpHash) {
-    if (referenceMap_.find(fpHash) == referenceMap_.end()) {
-      assert(0);
-    }
-    //std::cout << referenceMap_[fpHash] << std::endl;
-    referenceMap_[fpHash] -= 1;
-    if (referenceMap_[fpHash] == 0) {
+    bool erased = ReferenceCounter::getInstance().dereference(fpHash);
+    if (erased) {
       uint32_t bucketId = fpHash >> nBitsPerKey_,
         signature = fpHash & ((1u << nBitsPerKey_) - 1);
       getFPBucket(bucketId)->evict(signature);
