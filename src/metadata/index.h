@@ -26,7 +26,6 @@ namespace cache {
   class Index {
     public:
       Index();
-      void init(uint32_t nBitsPerKey, uint32_t nBitsPerValue, uint32_t nSlotsPerBucket, uint32_t nBuckets);
       ~Index() = default;
 
       //virtual bool lookup(uint8_t *key, uint8_t *value) = 0;
@@ -47,11 +46,11 @@ namespace cache {
   class FPIndex;
   class LBAIndex : Index {
     public:
-      LBAIndex(std::shared_ptr<FPIndex> fpIndex);
+      explicit LBAIndex(std::shared_ptr<FPIndex> fpIndex);
       ~LBAIndex();
       bool lookup(uint64_t lbaHash, uint64_t &fpHash);
       void promote(uint64_t lbaHash);
-      void update(uint64_t lbaHash, uint64_t fpHash);
+      uint64_t update(uint64_t lbaHash, uint64_t fpHash);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t lbaHash);
 
       std::unique_ptr<LBABucket> getLBABucket(uint32_t bucketId)
@@ -85,6 +84,10 @@ namespace cache {
       }
       static uint64_t computeCachedataLocation(uint32_t bucketId, uint32_t slotId);
       static uint64_t computeMetadataLocation(uint32_t bucketId, uint32_t slotId);
+
+      void reference(uint64_t fpHash);
+      void dereference(uint64_t fpHash);
+      std::map<uint64_t, uint32_t> referenceMap_;
 
       //std::map< uint8_t [], std::pair<uint32_t> > collide_fingeprints;
   };

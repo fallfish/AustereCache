@@ -49,30 +49,34 @@ namespace cache {
     cachePolicyExecutor_->promote(slotId);
   }
 
-  void LBABucket::update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex) {
+  // If the request modified an existing chunk, return the previous fingerprintHash
+  uint64_t LBABucket::update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex) {
     uint64_t _fingerprintHash = 0;
+    uint64_t oldFingerprintHash = ~0ull;
     uint32_t slotId = lookup(lbaSignature, _fingerprintHash);
     if (slotId != ~((uint32_t)0)) {
       if (fingerprintHash == getValue(slotId)) {
         promote(lbaSignature);
-        return ;
+      } else {
+        Stats::getInstance().add_lba_index_eviction_caused_by_collision();
+        oldFingerprintHash = getValue(slotId);
+        setInvalid(slotId);
       }
-      Stats::getInstance().add_lba_index_eviction_caused_by_collision();
-      setInvalid(slotId);
+    } else {
+      // If is full, clear all obsoletes first
+      // Warning: Number of slots is 32, so a uint32_t comparison is efficient.
+      //          Any other design with larger number of slots should change this
+      //          one.
+      if (getValid32bits(0) == ~(uint32_t) 0) {
+        cachePolicyExecutor_->clearObsolete(std::move(fingerprintIndex));
+      }
+      slotId = cachePolicyExecutor_->allocate();
+      setKey(slotId, lbaSignature);
+      setValue(slotId, fingerprintHash);
+      setValid(slotId);
+      cachePolicyExecutor_->promote(slotId);
     }
-
-    // If is full, clear all obsoletes first
-    // Warning: Number of slots is 32, so a uint32_t comparison is efficient.
-    //          Any other design with larger number of slots should change this
-    //          one.
-    if (getValid32bits(0) == ~(uint32_t)0) {
-      cachePolicyExecutor_->clearObsolete(std::move(fingerprintIndex));
-    }
-    slotId = cachePolicyExecutor_->allocate();
-    setKey(slotId, lbaSignature);
-    setValue(slotId, fingerprintHash);
-    setValid(slotId);
-    cachePolicyExecutor_->promote(slotId);
+    return oldFingerprintHash;
   }
 
 
@@ -81,7 +85,7 @@ namespace cache {
    * alignment issue needs to be dealed for each element
    *
    */
-  uint32_t FPBucket::lookup(uint32_t fpSignature, uint32_t &nSlotsOccupied)
+  uint32_t FPBucket::lookup(uint64_t fpSignature, uint32_t &nSlotsOccupied)
   {
     uint32_t slotId = 0;
     nSlotsOccupied = 0;
@@ -112,7 +116,7 @@ namespace cache {
     cachePolicyExecutor_->promote(slot_id, n_slots_occupied);
   }
 
-  uint32_t FPBucket::update(uint32_t fpSignature, uint32_t nSlotsToOccupy)
+  uint32_t FPBucket::update(uint64_t fpSignature, uint32_t nSlotsToOccupy)
   {
     uint32_t nSlotsOccupied = 0;
     uint32_t slotId = lookup(fpSignature, nSlotsOccupied);
@@ -146,8 +150,7 @@ namespace cache {
     return slotId;
   }
 
-  void FPBucket::erase(uint32_t fpSignature)
-  {
+  void FPBucket::evict(uint64_t fpSignature) {
     for (uint32_t index = 0; index < nSlots_; index++) {
       if (getKey(index) == fpSignature) {
         setInvalid(index);

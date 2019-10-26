@@ -141,7 +141,7 @@ namespace cache {
       // adjust the pointer to the head of an object (chunk) rather than in the middle
       // E.g., a previous compressibility-3 chunk was evicted, and a compressibility-4 chunk
       //       was inserted in-place, which leaves pointer the middle of compressibility-4 chunk
-      //       and cause a false clock deference.
+      //       and cause a false clock dereference.
       if (slotId > 0 && bucket_->isValid(slotId)
           && bucket_->getKey(slotId - 1) == bucket_->getKey(slotId)) {
         uint32_t k = bucket_->getKey(slotId);

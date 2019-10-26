@@ -144,7 +144,7 @@ namespace cache {
        * @param fingerprintHash
        * @param fingerprintIndex used to evict obsolete entries that has been evicted in ca_index
        */
-      void update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex);
+      uint64_t update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex);
   };
 
   /**
@@ -177,19 +177,19 @@ namespace cache {
        *
        * @return ~0 if the lba signature does not exist, otherwise the corresponding index
        */
-      uint32_t lookup(uint32_t fpSignature, uint32_t &nSlotsOccupied);
+      uint32_t lookup(uint64_t fpSignature, uint32_t &nSlotsOccupied);
 
-      void promote(uint32_t fpSignature);
+      void promote(uint64_t fpSignature);
       /**
        * @brief Update the lba index structure
        *
        * @param lba_sig
        * @param size
        */
-      uint32_t update(uint32_t fpSignature, uint32_t nSlotsToOccupy);
+      uint32_t update(uint64_t fpSignature, uint32_t nSlotsToOccupy);
       // Delete an entry for a certain ca signature
       // This is required for hit but verification-failed chunk.
-      void erase(uint32_t fpSignature);
+      void evict(uint64_t fpSignature);
   };
 }
 #endif

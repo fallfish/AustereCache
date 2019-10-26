@@ -130,7 +130,7 @@ namespace cache {
         }
       }
 
-      void deference(uint64_t lba, uint8_t *fp) {
+      void dereference(uint64_t lba, uint8_t *fp) {
         FP _fp;
         memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
         if (mp_.find(_fp) == mp_.end()) {
@@ -288,7 +288,7 @@ namespace cache {
       void promote(uint8_t *fp);
       bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
       void reference(uint64_t lba, uint8_t *fp);
-      void deference(uint64_t lba, uint8_t *fp);
+      void dereference(uint64_t lba, uint8_t *fp);
       void update(uint64_t lba, uint8_t *fp, uint64_t &cachedataLocation);
 
       uint32_t capacity_{};
@@ -369,7 +369,7 @@ namespace cache {
       void init();
       bool lookup(uint8_t *fp, uint32_t &weuId, uint32_t &offset, uint32_t &len);
       void reference(uint64_t lba, uint8_t *fp);
-      void deference(uint64_t lba, uint8_t *fp);
+      void dereference(uint64_t lba, uint8_t *fp);
       uint32_t update(uint64_t lba, uint8_t *fp, uint32_t &weuId,
           uint32_t &offset, uint32_t length);
 

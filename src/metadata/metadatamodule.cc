@@ -224,17 +224,22 @@ namespace cache {
       fpIndex_->promote(chunk.fingerprintHash_);
       lbaIndex_->promote(chunk.lbaHash_);
     } else {
+      uint64_t removedFingerprintHash = ~0ull;
+      // Note that for a cache-candidate chunk, hitLBAIndex indicates both hit in the LBA index and fpHash match
       // deduplication focus on the fingerprint part
       if (chunk.dedupResult_ == DUP_CONTENT || chunk.dedupResult_ == DUP_WRITE) {
         fpIndex_->promote(chunk.fingerprintHash_);
       } else {
         fpIndex_->update(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
+        fpIndex_->reference(chunk.fingerprintHash_);
       }
-      // Note that for a cache-candidate chunk, hitLBAIndex indicates both hit in the LBA index and fpHash match
       if (chunk.hitLBAIndex_) {
         lbaIndex_->promote(chunk.lbaHash_);
       } else {
-        lbaIndex_->update(chunk.lbaHash_, chunk.fingerprintHash_);
+        removedFingerprintHash = lbaIndex_->update(chunk.lbaHash_, chunk.fingerprintHash_);
+      }
+      if (removedFingerprintHash != chunk.fingerprintHash_) {
+        fpIndex_->dereference(removedFingerprintHash);
       }
     }
 

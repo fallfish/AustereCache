@@ -57,13 +57,13 @@ namespace cache {
       list_.erase(mp_.find(lba)->second.it_);
       list_.push_front(lba);
       mp_[lba].it_ = list_.begin();
-      DLRU_FingerprintIndex::getInstance().deference(lba, mp_[lba].v_);
+      DLRU_FingerprintIndex::getInstance().dereference(lba, mp_[lba].v_);
     } else {
       memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
       if (list_.size() == capacity_) {
         uint64_t lba_ = list_.back();
         list_.pop_back();
-        DLRU_FingerprintIndex::getInstance().deference(lba_, mp_[lba_].v_);
+        DLRU_FingerprintIndex::getInstance().dereference(lba_, mp_[lba_].v_);
         mp_.erase(lba_);
         Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
       }
@@ -229,9 +229,9 @@ namespace cache {
     if (from == IN_T1 || from == IN_T2) {
       // dec reference count
 #ifdef CDARC
-      CDARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
+      CDARC_FingerprintIndex::getInstance().dereference(lba, it->second.v_);
 #else
-      DARC_FingerprintIndex::getInstance().deference(lba, it->second.v_);
+      DARC_FingerprintIndex::getInstance().dereference(lba, it->second.v_);
 #endif
     }
     if (to == IN_T1 || to == IN_T2) {
@@ -309,9 +309,9 @@ namespace cache {
       }
       if (result == IN_T1 || result == IN_T2) {
 #ifdef CDARC
-        CDARC_FingerprintIndex::getInstance().deference(lba, iter->second.v_);
+        CDARC_FingerprintIndex::getInstance().dereference(lba, iter->second.v_);
 #else
-        DARC_FingerprintIndex::getInstance().deference(lba, iter->second.v_);
+        DARC_FingerprintIndex::getInstance().dereference(lba, iter->second.v_);
 #endif
       }
     }
@@ -443,7 +443,7 @@ namespace cache {
     }
   }
 
-  void DARC_FingerprintIndex::deference(uint64_t lba, uint8_t *ca)
+  void DARC_FingerprintIndex::dereference(uint64_t lba, uint8_t *ca)
   {
     FP _fp;
     memcpy(_fp.v_, ca, Config::getInstance().getFingerprintLength());
@@ -451,7 +451,7 @@ namespace cache {
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
       assert(0);
-      std::cout << "deference an empty entry" << std::endl;
+      std::cout << "dereference an empty entry" << std::endl;
       exit(0);
     }
     if ((it->second.referenceCount_ -= 1) == 0) {
@@ -557,14 +557,14 @@ namespace cache {
     }
   }
 
-  void CDARC_FingerprintIndex::deference(uint64_t lba, uint8_t *fp)
+  void CDARC_FingerprintIndex::dereference(uint64_t lba, uint8_t *fp)
   {
     FP _fp;
     memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
 
     auto it = mp_.find(_fp);
     if (it == mp_.end()) {
-      std::cout << "deference an empty entry" << std::endl;
+      std::cout << "dereference an empty entry" << std::endl;
       exit(0);
     }
 

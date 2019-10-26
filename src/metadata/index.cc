@@ -48,7 +48,8 @@ namespace cache {
     getLBABucket(bucketId)->promote(signature);
   }
 
-  void LBAIndex::update(uint64_t lbaHash, uint64_t fpHash)
+  // If the request modify an existing LBA, return the previous fingerprint
+  uint64_t LBAIndex::update(uint64_t lbaHash, uint64_t fpHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
@@ -134,5 +135,20 @@ namespace cache {
     return std::move(
         std::make_unique<std::lock_guard<std::mutex>>(
           mutexes_[bucketId]));
+  }
+
+  void FPIndex::reference(uint64_t fpHash) {
+    referenceMap_[fpHash] += 1;
+  }
+  void FPIndex::dereference(uint64_t fpHash) {
+    referenceMap_[fpHash] -= 1;
+    if (referenceMap_[fpHash] == 0) {
+      uint32_t bucketId = fpHash >> nBitsPerKey_,
+        signature = fpHash & ((1u << nBitsPerKey_) - 1);
+
+      getFPBucket(bucketId)->evict(signature);
+    }
+
+
   }
 }
