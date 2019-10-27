@@ -83,19 +83,6 @@ namespace cache {
     alignas(512) Chunk chunk;
     while (chunker.next(chunk)) {
       internalRead(chunk);
-
-      {
-        alignas(512) uint32_t buffer[32768];
-        memset(buffer, 0, Config::getInstance().getChunkSize());
-        //for (uint32_t offset = 0;
-             //offset + Config::getInstance().getFingerprintLength() < Config::getInstance().getChunkSize();
-             //offset += Config::getInstance().getFingerprintLength()) {
-          //memcpy(buffer, Config::getInstance().getCurrentFingerprint(), Config::getInstance().getFingerprintLength());
-        //}
-        //if (memcmp(buffer, chunk.buf_, 32768) != 0) {
-          //std::cout << "Wrong!" << std::endl;
-        //}
-      }
       chunk.fpBucketLock_.reset();
       chunk.lbaBucketLock_.reset();
     }

@@ -65,7 +65,7 @@ namespace cache {
 
       bool lookup(uint64_t lba, uint8_t *fp);
       void promote(uint64_t lba);
-      void update(uint64_t lba, uint8_t *fp);
+      bool update(uint64_t lba, uint8_t *fp, uint8_t *oldFP);
 
     void check_no_reference_to_fp(uint8_t *fp) {
       for (auto pr : mp_) {
@@ -116,7 +116,7 @@ namespace cache {
       static DLRU_FingerprintIndex& getInstance();
       void init();
 
-      void reference(uint64_t lba, uint8_t *fp) {
+      void reference(uint8_t *fp) {
         FP _fp;
         memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
         if (mp_.find(_fp) == mp_.end()) {
@@ -126,11 +126,12 @@ namespace cache {
         if (mp_[_fp].referenceCount_ == 1) {
           if (mp_[_fp].zeroReferenceListIter_ != zeroReferenceList_.end()) {
             zeroReferenceList_.erase(mp_[_fp].zeroReferenceListIter_);
+            mp_[_fp].zeroReferenceListIter_ = zeroReferenceList_.end();
           }
         }
       }
 
-      void dereference(uint64_t lba, uint8_t *fp) {
+      void dereference(uint8_t *fp) {
         FP _fp;
         memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
         if (mp_.find(_fp) == mp_.end()) {
@@ -397,8 +398,8 @@ namespace cache {
       void promote(uint64_t lba) {
         buckets_[computeBucketId(lba)]->promote(lba);
       }
-      void update(uint64_t lba, uint8_t *fp) {
-        buckets_[computeBucketId(lba)]->update(lba, fp);
+      bool update(uint64_t lba, uint8_t *fp, uint8_t *oldFP) {
+        return buckets_[computeBucketId(lba)]->update(lba, fp, oldFP);
       }
 
       uint32_t computeBucketId(uint64_t lba) {
@@ -445,6 +446,13 @@ namespace cache {
         }
         void update(uint8_t *fp, uint64_t &cachedataLocation) {
           buckets_[computeBucketId(fp)]->update(fp, cachedataLocation);
+        }
+
+        void reference(uint8_t *fp) {
+          buckets_[computeBucketId(fp)]->reference(fp);
+        }
+        void dereference(uint8_t *fp) {
+          buckets_[computeBucketId(fp)]->dereference(fp);
         }
 
         uint32_t computeBucketId(uint8_t *fp) {

@@ -3,6 +3,7 @@
 #include "metaverification.h"
 #include "metajournal.h"
 #include "frequentslots.h"
+#include "ReferenceCounter.h"
 #include "common/config.h"
 #include "common/stats.h"
 #include "utils/utils.h"
@@ -70,7 +71,12 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    DLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
+    uint8_t oldFP[20];
+    bool evicted = DLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
+    if (evicted) {
+      DLRU_FingerprintIndex::getInstance().dereference(oldFP);
+    }
+    DLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
     DLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 #elif defined(DARC)
@@ -148,7 +154,15 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    BucketizedDLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
+    uint8_t oldFP[20];
+    memset(oldFP, 0, sizeof(oldFP));
+    bool evicted = BucketizedDLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
+    if (evicted) {
+      FullReferenceCounter::getInstance().dereference(oldFP);
+      BucketizedDLRU_FingerprintIndex::getInstance().dereference(oldFP);
+    }
+    FullReferenceCounter::getInstance().reference(c.fingerprint_);
+    BucketizedDLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
     BucketizedDLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 #endif
@@ -227,11 +241,6 @@ namespace cache {
       uint64_t removedFingerprintHash = ~0ull;
       // Note that for a cache-candidate chunk, hitLBAIndex indicates both hit in the LBA index and fpHash match
       // deduplication focus on the fingerprint part
-      if (chunk.dedupResult_ == DUP_CONTENT || chunk.dedupResult_ == DUP_WRITE) {
-        fpIndex_->promote(chunk.fingerprintHash_);
-      } else {
-        fpIndex_->update(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
-      }
       if (chunk.hitLBAIndex_) {
         lbaIndex_->promote(chunk.lbaHash_);
       } else {
@@ -240,6 +249,11 @@ namespace cache {
         if (removedFingerprintHash != ~0ull && removedFingerprintHash != chunk.fingerprintHash_) {
           fpIndex_->dereference(removedFingerprintHash);
         }
+      }
+      if (chunk.dedupResult_ == DUP_CONTENT || chunk.dedupResult_ == DUP_WRITE) {
+        fpIndex_->promote(chunk.fingerprintHash_);
+      } else {
+        fpIndex_->update(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
       }
     }
 

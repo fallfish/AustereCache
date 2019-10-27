@@ -5,6 +5,7 @@
 #include "common/config.h"
 #include "manage/dirty_list.h"
 #include "ReferenceCounter.h"
+#include <list>
 
 #include <memory>
 #include <csignal>
@@ -125,51 +126,63 @@ namespace cache {
   {
     uint32_t slotId = 0, nSlotsAvailable = 0,
              nSlots = bucket_->getnSlots();
+    uint32_t nEvicts = 0;
     // check whether there is a contiguous space
-    for ( ; slotId < nSlots; ++slotId) {
-      if (nSlotsAvailable == nSlotsToOccupy)
-        break;
-      // find an empty slot
+    // try to evict those zero referenced fingerprint first
+      // slotId - clock
+    std::vector<std::pair<uint32_t, uint32_t>> entries;
+    slotId = 0;
+    for ( ; slotId < nSlots; ) {
       if (!bucket_->isValid(slotId)) {
-        ++nSlotsAvailable;
-      } else {
-        nSlotsAvailable = 0;
+        ++slotId;
+        continue;
+      }
+      uint32_t key = bucket_->getKey(slotId);
+      entries.push_back(std::make_pair(slotId, getClock(slotId)));
+      while (slotId < nSlots && bucket_->getKey(slotId) == key) {
+        ++slotId;
       }
     }
-
-    // try to evict those zero referenced fingerprint first
-    if (nSlotsAvailable < nSlotsToOccupy) {
-      nSlotsAvailable = 0;
+    std::sort(entries.begin(), entries.end(), [](auto &left, auto &right) {
+            return left.second < right.second;
+            });
+    while (true) {
       slotId = 0;
-      for ( ; slotId < nSlots; ) {
-        // to allocate
-        if (nSlotsAvailable >= nSlotsToOccupy) break;
+      nSlotsAvailable = 0;
+      for ( ; slotId < nSlots; ++slotId) {
+        if (nSlotsAvailable >= nSlotsToOccupy)
+          break;
+        // find an empty slot
         if (!bucket_->isValid(slotId)) {
           ++nSlotsAvailable;
-          ++slotId;
-          continue;
+        } else {
+          nSlotsAvailable = 0;
         }
-        uint32_t key = bucket_->getKey(slotId);
-        bool shouldEvict = ReferenceCounter::getInstance().query((bucket_->bucketId_ << bucket_->nBitsPerKey_) || key);
-        uint32_t slot_id_begin = slotId;
-        while (slotId < nSlots
-               && key == bucket_->getKey(slotId)) {
-          if (shouldEvict) {
-            bucket_->setInvalid(slotId);
-            ++nSlotsAvailable;
-          }
+      }
+
+      if (nSlotsAvailable >= nSlotsToOccupy || entries.empty()) break;
+      // slotId, clock
+      std::pair<uint32_t, uint32_t> pr = entries[0];
+      slotId = pr.first;
+      uint32_t key = bucket_->getKey(slotId);
+      if (ReferenceCounter::getInstance().query(
+            (bucket_->bucketId_ << bucket_->nBitsPerKey_) | key)
+         ) {
+        while (slotId < nSlots && key == bucket_->getKey(slotId)) {
+          bucket_->setInvalid(slotId);
           ++slotId;
         }
 #ifdef WRITE_BACK_CACHE
         DirtyList::getInstance().addEvictedChunk(
-          /* Compute ssd location of the evicted data */
-          /* Actually, full FP and address is sufficient. */
-          FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
-          (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
-        );
+            /* Compute ssd location of the evicted data */
+            /* Actually, full FP and address is sufficient. */
+              FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
+              (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
+            );
 #endif
         Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
       }
+      entries.erase(entries.begin());
     }
 
     if (nSlotsAvailable < nSlotsToOccupy) {
@@ -225,7 +238,7 @@ namespace cache {
                 (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
               );
 #endif
-          Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
+          //Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
         }
       }
       *clockPtr_ = slotId;
@@ -240,7 +253,7 @@ namespace cache {
   }
 
   inline void CAClockExecutor::initClock(uint32_t index) {
-    clock_->setValue(index, 1);
+    clock_->setValue(index, Config::getInstance().getClockStartValue());
   }
   inline uint32_t CAClockExecutor::getClock(uint32_t index) {
     return clock_->getValue(index);
@@ -283,7 +296,7 @@ namespace cache {
 
   std::shared_ptr<Bucket> CAClock::getBucket(uint32_t bucketId) {
     return std::make_shared<Bucket>(
-      0, 2, nSlotsPerBucket_,
+      0, Config::getInstance().getnBitsPerClock(), nSlotsPerBucket_,
       clock_.get() + nBytesPerBucket_ * bucketId,
       nullptr,
       nullptr, bucketId);

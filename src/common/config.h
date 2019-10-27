@@ -29,7 +29,18 @@ class Config
     return 32 - __builtin_clz(getnLBABuckets());
   }
   uint32_t getnLBABuckets() {
-    return cacheDeviceSize_ / (chunkSize_ * nLBASlotsPerBucket_) * 2;
+    if (lbaAmplifier_ == 0) {
+      return workingSetSize_ / (chunkSize_ * nLBASlotsPerBucket_);
+    } else {
+      return cacheDeviceSize_ / (chunkSize_ * nLBASlotsPerBucket_) * lbaAmplifier_;
+    }
+  }
+  uint32_t getnSourceIndexEntries() {
+    if (lbaAmplifier_ == 0) {
+      return workingSetSize_ / chunkSize_;
+    } else {
+      return cacheDeviceSize_ / chunkSize_ * lbaAmplifier_;
+    }
   }
   uint32_t getnBitsPerFPBucketId() {
     return 32 - __builtin_clz(getnFPBuckets());
@@ -44,6 +55,7 @@ class Config
   uint32_t getnLBASlotsPerBucket() { return nLBASlotsPerBucket_; }
   uint32_t getnFPSlotsPerBucket() { return nFPSlotsPerBucket_; }
   uint32_t getnBitsPerClock() { return nBitsPerClock_; }
+  uint32_t getClockStartValue() { return clockStartValue_; }
 
 
     uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
@@ -106,6 +118,7 @@ class Config
     compressedLenOfCurrentChunk_ = compressedLen;
   }
 
+  bool currentEvictionIsRewrite = false;
  private:
   Config() {
     // Initialize default configuration
@@ -117,16 +130,18 @@ class Config
     strongFingerprintLen_ = 20;
     primaryDeviceSize_ = 1024 * 1024 * 1024LL * 20;
     cacheDeviceSize_ = 1024 * 1024 * 1024LL * 20;
+    workingSetSize_ = 1024 * 1024 * 1024LL * 4;
 
     // Each bucket has 32 slots. Each index has nBuckets_ buckets,
     // Each slot represents one chunk 32K.
     // To store all lbas without eviction
     // nBuckets_ = primary_storage_size / 32K / 32 = 512
-    nBitsPerLBASignature_ = 12;
+    nBitsPerLBASignature_ = 30;
     nLBASlotsPerBucket_ = 32;
-    nBitsPerFPSignature_ = 12;
-    nFPSlotsPerBucket_ = 32;
-    nBitsPerClock_ = 2;
+    nBitsPerFPSignature_ = 30;
+    nFPSlotsPerBucket_ = 256;
+    nBitsPerClock_ = 3;
+    clockStartValue_ = 3;
     lbaAmplifier_ = 1u;
 
     enableMultiThreads_ = false;
@@ -161,6 +176,7 @@ class Config
   uint32_t nFPSlotsPerBucket_;
   // bits for CLOCK policy
   uint32_t nBitsPerClock_;
+  uint32_t clockStartValue_;
 
   // Multi threading related
   uint32_t maxNumGlobalThreads_;
@@ -171,6 +187,7 @@ class Config
   char *primaryDeviceName_;
   char *cacheDeviceName_;
   uint64_t primaryDeviceSize_;
+  uint64_t workingSetSize_;
   uint64_t cacheDeviceSize_;
   uint32_t writeBufferSize_ = 0;
   bool enableDirectIO_ = false;

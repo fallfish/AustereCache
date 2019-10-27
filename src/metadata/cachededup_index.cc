@@ -2,6 +2,7 @@
 #include "common/config.h"
 #include "common/stats.h"
 #include "manage/dirty_list.h"
+#include "ReferenceCounter.h"
 
 #include <iostream>
 #include <cassert>
@@ -21,7 +22,7 @@ namespace cache {
 
   void DLRU_SourceIndex::init()
   {
-    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize() * Config::getInstance().getLBAAmplifier();
+    capacity_ = Config::getInstance().getnSourceIndexEntries();
   }
 
   /**
@@ -50,28 +51,34 @@ namespace cache {
   /**
    * (Comment by jhli) move 
    */
-  void DLRU_SourceIndex::update(uint64_t lba, uint8_t *fp) {
+  bool DLRU_SourceIndex::update(uint64_t lba, uint8_t *fp, uint8_t *oldFP) {
+    bool evicted = false;
     FP _fp;
     memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
     if (mp_.find(lba) != mp_.end()) {
-      list_.erase(mp_.find(lba)->second.it_);
+      memcpy(oldFP, mp_[lba].v_, Config::getInstance().getFingerprintLength());
+      evicted = true;
+
+      list_.erase(mp_[lba].it_);
       list_.push_front(lba);
-      mp_[lba].it_ = list_.begin();
-      DLRU_FingerprintIndex::getInstance().dereference(lba, mp_[lba].v_);
+      _fp.it_ = list_.begin();
     } else {
-      memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
       if (list_.size() == capacity_) {
         uint64_t lba_ = list_.back();
         list_.pop_back();
-        DLRU_FingerprintIndex::getInstance().dereference(lba_, mp_[lba_].v_);
+
+        memcpy(oldFP, mp_[lba_].v_, Config::getInstance().getFingerprintLength());
+        evicted = true;
+
         mp_.erase(lba_);
         Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
       }
       list_.push_front(lba);
       _fp.it_ = list_.begin();
-      mp_[lba] = _fp;
     }
-    DLRU_FingerprintIndex::getInstance().reference(lba, fp);
+    mp_[lba] = _fp;
+
+    return evicted;
   }
 
 
@@ -119,31 +126,59 @@ namespace cache {
 
   void DLRU_FingerprintIndex::update(uint8_t *fp, uint64_t &cachedataLocation)
   {
+    static uint32_t updateCount = 0;
     FP _fp;
     DP _dp;
     if (lookup(fp, _dp.cachedataLocation_)) {
       promote(fp);
       return ;
     }
+    updateCount += 1;
 
     if (list_.size() == capacity_) {
+
+      bool inRecencyList = true;
+      bool find = false;
+      if (1) {
+        for (std::list<FP>::iterator entry = list_.begin();
+            entry != list_.end(); ++entry) {
+          if (FullReferenceCounter::getInstance().query(entry->v_)) {
+            _fp = *entry;
+            list_.erase(entry);
+            find = true;
+            break;
+          }
+        }
+      } 
+      if (!find) {
       // current cache is full, evict an old entry and
       // allocate its ssd location to the new one
-      do {
-        if (zeroReferenceList_.empty()) {
-          _fp = list_.back();
-          list_.pop_back();
-        } else {
-          _fp = zeroReferenceList_.back();
-          zeroReferenceList_.pop_back();
-        }
-      } while (mp_.find(_fp) == mp_.end());
+        do {
+          if (zeroReferenceList_.empty()) {
+            _fp = list_.back();
+            list_.pop_back();
+            inRecencyList = true;
+          }  else {
+            _fp = zeroReferenceList_.back();
+            zeroReferenceList_.pop_back();
+            inRecencyList = false;
+          }
+        } while (mp_.find(_fp) == mp_.end());
+      }
       // assign the evicted free ssd location to the newly inserted data
-      spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
 #if defined(WRITE_BACK_CACHE)
       DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
           Config::getInstance().getChunkSize());
 #endif
+      if (inRecencyList) {
+        if (mp_[_fp].zeroReferenceListIter_ != zeroReferenceList_.end()) {
+          zeroReferenceList_.erase(mp_[_fp].zeroReferenceListIter_);
+        }
+      } else {
+        list_.erase(mp_[_fp].it_);
+      }
+//#endif
+      spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
       mp_.erase(_fp);
       Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
     }
@@ -166,7 +201,7 @@ namespace cache {
     spaceAllocator_.chunkSize_ = Config::getInstance().getChunkSize();
   }
 
-    DARC_SourceIndex::DARC_SourceIndex() {}
+  DARC_SourceIndex::DARC_SourceIndex() {}
 
   DARC_SourceIndex& DARC_SourceIndex::getInstance()
   {
@@ -176,7 +211,7 @@ namespace cache {
 
   void DARC_SourceIndex::init(uint32_t p, uint32_t x)
   {
-    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getChunkSize() * Config::getInstance().getLBAAmplifier();
+    capacity_ = Config::getInstance().getnSourceIndexEntries();
     p_ = p;
     x_ = x; // capacity_;
   }

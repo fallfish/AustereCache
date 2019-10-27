@@ -60,6 +60,7 @@ namespace cache {
       } else {
         Stats::getInstance().add_lba_index_eviction_caused_by_collision();
         setEvictedSignature(getValue(slotId));
+        Config::getInstance().currentEvictionIsRewrite = true;
         setInvalid(slotId);
       }
     }
