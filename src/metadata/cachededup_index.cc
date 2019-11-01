@@ -2,7 +2,6 @@
 #include "common/config.h"
 #include "common/stats.h"
 #include "manage/dirty_list.h"
-#include "ReferenceCounter.h"
 
 #include <iostream>
 #include <cassert>
@@ -139,32 +138,19 @@ namespace cache {
 
       bool inRecencyList = true;
       bool find = false;
-      if (1) {
-        for (std::list<FP>::iterator entry = list_.begin();
-            entry != list_.end(); ++entry) {
-          if (FullReferenceCounter::getInstance().query(entry->v_)) {
-            _fp = *entry;
-            list_.erase(entry);
-            find = true;
-            break;
-          }
-        }
-      } 
-      if (!find) {
       // current cache is full, evict an old entry and
       // allocate its ssd location to the new one
-        do {
-          if (zeroReferenceList_.empty()) {
-            _fp = list_.back();
-            list_.pop_back();
-            inRecencyList = true;
-          }  else {
-            _fp = zeroReferenceList_.back();
-            zeroReferenceList_.pop_back();
-            inRecencyList = false;
-          }
-        } while (mp_.find(_fp) == mp_.end());
-      }
+      do {
+        if (zeroReferenceList_.empty()) {
+          _fp = list_.back();
+          list_.pop_back();
+          inRecencyList = true;
+        } else {
+          _fp = zeroReferenceList_.back();
+          zeroReferenceList_.pop_back();
+          inRecencyList = false;
+        }
+      } while (mp_.find(_fp) == mp_.end());
       // assign the evicted free ssd location to the newly inserted data
 #if defined(WRITE_BACK_CACHE)
       DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
@@ -538,7 +524,11 @@ namespace cache {
     cachedataLocation = _dp.cachedataLocation_;
   }
 
-  CDARC_FingerprintIndex::CDARC_FingerprintIndex() {}
+  CDARC_FingerprintIndex::CDARC_FingerprintIndex() {
+    capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getWriteBufferSize();
+    weuAllocator_.init();
+  }
+
   CDARC_FingerprintIndex &CDARC_FingerprintIndex::getInstance()
   {
     static CDARC_FingerprintIndex instance;

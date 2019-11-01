@@ -18,6 +18,14 @@ struct Stats {
       return instance;
     }
 
+    void release() {
+#if !defined(CACHE_DEDUP)
+        _n_updates_lba_buckets.reset();
+        _n_updates_fp_buckets.reset();
+        _n_lookups_lba_buckets.reset();
+        _n_lookups_fp_buckets.reset();
+#endif
+    }
     void dump()
     {
       std::cout << "Write: " << std::endl;
@@ -459,7 +467,6 @@ struct Stats {
 #endif
         reset();
       }
-
   };
 }
 

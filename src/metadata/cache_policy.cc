@@ -164,9 +164,10 @@ namespace cache {
       // slotId, clock
       std::pair<uint32_t, uint32_t> pr = entries[0];
       slotId = pr.first;
-      uint32_t key = bucket_->getKey(slotId);
-      if (ReferenceCounter::getInstance().query(
-            (bucket_->bucketId_ << bucket_->nBitsPerKey_) | key)
+      uint64_t key = bucket_->getKey(slotId);
+      if (SketchReferenceCounter::getInstance().query(
+            // uint64_t: Normal people always blame other things for their fault. Scientists do not. Scientists blame others only the faults are indeed caused by others.
+            ((uint64_t)(bucket_->bucketId_) << bucket_->nBitsPerKey_) | key)
          ) {
         while (slotId < nSlots && key == bucket_->getKey(slotId)) {
           bucket_->setInvalid(slotId);
@@ -238,7 +239,7 @@ namespace cache {
                 (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
               );
 #endif
-          //Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
+          Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
         }
       }
       *clockPtr_ = slotId;

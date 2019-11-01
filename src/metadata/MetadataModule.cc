@@ -3,7 +3,6 @@
 #include "metaverification.h"
 #include "metajournal.h"
 #include "frequentslots.h"
-#include "ReferenceCounter.h"
 #include "common/config.h"
 #include "common/stats.h"
 #include "utils/utils.h"
@@ -158,10 +157,8 @@ namespace cache {
     memset(oldFP, 0, sizeof(oldFP));
     bool evicted = BucketizedDLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
     if (evicted) {
-      FullReferenceCounter::getInstance().dereference(oldFP);
       BucketizedDLRU_FingerprintIndex::getInstance().dereference(oldFP);
     }
-    FullReferenceCounter::getInstance().reference(c.fingerprint_);
     BucketizedDLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
     BucketizedDLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }

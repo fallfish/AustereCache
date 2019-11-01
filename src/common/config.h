@@ -13,6 +13,10 @@ class Config
     return instance;
   }
 
+  void release() {
+    free(dataOfCurrentChunk_);
+  }
+
   // getters
   uint32_t getChunkSize() { return chunkSize_; }
   uint32_t getSectorSize() { return sectorSize_; }
@@ -21,6 +25,7 @@ class Config
   uint32_t getStrongFingerprintLength() { return strongFingerprintLen_; }
   uint64_t getPrimaryDeviceSize() { return primaryDeviceSize_; }
   uint64_t getCacheDeviceSize() { return cacheDeviceSize_; }
+  uint64_t getWorkingSetSize() { return workingSetSize_; }
 
   uint32_t getnBitsPerLBASignature() { return nBitsPerLBASignature_; }
   uint32_t getnBitsPerFPSignature() { return nBitsPerFPSignature_; }
@@ -77,6 +82,7 @@ class Config
   void setFingerprintLength(uint32_t ca_length) { fingerprintLen_ = ca_length; }
   void setPrimaryDeviceSize(uint64_t primary_device_size) { primaryDeviceSize_ = primary_device_size; }
   void setCacheDeviceSize(uint64_t cache_device_size) { cacheDeviceSize_ = cache_device_size; }
+  void setWorkingSetSize(uint64_t working_set_size) { workingSetSize_ = working_set_size; }
 
   void setLBAAmplifier(uint32_t v) {
     lbaAmplifier_ = v;
@@ -136,12 +142,12 @@ class Config
     // Each slot represents one chunk 32K.
     // To store all lbas without eviction
     // nBuckets_ = primary_storage_size / 32K / 32 = 512
-    nBitsPerLBASignature_ = 30;
+    nBitsPerLBASignature_ = 12;
     nLBASlotsPerBucket_ = 32;
-    nBitsPerFPSignature_ = 30;
-    nFPSlotsPerBucket_ = 256;
-    nBitsPerClock_ = 3;
-    clockStartValue_ = 3;
+    nBitsPerFPSignature_ = 15;
+    nFPSlotsPerBucket_ = 128;
+    nBitsPerClock_ = 2;
+    clockStartValue_ = 1;
     lbaAmplifier_ = 1u;
 
     enableMultiThreads_ = false;

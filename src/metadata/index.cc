@@ -142,10 +142,12 @@ namespace cache {
   }
 
   void FPIndex::reference(uint64_t fpHash) {
-    ReferenceCounter::getInstance().reference(fpHash);
+    //ReferenceCounter::getInstance().reference(fpHash);
+    SketchReferenceCounter::getInstance().reference(fpHash);
   }
   void FPIndex::dereference(uint64_t fpHash) {
-    ReferenceCounter::getInstance().dereference(fpHash);
+    //ReferenceCounter::getInstance().dereference(fpHash);
+    SketchReferenceCounter::getInstance().dereference(fpHash);
     if (Config::getInstance().currentEvictionIsRewrite && ReferenceCounter::getInstance().query(fpHash) == true) {
       Config::getInstance().currentEvictionIsRewrite = false;
       uint32_t bucketId = fpHash >> nBitsPerKey_,

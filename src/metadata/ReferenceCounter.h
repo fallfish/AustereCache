@@ -54,5 +54,23 @@ namespace cache {
       return instance;
     }
   };
+
+  class SketchReferenceCounter {
+    uint8_t *sketch_;
+    uint32_t width_, height_;
+    std::map<uint32_t, uint16_t> mp_;
+
+    SketchReferenceCounter();
+    public:
+      void clear();
+      bool query(uint64_t key);
+      void reference(uint64_t key);
+      void dereference(uint64_t key);
+      static SketchReferenceCounter& getInstance() {
+        static SketchReferenceCounter instance;
+        return instance;
+      }
+
+  };
 }
 #endif //SSDDUP_REFERENCECOUNTER_H

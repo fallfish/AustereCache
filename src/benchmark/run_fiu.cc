@@ -83,8 +83,12 @@ namespace cache {
             Config::getInstance().setWriteBufferSize(atoi(value));
           } else if (strcmp(param, "--direct-io") == 0) {
             Config::getInstance().enableDirectIO(atoi(value));
-          } else if (strcmp(param, "--access-pattern") == 0) {
-            has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
+          //} else if (strcmp(param, "--access-pattern") == 0) {
+            //has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
+          } else if (strcmp(param, "--working-set-size") == 0) {
+            uint64_t workingSetSize = 0;
+            sscanf(value, "%llu", &workingSetSize);
+            Config::getInstance().setWorkingSetSize(workingSetSize);
           }
         }
 
@@ -96,11 +100,19 @@ namespace cache {
         Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
         //Config::getInstance().setPrimaryDeviceName("/dev/sdb");
         //Config::getInstance().setCacheDeviceName("/dev/sda");
-        assert(has_access_pattern);
+        //assert(has_access_pattern);
 
         printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
         printf("primary device size: %" PRId64 " GiB\n", Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
+        printf("woring set size: %" PRId64 " MiB\n", Config::getInstance().getWorkingSetSize() / 1024 / 1024);
         _ssddup = std::make_unique<SSDDup>();
+        for (int i = 1; i < argc; i += 2) {
+          param = argv[i];
+          value = argv[i + 1];
+          if (strcmp(param, "--access-pattern") == 0) {
+            has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
+          }
+        }
       }
 
       /**
@@ -192,11 +204,15 @@ namespace cache {
 
         double compressibility;
 
+        char* rwdata;
+        posix_memalign(reinterpret_cast<void **>(&rwdata), 512, 32768 + 10);
+        std::string s;
+
         while (fscanf(f, "%lld %d %s %s %lf", &req.addr, &req.len, op, req.sha1, &compressibility) != -1) {
           cnt++;
-          if (req.addr >= Config::getInstance().getPrimaryDeviceSize()) {
-            continue;
-          }
+          //if (req.addr >= Config::getInstance().getPrimaryDeviceSize()) {
+            //continue;
+          //}
 
 #ifdef NORMAL_DIST_COMPRESSION
           int clen = (double)chunk_size / compressibility; 
@@ -206,7 +222,59 @@ namespace cache {
 #endif
 
           req.r = (op[0] == 'r' || op[0] == 'R');
-          _reqs.push_back(req);
+
+          //_reqs.push_back(req);
+          //continue;
+          if (cnt % 100000 == 0) printf("req %d\n", cnt); // , num of unique sha1 = %d\n", i, sets.size());
+          //if (_reqs[i].r) printf("req %d\n", i);
+
+          LL begin;
+          int len;
+
+          begin = req.addr;
+          len = req.len;
+
+          //Zero hit ratio test
+          //sprintf(_reqs[i].sha1, "0000_0000_0000_0000_0000_0000_00_%07d", i);
+          s = std::string(req.sha1);
+          convertStr2Sha1(req.sha1, sha1);
+
+#if defined(REPLAY_FIU)
+          Config::getInstance().setCurrentFingerprint(sha1);
+#endif
+
+#if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
+          if (req.r) {
+            //printf("compressed len: %d\n", req.compressed_len);
+            Config::getInstance().setCurrentData(comp_data[req.compressed_len], req.compressed_len);
+            Config::getInstance().setCurrentCompressedLen(req.compressed_len);
+          }
+          else 
+            memcpy(rwdata, comp_data[req.compressed_len], chunk_size); 
+#else
+          if (!req.r)
+            memcpy40Bto32K(rwdata, req.sha1);
+#endif
+
+          if (req.r) {
+            _ssddup->read(begin, rwdata, len);
+          } else {
+            _ssddup->write(begin, rwdata, len);
+          }
+
+          // Debug
+#if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
+          if (false && req.r) {
+            printf("TEST: addr = %" PRId64 ", i = %d\n", req.addr, i);
+            if (!memcmp(rwdata, comp_original_data[req.compressed_len], chunk_size)) printf("OK, same\n");
+            else {
+              printf("not ok, not same\nOriginal data: ");
+              print_SHA1(comp_original_data[req.compressed_len], chunk_size);
+              printf("Read data: ");
+              print_SHA1(rwdata, chunk_size);
+            }
+          }
+#endif
         }
         printf("%s: Go through %lld operations, selected %lu\n", ap_file, cnt, _reqs.size());
 

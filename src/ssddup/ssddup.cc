@@ -26,6 +26,8 @@ namespace cache {
 
   SSDDup::~SSDDup() {
     Stats::getInstance().dump();
+    Stats::getInstance().release();
+    Config::getInstance().release();
     double vm, rss;
     dumpMemoryUsage(vm, rss);
     std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
