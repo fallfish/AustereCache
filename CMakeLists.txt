@@ -14,7 +14,7 @@ list(APPEND CacheLibSources
         src/metadata/index.cc
         src/metadata/metaverification.cc
         src/metadata/metajournal.cc
-        src/metadata/cache_policy.cc
+        src/metadata/CachePolicy.cc
         src/metadata/cachededup_index.cc
 
         src/chunk/chunkmodule.cc
@@ -29,7 +29,7 @@ list(APPEND CacheLibSources
         src/io/iomodule.cc
 
         src/manage/managemodule.cc
-        src/manage/dirty_list.cc
+        src/manage/DirtyList.cc
 
         src/utils/MurmurHash3.cpp
         src/io/writebuffer.cc
@@ -39,11 +39,11 @@ list(APPEND CacheLibSources
 if (DLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DDLRU)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleDLRU.cc src/ssddup/ssddupNoCompression.cc)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleDLRU.cc src/ssddup/ssddupNoCompression.cc src/manage/DirtyListCacheDedup.cc)
 elseif (DARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DDARC)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleDARC.cc src/ssddup/ssddupNoCompression.cc)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleDARC.cc src/ssddup/ssddupNoCompression.cc src/manage/DirtyListCacheDedup.cc)
 elseif (CDARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DCDARC)
@@ -51,11 +51,12 @@ elseif (CDARC)
 elseif (BUCKETDLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DBUCKETDLRU)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleBucketDLRU.cc src/ssddup/ssddupNoCompression.cc)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleBucketDLRU.cc src/ssddup/ssddupNoCompression.cc src/manage/DirtyListCacheDedup.cc)
 else ()
   add_definitions(-DACDC)
-  list(APPEND CacheLibSources src/metadata/MetadataModule.cc src/ssddup/ssddupCompression.cc)
+  list(APPEND CacheLibSources src/metadata/MetadataModule.cc src/ssddup/ssddupCompression.cc src/manage/DirtyListACDC.cc)
 endif()
+
 if (ENABLE_WRITE_BACK)
   add_definitions(-DWRITE_BACK_CACHE)
 endif()

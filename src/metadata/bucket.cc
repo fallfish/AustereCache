@@ -5,9 +5,9 @@
 #include "bitmap.h"
 #include "bucket.h"
 #include "index.h"
-#include "cache_policy.h"
+#include "CachePolicy.h"
 #include "common/stats.h"
-#include "manage/dirty_list.h"
+#include "manage/DirtyList.h"
 #include <csignal>
 
 #include "validators.h"

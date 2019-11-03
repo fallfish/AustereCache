@@ -1,9 +1,9 @@
-#include "cache_policy.h"
+#include "CachePolicy.h"
 #include "bucket.h"
 #include "index.h"
 #include "common/stats.h"
 #include "common/config.h"
-#include "manage/dirty_list.h"
+#include "manage/DirtyList.h"
 #include "ReferenceCounter.h"
 #include <list>
 
@@ -129,63 +129,17 @@ namespace cache {
     uint32_t nEvicts = 0;
     // check whether there is a contiguous space
     // try to evict those zero referenced fingerprint first
-      // slotId - clock
-    std::vector<std::pair<uint32_t, uint32_t>> entries;
     slotId = 0;
-    for ( ; slotId < nSlots; ) {
+    nSlotsAvailable = 0;
+    for ( ; slotId < nSlots; ++slotId) {
+      if (nSlotsAvailable >= nSlotsToOccupy)
+        break;
+      // find an empty slot
       if (!bucket_->isValid(slotId)) {
-        ++slotId;
-        continue;
+        ++nSlotsAvailable;
+      } else {
+        nSlotsAvailable = 0;
       }
-      uint32_t key = bucket_->getKey(slotId);
-      entries.push_back(std::make_pair(slotId, getClock(slotId)));
-      while (slotId < nSlots && bucket_->getKey(slotId) == key) {
-        ++slotId;
-      }
-    }
-    std::sort(entries.begin(), entries.end(), [](auto &left, auto &right) {
-            return left.second < right.second;
-            });
-    while (true) {
-      slotId = 0;
-      nSlotsAvailable = 0;
-      for ( ; slotId < nSlots; ++slotId) {
-        if (nSlotsAvailable >= nSlotsToOccupy)
-          break;
-        // find an empty slot
-        if (!bucket_->isValid(slotId)) {
-          ++nSlotsAvailable;
-        } else {
-          nSlotsAvailable = 0;
-        }
-      }
-
-      if (nSlotsAvailable >= nSlotsToOccupy || entries.empty()) break;
-      // slotId, clock
-      std::pair<uint32_t, uint32_t> pr = entries[0];
-      slotId = pr.first;
-      uint64_t key = bucket_->getKey(slotId);
-      if (SketchReferenceCounter::getInstance().query(
-            // uint64_t: Normal people always blame other things for their fault. Scientists do not. Scientists blame others only the faults are indeed caused by others.
-            ((uint64_t)(bucket_->bucketId_) << bucket_->nBitsPerKey_) | key)
-         ) {
-        uint32_t nSlotsOccupied =0 ;
-        while (slotId < nSlots && key == bucket_->getKey(slotId)) {
-          bucket_->setInvalid(slotId);
-          nSlotsOccupied += 1;
-          ++slotId;
-        }
-#ifdef WRITE_BACK_CACHE
-        DirtyList::getInstance().addEvictedChunk(
-            /* Compute ssd location of the evicted data */
-            /* Actually, full FP and address is sufficient. */
-              FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotId - nSlotsOccupied),
-              nSlotsOccupied * Config::getInstance().getSectorSize()
-            );
-#endif
-        Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
-      }
-      entries.erase(entries.begin());
     }
 
     if (nSlotsAvailable < nSlotsToOccupy) {
@@ -303,5 +257,90 @@ namespace cache {
       clock_.get() + nBytesPerBucket_ * bucketId,
       nullptr,
       nullptr, bucketId);
+  }
+
+  LeastReferenceCountExecutor::LeastReferenceCountExecutor(Bucket *bucket)
+    : CachePolicyExecutor(bucket)
+  {
+
+  }
+
+  void LeastReferenceCountExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy) {}
+
+  void LeastReferenceCountExecutor::clearObsolete(std::shared_ptr<FPIndex> fpIndex) {}
+
+  uint32_t LeastReferenceCountExecutor::allocate(uint32_t nSlotsToOccupy) {
+
+    std::vector<uint32_t, uint32_t> slotsToReferenceCounts;
+    uint32_t slotId = 0, nSlotsAvailable = 0,
+      nSlots = bucket_->getnSlots();
+
+    for (slotId = 0; slotId < nSlots; ) {
+      if (!bucket_->isValid(slotId)) {
+        ++slotId;
+        continue;
+      }
+      uint64_t key = bucket_->getKey(slotId);
+      uint64_t bucketId = bucket_->bucketId_;
+      slotsToReferenceCounts.emplace_back(slotId,
+        SketchReferenceCounter::getInstance().query(
+          (bucketId << Config::getInstance().getnBitsPerFPSignature()) |
+          key
+          ));
+      while (slotId < nSlots && bucket_->isValid(slotId)
+        && key == bucket_->getKey(slotId)) {
+        ++slotId;
+      }
+    }
+    std::sort(slotsToReferenceCounts.begin(),
+      slotsToReferenceCounts.end(),
+      [](auto &left, auto &right) {
+        return left.second < right.second;
+    });
+
+    while (true) {
+      // check whether there is a contiguous space
+      // try to evict those zero referenced fingerprint first
+      slotId = 0;
+      nSlotsAvailable = 0;
+      for (; slotId < nSlots; ++slotId) {
+        if (nSlotsAvailable >= nSlotsToOccupy)
+          break;
+        // find an empty slot
+        if (!bucket_->isValid(slotId)) {
+          ++nSlotsAvailable;
+        } else {
+          nSlotsAvailable = 0;
+        }
+      }
+
+      if (nSlotsAvailable >= nSlotsToOccupy) break;
+      // Evict the least RF entry
+      slotId = slotsToReferenceCounts[0].first;
+      uint64_t key = bucket_->getKey(slotId);
+      while (slotId < nSlots && bucket_->isValid(slotId)
+          && key == bucket_->getKey(slotId)) {
+        bucket_->setInvalid(slotId);
+        ++slotId;
+      }
+#ifdef WRITE_BACK_CACHE
+      DirtyList::getInstance().addEvictedChunk(
+        /* Compute ssd location of the evicted data */
+        /* Actually, full FP and address is sufficient. */
+        FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotsToReferenceCounts[0].first),
+        (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
+      );
+#endif
+
+      slotsToReferenceCounts.erase(slotsToReferenceCounts.begin());
+    }
+
+    return slotId - nSlotsAvailable;
+  }
+
+  LeastReferenceCount::LeastReferenceCount() = default;
+
+  std::shared_ptr<CachePolicyExecutor> LeastReferenceCount::getExecutor(Bucket *bucket) {
+    return std::make_shared<LeastReferenceCountExecutor>(bucket);
   }
 }

@@ -223,8 +223,8 @@ namespace cache {
 
           req.r = (op[0] == 'r' || op[0] == 'R');
 
-          //_reqs.push_back(req);
-          //continue;
+          _reqs.push_back(req);
+          continue;
           if (cnt % 100000 == 0) printf("req %d\n", cnt); // , num of unique sha1 = %d\n", i, sets.size());
           //if (_reqs[i].r) printf("req %d\n", i);
 
@@ -265,7 +265,7 @@ namespace cache {
           // Debug
 #if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
           if (false && req.r) {
-            printf("TEST: addr = %" PRId64 ", i = %d\n", req.addr, i);
+            printf("TEST: addr = %" PRId64 ", i = %d\n", req.addr, cnt);
             if (!memcmp(rwdata, comp_original_data[req.compressed_len], chunk_size)) printf("OK, same\n");
             else {
               printf("not ok, not same\nOriginal data: ");
