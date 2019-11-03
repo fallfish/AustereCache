@@ -169,16 +169,18 @@ namespace cache {
             // uint64_t: Normal people always blame other things for their fault. Scientists do not. Scientists blame others only the faults are indeed caused by others.
             ((uint64_t)(bucket_->bucketId_) << bucket_->nBitsPerKey_) | key)
          ) {
+        uint32_t nSlotsOccupied =0 ;
         while (slotId < nSlots && key == bucket_->getKey(slotId)) {
           bucket_->setInvalid(slotId);
+          nSlotsOccupied += 1;
           ++slotId;
         }
 #ifdef WRITE_BACK_CACHE
         DirtyList::getInstance().addEvictedChunk(
             /* Compute ssd location of the evicted data */
             /* Actually, full FP and address is sufficient. */
-              FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
-              (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
+              FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotId - nSlotsOccupied),
+              nSlotsOccupied * Config::getInstance().getSectorSize()
             );
 #endif
         Stats::getInstance().add_fp_index_eviction_caused_by_capacity();

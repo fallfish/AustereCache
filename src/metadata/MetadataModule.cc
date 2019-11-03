@@ -15,27 +15,6 @@ namespace cache {
   }
 
   MetadataModule::MetadataModule() {
-#ifdef CACHE_DEDUP
-#if defined(DLRU)
-    DLRU_SourceIndex::getInstance().init();
-    DLRU_FingerprintIndex::getInstance().init();
-    std::cout << "SourceIndex capacity: " <<  DLRU_SourceIndex::getInstance().capacity_ << std::endl;
-    std::cout << "FingerprintIndex capacity: " << DLRU_FingerprintIndex::getInstance().capacity_ << std::endl;
-#elif defined(DARC)
-    DARC_SourceIndex::getInstance().init(0, 0);
-    DARC_FingerprintIndex::getInstance().init();
-    std::cout << "SourceIndex capacity: " << DARC_SourceIndex::getInstance().capacity_ << std::endl;
-    std::cout << "FingerprintIndex capacity: " <<  DARC_FingerprintIndex::getInstance().capacity_ << std::endl;
-#elif defined(CDARC)
-    DARC_SourceIndex::getInstance().init(0, 0);
-    CDARC_FingerprintIndex::getInstance().init();
-    std::cout << "SourceIndex capacity: " <<  DARC_SourceIndex::getInstance().capacity_ << std::endl;
-    std::cout << "FingerprintIndex capacity: " << CDARC_FingerprintIndex::getInstance().capacity_ << std::endl;
-#elif defined(BUCKETDLRU)
-
-#endif
-
-#else
     fpIndex_ = std::make_shared<FPIndex>();
     lbaIndex_ = std::make_unique<LBAIndex>(fpIndex_);
     // metaVerification_ and metaJournal_ should
@@ -44,127 +23,9 @@ namespace cache {
     metaJournal_ = std::make_unique<MetaJournal>();
     std::cout << "Number of LBA buckets: " << Config::getInstance().getnLBABuckets() << std::endl;
     std::cout << "Number of FP buckets: " << Config::getInstance().getnFPBuckets() << std::endl;
-#endif
   }
 
-#ifdef CACHE_DEDUP
-#if defined(DLRU)
-  void MetadataModule::dedup(Chunk &c)
-  {
-    c.hitFPIndex_ = DLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
-    if (c.hitFPIndex_)
-      c.dedupResult_ = DUP_CONTENT;
-    else
-      c.dedupResult_ = NOT_DUP;
-  }
-  void MetadataModule::lookup(Chunk &c)
-  {
-    c.hitLBAIndex_ = DLRU_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
-    if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = DLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
-    }
-    if (c.hitLBAIndex_ && c.hitFPIndex_)
-      c.lookupResult_ = HIT;
-    else
-      c.lookupResult_ = NOT_HIT;
-  }
-  void MetadataModule::update(Chunk &c)
-  {
-    uint8_t oldFP[20];
-    bool evicted = DLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
-    if (evicted) {
-      DLRU_FingerprintIndex::getInstance().dereference(oldFP);
-    }
-    DLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
-    DLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
-  }
-#elif defined(DARC)
-  void MetadataModule::dedup(Chunk &c)
-  {
-    c.hitFPIndex_ = DARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
-    if (c.hitFPIndex_)
-      c.dedupResult_ = DUP_CONTENT;
-    else
-      c.dedupResult_ = NOT_DUP;
-  }
-  void MetadataModule::lookup(Chunk &c)
-  {
-    c.hitLBAIndex_ = DARC_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
-    if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = DARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
-    }
-    if (c.hitLBAIndex_ && c.hitFPIndex_)
-      c.lookupResult_ = HIT;
-    else
-      c.lookupResult_ = NOT_HIT;
-  }
-  void MetadataModule::update(Chunk &c)
-  {
-    DARC_SourceIndex::getInstance().adjust_adaptive_factor(c.addr_);
-    DARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.cachedataLocation_);
-    DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
-  }
-#elif defined(CDARC)
-  void MetadataModule::dedup(Chunk &c)
-  {
-    c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
-    if (c.hitFPIndex_)
-      c.dedupResult_ = DUP_CONTENT;
-    else
-      c.dedupResult_ = NOT_DUP;
-  }
-  void MetadataModule::lookup(Chunk &c)
-  {
-    c.hitLBAIndex_ = DARC_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
-    if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
-    }
-    if (c.hitLBAIndex_ && c.hitFPIndex_)
-      c.lookupResult_ = HIT;
-    else
-      c.lookupResult_ = NOT_HIT;
-  }
-  void MetadataModule::update(Chunk &c)
-  {
-    DARC_SourceIndex::getInstance().adjust_adaptive_factor(c.addr_);
-    c.evictedWEUId_ = CDARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
-    //printf("%d %d %d %d\n", c.evictedWEUId_, c.weuId_, c.weuOffset_, c.compressedLen_);
-    DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
-  }
-#else
-  void MetadataModule::dedup(Chunk &c)
-  {
-    c.hitFPIndex_ = BucketizedDLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
-    if (c.hitFPIndex_)
-      c.dedupResult_ = DUP_CONTENT;
-    else
-      c.dedupResult_ = NOT_DUP;
-  }
-  void MetadataModule::lookup(Chunk &c)
-  {
-    c.hitLBAIndex_ = BucketizedDLRU_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
-    if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = BucketizedDLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
-    }
-    if (c.hitLBAIndex_ && c.hitFPIndex_)
-      c.lookupResult_ = HIT;
-    else
-      c.lookupResult_ = NOT_HIT;
-  }
-  void MetadataModule::update(Chunk &c)
-  {
-    uint8_t oldFP[20];
-    memset(oldFP, 0, sizeof(oldFP));
-    bool evicted = BucketizedDLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
-    if (evicted) {
-      BucketizedDLRU_FingerprintIndex::getInstance().dereference(oldFP);
-    }
-    BucketizedDLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
-    BucketizedDLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
-  }
-#endif
-#else
-  // Note: 
+  // Note:
   // For read request, the chunk should already obtain the lba
   // lock in the lookup procedure. If the chunk didn't hit a
   // cached data (NOT HIT), it goes into the dedup to check the
@@ -266,6 +127,4 @@ namespace cache {
       metaVerification_->update(chunk);
     }
   }
-
-#endif
 }

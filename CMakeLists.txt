@@ -9,21 +9,52 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 include_directories(include)
 include_directories(src)
 
+list(APPEND CacheLibSources
+        src/metadata/bucket.cc
+        src/metadata/index.cc
+        src/metadata/metaverification.cc
+        src/metadata/metajournal.cc
+        src/metadata/cache_policy.cc
+        src/metadata/cachededup_index.cc
+
+        src/chunk/chunkmodule.cc
+
+        src/deduplication/deduplicationmodule.cc
+
+        src/compression/compressionmodule.cc
+
+        src/ssddup/ssddup.cc
+
+        src/io/device/device.cc
+        src/io/iomodule.cc
+
+        src/manage/managemodule.cc
+        src/manage/dirty_list.cc
+
+        src/utils/MurmurHash3.cpp
+        src/io/writebuffer.cc
+        src/metadata/ReferenceCounter.cc
+        src/metadata/ReferenceCounter.h
+        )
 if (DLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DDLRU)
-endif()
-if (DARC)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleDLRU.cc src/ssddup/ssddupNoCompression.cc)
+elseif (DARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DDARC)
-endif()
-if (CDARC)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleDARC.cc src/ssddup/ssddupNoCompression.cc)
+elseif (CDARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DCDARC)
-endif()
-if (BUCKETDLRU)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleCDARC.cc src/ssddup/ssddupCompression.cc)
+elseif (BUCKETDLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DBUCKETDLRU)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleBucketDLRU.cc src/ssddup/ssddupNoCompression.cc)
+else ()
+  add_definitions(-DACDC)
+  list(APPEND CacheLibSources src/metadata/MetadataModule.cc src/ssddup/ssddupCompression.cc)
 endif()
 if (ENABLE_WRITE_BACK)
   add_definitions(-DWRITE_BACK_CACHE)
@@ -38,31 +69,7 @@ if (NORMAL_DIST_COMPRESSION)
   add_definitions(-DNORMAL_DIST_COMPRESSION)
 endif()
 
-add_library(cache
-  src/metadata/bucket.cc
-  src/metadata/index.cc
-  src/metadata/metaverification.cc
-  src/metadata/metajournal.cc
-        src/metadata/MetadataModule.cc
-  src/metadata/cache_policy.cc
-  src/metadata/cachededup_index.cc
-
-  src/chunk/chunkmodule.cc
-
-  src/deduplication/deduplicationmodule.cc
-
-  src/compression/compressionmodule.cc
-
-  src/ssddup/ssddup.cc
-
-  src/io/device/device.cc
-  src/io/iomodule.cc
-
-  src/manage/managemodule.cc
-  src/manage/dirty_list.cc
-
-  src/utils/MurmurHash3.cpp
-        src/io/writebuffer.cc src/io/writebuffer.h src/metadata/ReferenceCounter.cc src/metadata/ReferenceCounter.h)
+add_library(cache ${CacheLibSources})
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
 set (OPENSSL_ROOT_DIR ${CMAKE_SOURCE_DIR}/third_party/openssl)
