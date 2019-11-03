@@ -619,9 +619,7 @@ namespace cache {
     if (weuAllocator_.isCurrentWEUFull(len) && weuReferenceCount_.size() == capacity_) {
       // current cache is full, evict an old entry and
       // allocate its ssd location to the new one
-      int nEvictions = 0;
       while (zeroReferenceList_.size() == 0) {
-        nEvictions += 1;
         DARC_SourceIndex::getInstance().manage_metadata_cache(lba);
       }
       uint32_t weu_id = zeroReferenceList_.back();

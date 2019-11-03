@@ -70,7 +70,7 @@ namespace cache {
 
   void SketchReferenceCounter::clear() {}
 
-  bool SketchReferenceCounter::query(uint64_t key) {
+  uint32_t SketchReferenceCounter::query(uint64_t key) {
     uint32_t minVal = ~0u;
     uint32_t hashVal = 0;
 //      MurmurHash3_x86_32(&key, 8, 0 * 100 + 7, &hashVal);
@@ -86,7 +86,7 @@ namespace cache {
       }
       minVal = (countValue + overflowValue < minVal) ? countValue + overflowValue : minVal;
     }
-    return minVal == 0;
+    return minVal;
   }
 
   void SketchReferenceCounter::reference(uint64_t key) {

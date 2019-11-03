@@ -138,7 +138,14 @@ namespace cache {
         continue;
       }
       uint32_t key = bucket_->getKey(slotId);
-      entries.push_back(std::make_pair(slotId, getClock(slotId)));
+      entries.push_back(std::make_pair(slotId, 
+            //std::make_pair(getClock(slotId), 
+      SketchReferenceCounter::getInstance().query(((uint64_t)(bucket_->bucketId_) << bucket_->nBitsPerKey_) | key)));
+
+
+
+
+
       while (slotId < nSlots && bucket_->getKey(slotId) == key) {
         ++slotId;
       }
@@ -165,10 +172,10 @@ namespace cache {
       std::pair<uint32_t, uint32_t> pr = entries[0];
       slotId = pr.first;
       uint64_t key = bucket_->getKey(slotId);
-      if (SketchReferenceCounter::getInstance().query(
+      //if (SketchReferenceCounter::getInstance().query(
             // uint64_t: Normal people always blame other things for their fault. Scientists do not. Scientists blame others only the faults are indeed caused by others.
-            ((uint64_t)(bucket_->bucketId_) << bucket_->nBitsPerKey_) | key)
-         ) {
+            //((uint64_t)(bucket_->bucketId_) << bucket_->nBitsPerKey_) | key)
+         //) {
         while (slotId < nSlots && key == bucket_->getKey(slotId)) {
           bucket_->setInvalid(slotId);
           ++slotId;
@@ -182,7 +189,7 @@ namespace cache {
             );
 #endif
         Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
-      }
+      //}
       entries.erase(entries.begin());
     }
 

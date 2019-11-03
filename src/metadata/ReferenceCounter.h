@@ -63,7 +63,7 @@ namespace cache {
     SketchReferenceCounter();
     public:
       void clear();
-      bool query(uint64_t key);
+      uint32_t query(uint64_t key);
       void reference(uint64_t key);
       void dereference(uint64_t key);
       static SketchReferenceCounter& getInstance() {

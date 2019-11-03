@@ -26,7 +26,7 @@ namespace cache {
     nSlotsPerBucket_ = Config::getInstance().getnLBASlotsPerBucket();
     nBuckets_ = Config::getInstance().getnLBABuckets();
 
-    nBytesPerBucket_ = (nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7 / 8;
+    nBytesPerBucket_ = ((nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7) / 8;
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
     data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
     valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
@@ -69,7 +69,7 @@ namespace cache {
     nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
     nBuckets_ = Config::getInstance().getnFPBuckets();
 
-    nBytesPerBucket_ = (nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7 / 8;
+    nBytesPerBucket_ = ((nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7) / 8;
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
     data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
     valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
