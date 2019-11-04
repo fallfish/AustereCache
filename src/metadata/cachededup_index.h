@@ -387,7 +387,7 @@ namespace cache {
   public:
       BucketizedDLRU_SourceIndex() {
         nSlotsPerBucket_ = Config::getInstance().getnLBASlotsPerBucket();
-        nBuckets_ = Config::getInstance().getnLBABuckets();
+        nBuckets_ = Config::getInstance().getnLbaBuckets();
         buckets_ = new DLRU_SourceIndex*[nBuckets_];
         std::cout << "Number of LBA buckets: " << nBuckets_ << std::endl;
         for (int i = 0; i < nBuckets_; ++i) {
@@ -425,7 +425,7 @@ namespace cache {
     public:
         BucketizedDLRU_FingerprintIndex() {
           nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket() / 4;
-          nBuckets_ = Config::getInstance().getnFPBuckets();
+          nBuckets_ = Config::getInstance().getnFpBuckets();
           buckets_ = new DLRU_FingerprintIndex*[nBuckets_];
           std::cout << "Number of FP buckets: " << nBuckets_ << std::endl;
           for (int i = 0; i < nBuckets_; ++i) {

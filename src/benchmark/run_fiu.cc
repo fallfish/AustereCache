@@ -75,9 +75,17 @@ namespace cache {
           } else if (strcmp(param, "--fp-index-cache-policy") == 0) {
             Config::getInstance().setCachePolicyForFPIndex(atoi(value));
           } else if (strcmp(param, "--num-slots-fp-bucket") == 0) {
-            Config::getInstance().setnSlotsPerFPBucket(atoi(value));
+            Config::getInstance().setnSlotsPerFpBucket(atoi(value));
           } else if (strcmp(param, "--num-bits-fp-sig") == 0) {
-            Config::getInstance().setnBitsPerFPSignature(atoi(value));
+            Config::getInstance().setnBitsPerFpSignature(atoi(value));
+          } else if (strcmp(param, "--num-slots-lba-bucket") == 0) {
+            Config::getInstance().setnSlotsPerLbaBucket(atoi(value));
+          } else if (strcmp(param, "--num-bits-fp-sig") == 0) {
+            Config::getInstance().setnBitsPerLbaSignature(atoi(value));
+          } else if (strcmp(param, "--sector-size") == 0) {
+            Config::getInstance().setSectorSize(atoi(value));
+          } else if (strcmp(param, "--chunk-size") == 0) {
+            Config::getInstance().setChunkSize(atoi(value));
           } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
             Config::getInstance().setFingerprintAlgorithm(atoi(value));
           } else if (strcmp(param, "--fingerprint-computation-method") == 0) {

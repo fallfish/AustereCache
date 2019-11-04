@@ -59,9 +59,10 @@ class RunDeduplicationModule {
       // in the trace, the hash value is all full 32 bit hash
       // while in the metadata module, we will have (signature + bucket_no) format
       _chunks[i].lbaHash_ >>= 32 -
-                              (Config::getInstance().getnBitsPerLBASignature() + Config::getInstance().getnBitsPerLBABucketId());
+                              (Config::getInstance().getnBitsPerLbaSignature() +
+                               Config::getInstance().getnBitsPerLbaBucketId());
       _chunks[i].fingerprintHash_ >>= 32 -
-        (Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId());
+        (Config::getInstance().getnBitsPerFpSignature() + Config::getInstance().getnBitsPerFpBucketId());
       memcpy(&c, _chunks + i, sizeof(Chunk));
       DeduplicationModule::dedup(c);
       MetadataModule::getInstance().update(c);

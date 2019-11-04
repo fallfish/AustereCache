@@ -46,8 +46,8 @@ namespace cache {
     uint32_t signature, bucketId;
     MurmurHash3_x86_32(fingerprint_, Config::getInstance().getFingerprintLength(), 2, &bucketId);
     MurmurHash3_x86_32(fingerprint_, Config::getInstance().getFingerprintLength(), 101, &signature);
-    fingerprintHash_ = ((uint64_t)(bucketId % Config::getInstance().getnFPBuckets()) << Config::getInstance().getnBitsPerFPSignature())
-      | (uint64_t)((signature & ((1u << Config::getInstance().getnBitsPerFPSignature()) - 1u)));
+    fingerprintHash_ = ((uint64_t)(bucketId % Config::getInstance().getnFpBuckets()) << Config::getInstance().getnBitsPerFpSignature())
+      | (uint64_t)((signature & ((1u << Config::getInstance().getnBitsPerFpSignature()) - 1u)));
 
     END_TIMER(fingerprinting);
   }
@@ -61,11 +61,11 @@ namespace cache {
     uint64_t tmp[2];
     MurmurHash3_x64_128(&addr_, 8, 3, tmp);
     lbaHash_ = tmp[0];
-    lbaHash_ >>= 64 - (Config::getInstance().getnBitsPerLBASignature() + Config::getInstance().getnBitsPerLBABucketId());
+    lbaHash_ >>= 64 - (Config::getInstance().getnBitsPerLbaSignature() + Config::getInstance().getnBitsPerLbaBucketId());
     lbaHash_ =
-      ((uint64_t)((lbaHash_ >> Config::getInstance().getnBitsPerLBASignature()) % Config::getInstance().getnLBABuckets())
-      << Config::getInstance().getnBitsPerLBASignature()) |
-      (lbaHash_ & ((1u << Config::getInstance().getnBitsPerLBASignature()) - 1u));
+      ((uint64_t)((lbaHash_ >> Config::getInstance().getnBitsPerLbaSignature()) % Config::getInstance().getnLbaBuckets())
+      << Config::getInstance().getnBitsPerLbaSignature()) |
+      (lbaHash_ & ((1u << Config::getInstance().getnBitsPerLbaSignature()) - 1u));
   }
 
   void Chunk::preprocessUnalignedChunk(uint8_t *buf) {

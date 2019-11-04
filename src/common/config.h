@@ -27,17 +27,17 @@ class Config
   uint64_t getCacheDeviceSize() { return cacheDeviceSize_; }
   uint64_t getWorkingSetSize() { return workingSetSize_; }
 
-  uint32_t getnBitsPerLBASignature() { return nBitsPerLBASignature_; }
-  uint32_t getnBitsPerFPSignature() { return nBitsPerFPSignature_; }
+  uint32_t getnBitsPerLbaSignature() { return nBitsPerLbaSignature_; }
+  uint32_t getnBitsPerFpSignature() { return nBitsPerFpSignature_; }
 
-  uint32_t getnBitsPerLBABucketId() {
-    return 32 - __builtin_clz(getnLBABuckets());
+  uint32_t getnBitsPerLbaBucketId() {
+    return 32 - __builtin_clz(getnLbaBuckets());
   }
-  uint32_t getnLBABuckets() {
+  uint32_t getnLbaBuckets() {
     if (lbaAmplifier_ == 0) {
-      return workingSetSize_ / (chunkSize_ * nLBASlotsPerBucket_);
+      return workingSetSize_ / (chunkSize_ * nSlotsPerLbaBucket_);
     } else {
-      return cacheDeviceSize_ / (chunkSize_ * nLBASlotsPerBucket_) * lbaAmplifier_;
+      return cacheDeviceSize_ / (chunkSize_ * nSlotsPerLbaBucket_) * lbaAmplifier_;
     }
   }
   uint32_t getnSourceIndexEntries() {
@@ -47,18 +47,18 @@ class Config
       return cacheDeviceSize_ / chunkSize_ * lbaAmplifier_;
     }
   }
-  uint32_t getnBitsPerFPBucketId() {
-    return 32 - __builtin_clz(getnFPBuckets());
+  uint32_t getnBitsPerFpBucketId() {
+    return 32 - __builtin_clz(getnFpBuckets());
   }
-  uint32_t getnFPBuckets() {
-    return cacheDeviceSize_ / (sectorSize_ * nFPSlotsPerBucket_);
+  uint32_t getnFpBuckets() {
+    return cacheDeviceSize_ / (sectorSize_ * nSlotsPerFpBucket_);
   }
 
   uint32_t getLBAAmplifier() {
     return lbaAmplifier_;
   }
-  uint32_t getnLBASlotsPerBucket() { return nLBASlotsPerBucket_; }
-  uint32_t getnFPSlotsPerBucket() { return nFPSlotsPerBucket_; }
+  uint32_t getnLBASlotsPerBucket() { return nSlotsPerLbaBucket_; }
+  uint32_t getnFPSlotsPerBucket() { return nSlotsPerFpBucket_; }
   uint32_t getnBitsPerClock() { return nBitsPerClock_; }
   uint32_t getClockStartValue() { return clockStartValue_; }
   uint32_t getCachePolicyForFPIndex() {
@@ -93,10 +93,12 @@ class Config
     cachePolicyForFPIndex_ = v;
   }
 
-  void setnBitsPerFPSignature (uint32_t v) { nBitsPerFPSignature_ = v; }
-  void setnSlotsPerFPBucket(uint32_t v) { nFPSlotsPerBucket_ = v; }
-  void setnBitsPerLBASignature (uint32_t v) { nBitsPerLBASignature_ = v; }
-  void setnSlotsPerLBABucket(uint32_t v) { nLBASlotsPerBucket_ = v; }
+  void setnBitsPerFpSignature (uint32_t v) { nBitsPerFpSignature_ = v; }
+  void setnSlotsPerFpBucket(uint32_t v) { nSlotsPerFpBucket_ = v; }
+  void setnBitsPerLbaSignature (uint32_t v) { nBitsPerLbaSignature_ = v; }
+  void setnSlotsPerLbaBucket(uint32_t v) { nSlotsPerLbaBucket_ = v; }
+  void setSectorSize(uint32_t v) { sectorSize_ = v; }
+  void setChunkSize(uint32_t v) { chunkSize_ = v; }
 
   void setCacheDeviceName(char *cache_device_name) { cacheDeviceName_ = cache_device_name; }
   void setPrimaryDeviceName(char *primary_device_name) { primaryDeviceName_ = primary_device_name; }
@@ -160,10 +162,10 @@ class Config
     // Each slot represents one chunk 32K.
     // To store all lbas without eviction
     // nBuckets_ = primary_storage_size / 32K / 32 = 512
-    nBitsPerLBASignature_ = 12;
-    nLBASlotsPerBucket_ = 32;
-    nBitsPerFPSignature_ = 12;
-    nFPSlotsPerBucket_ = 32;
+    nBitsPerLbaSignature_ = 12;
+    nSlotsPerLbaBucket_ = 32;
+    nBitsPerFpSignature_ = 12;
+    nSlotsPerFpBucket_ = 32;
     nBitsPerClock_ = 2;
     clockStartValue_ = 1;
     lbaAmplifier_ = 1u;
@@ -192,12 +194,12 @@ class Config
   // Each slot represents one chunk 32K.
   // To store all lbas without eviction
   // nBuckets_ = primary_storage_size / 32K / 32 = 512
-  uint32_t nBitsPerLBASignature_;
-  uint32_t nLBASlotsPerBucket_;
+  uint32_t nBitsPerLbaSignature_;
+  uint32_t nSlotsPerLbaBucket_;
   uint32_t lbaAmplifier_;
 
-  uint32_t nBitsPerFPSignature_;
-  uint32_t nFPSlotsPerBucket_;
+  uint32_t nBitsPerFpSignature_;
+  uint32_t nSlotsPerFpBucket_;
   // bits for CLOCK policy
   uint32_t nBitsPerClock_;
   uint32_t clockStartValue_;

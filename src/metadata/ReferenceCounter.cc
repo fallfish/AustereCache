@@ -67,7 +67,7 @@ namespace cache {
 
   SketchReferenceCounter::SketchReferenceCounter() {
     height_ = 4;
-    width_ = Config::getInstance().getnLBABuckets() * Config::getInstance().getnLBASlotsPerBucket();
+    width_ = Config::getInstance().getnLbaBuckets() * Config::getInstance().getnLBASlotsPerBucket();
     sketch_ = new uint8_t[4 * 4 * width_ / 8];
     memset(sketch_, 0, 4 * 4 * width_ / 8);
   }

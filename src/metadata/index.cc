@@ -21,10 +21,10 @@ namespace cache {
   LBAIndex::LBAIndex(std::shared_ptr<FPIndex> fpIndex):
     fpIndex_(std::move(fpIndex))
   {
-    nBitsPerKey_ = Config::getInstance().getnBitsPerLBASignature();
-    nBitsPerValue_ = Config::getInstance().getnBitsPerFPSignature() + Config::getInstance().getnBitsPerFPBucketId();
+    nBitsPerKey_ = Config::getInstance().getnBitsPerLbaSignature();
+    nBitsPerValue_ = Config::getInstance().getnBitsPerFpSignature() + Config::getInstance().getnBitsPerFpBucketId();
     nSlotsPerBucket_ = Config::getInstance().getnLBASlotsPerBucket();
-    nBuckets_ = Config::getInstance().getnLBABuckets();
+    nBuckets_ = Config::getInstance().getnLbaBuckets();
 
     nBytesPerBucket_ = ((nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7) / 8;
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
@@ -66,10 +66,10 @@ namespace cache {
 
   FPIndex::FPIndex()
   {
-    nBitsPerKey_ = Config::getInstance().getnBitsPerFPSignature();
+    nBitsPerKey_ = Config::getInstance().getnBitsPerFpSignature();
     nBitsPerValue_ = 4;
     nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
-    nBuckets_ = Config::getInstance().getnFPBuckets();
+    nBuckets_ = Config::getInstance().getnFpBuckets();
 
     nBytesPerBucket_ = ((nBitsPerKey_ + nBitsPerValue_) * nSlotsPerBucket_ + 7) / 8;
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
@@ -91,8 +91,8 @@ namespace cache {
   {
     // 8192 is chunk size, while 512 is the metadata size
     return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
-             Config::getInstance().getSectorSize() + Config::getInstance().getnFPBuckets() *
-      Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
+             Config::getInstance().getSectorSize() + Config::getInstance().getnFpBuckets() *
+                                                     Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)

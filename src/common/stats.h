@@ -58,8 +58,8 @@ struct Stats {
                 << std::endl;
 
 #if !defined(CACHE_DEDUP)
-      uint32_t n_lba_bucket = 1 << Config::getInstance().getnBitsPerLBABucketId();
-      uint32_t n_fp_bucket = 1 << Config::getInstance().getnBitsPerFPBucketId();
+      uint32_t n_lba_bucket = 1 << Config::getInstance().getnBitsPerLbaBucketId();
+      uint32_t n_fp_bucket = 1 << Config::getInstance().getnBitsPerFpBucketId();
 
       std::cerr << "LBA Index Lookups: " << std::endl;
       for (uint32_t i = 0; i < n_lba_bucket; ++i) {
@@ -460,10 +460,10 @@ struct Stats {
   private:
       Stats() {
 #if !defined(CACHE_DEDUP)
-        _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLBABucketId());
-        _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFPBucketId());
-        _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLBABucketId());
-        _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFPBucketId());
+        _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLbaBucketId());
+        _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFpBucketId());
+        _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLbaBucketId());
+        _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFpBucketId());
 #endif
         reset();
       }

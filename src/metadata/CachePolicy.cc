@@ -282,7 +282,7 @@ namespace cache {
       }
       uint64_t key = bucket_->getKey(slotId);
       uint64_t bucketId = bucket_->bucketId_;
-      uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFPSignature()) | key;
+      uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFpSignature()) | key;
       if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
         slotsToReferenceCounts.emplace_back(slotId,
           SketchReferenceCounter::getInstance().query(fpHash));
