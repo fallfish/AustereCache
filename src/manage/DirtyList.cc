@@ -57,7 +57,4 @@ namespace cache {
    *   Secondly, if there is a dirty data block, read it from ssd
    *   Thirdly, write it to the hdd
    */
-#elif defined(CDARC)
-#else
-#endif
 }

@@ -271,7 +271,7 @@ namespace cache {
 
   uint32_t LeastReferenceCountExecutor::allocate(uint32_t nSlotsToOccupy) {
 
-    std::vector<uint32_t, uint32_t> slotsToReferenceCounts;
+    std::vector<std::pair<uint32_t, uint32_t>> slotsToReferenceCounts;
     uint32_t slotId = 0, nSlotsAvailable = 0,
       nSlots = bucket_->getnSlots();
 
@@ -282,11 +282,14 @@ namespace cache {
       }
       uint64_t key = bucket_->getKey(slotId);
       uint64_t bucketId = bucket_->bucketId_;
-      slotsToReferenceCounts.emplace_back(slotId,
-        SketchReferenceCounter::getInstance().query(
-          (bucketId << Config::getInstance().getnBitsPerFPSignature()) |
-          key
-          ));
+      uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFPSignature()) | key;
+      if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
+        slotsToReferenceCounts.emplace_back(slotId,
+          SketchReferenceCounter::getInstance().query(fpHash));
+      } else {
+        slotsToReferenceCounts.emplace_back(slotId,
+          MapReferenceCounter::getInstance().query(fpHash));
+      }
       while (slotId < nSlots && bucket_->isValid(slotId)
         && key == bucket_->getKey(slotId)) {
         ++slotId;
@@ -332,6 +335,7 @@ namespace cache {
       );
 #endif
 
+      Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
       slotsToReferenceCounts.erase(slotsToReferenceCounts.begin());
     }
 

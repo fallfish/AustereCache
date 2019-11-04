@@ -43,10 +43,10 @@ namespace cache {
     if (addr + len > _size) {
       len -= addr + len - _size;
     }
-#if defined(FAKE_IO)
-    if (len != 512)
-      return len;
-#endif
+    if (Config::getInstance().isFakeIOEnabled()) {
+      if (len != 512)
+        return len;
+    }
 
     int n_written_bytes = 0;
     while (1) {
@@ -78,10 +78,10 @@ namespace cache {
       len -= addr + len - _size;
     }
 
-#if defined(FAKE_IO)
-    if (len != 512)
-      return len;
-#endif
+    if (Config::getInstance().isFakeIOEnabled()) {
+      if (len != 512)
+        return len;
+    }
 
     int n_read_bytes = 0;
     while (1) {

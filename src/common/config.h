@@ -61,6 +61,9 @@ class Config
   uint32_t getnFPSlotsPerBucket() { return nFPSlotsPerBucket_; }
   uint32_t getnBitsPerClock() { return nBitsPerClock_; }
   uint32_t getClockStartValue() { return clockStartValue_; }
+  uint32_t getCachePolicyForFPIndex() {
+    return cachePolicyForFPIndex_;
+  }
 
 
     uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
@@ -68,7 +71,6 @@ class Config
 
   char *getCacheDeviceName() { return cacheDeviceName_; }
   char *getPrimaryDeviceName() { return primaryDeviceName_; }
-  bool isDirectIOEnabled() { return enableDirectIO_; }
 
   uint32_t getFingerprintAlg() { return fingerprintAlgorithm_; }
   uint32_t getFingerprintMode() { return fingerprintMode_; }
@@ -87,12 +89,28 @@ class Config
   void setLBAAmplifier(uint32_t v) {
     lbaAmplifier_ = v;
   }
+  void setCachePolicyForFPIndex(uint32_t v) {
+    cachePolicyForFPIndex_ = v;
+  }
+
+  void setnBitsPerFPSignature (uint32_t v) { nBitsPerFPSignature_ = v; }
+  void setnSlotsPerFPBucket(uint32_t v) { nFPSlotsPerBucket_ = v; }
+  void setnBitsPerLBASignature (uint32_t v) { nBitsPerLBASignature_ = v; }
+  void setnSlotsPerLBABucket(uint32_t v) { nLBASlotsPerBucket_ = v; }
 
   void setCacheDeviceName(char *cache_device_name) { cacheDeviceName_ = cache_device_name; }
   void setPrimaryDeviceName(char *primary_device_name) { primaryDeviceName_ = primary_device_name; }
-  void enableDirectIO(bool v) { enableDirectIO_ = v; }
 
   void setWriteBufferSize(uint32_t v) { writeBufferSize_ = v; }
+
+  void enableDirectIO(bool v) { enableDirectIO_ = v; }
+  void enableFakeIO(bool v) { enableFakeIO_ = v; }
+  void enableSynthenticCompression(bool v) { enableSynthenticCompression_ = v; }
+  void enableReplayFIU(bool v) { enableReplayFIU_ = v; }
+  bool isDirectIOEnabled() { return enableDirectIO_; }
+  bool isFakeIOEnabled() { return enableFakeIO_; }
+  bool isReplayFIUEnabled() { return enableReplayFIU_; }
+  bool isSynthenticCompressionEnabled() { return enableSynthenticCompression_; }
 
   void setFingerprintAlgorithm(uint32_t v) {
     if (v == 0) setFingerprintLength(20);
@@ -144,8 +162,8 @@ class Config
     // nBuckets_ = primary_storage_size / 32K / 32 = 512
     nBitsPerLBASignature_ = 12;
     nLBASlotsPerBucket_ = 32;
-    nBitsPerFPSignature_ = 15;
-    nFPSlotsPerBucket_ = 128;
+    nBitsPerFPSignature_ = 12;
+    nFPSlotsPerBucket_ = 32;
     nBitsPerClock_ = 2;
     clockStartValue_ = 1;
     lbaAmplifier_ = 1u;
@@ -183,6 +201,10 @@ class Config
   // bits for CLOCK policy
   uint32_t nBitsPerClock_;
   uint32_t clockStartValue_;
+  // 0 means SketchRefCounterCachePolicy
+  // 1 means MapRefCounterCachePolicy
+  // 2 means ClockPolicy
+  uint32_t cachePolicyForFPIndex_ = 0;
 
   // Multi threading related
   uint32_t maxNumGlobalThreads_;
@@ -196,7 +218,12 @@ class Config
   uint64_t workingSetSize_;
   uint64_t cacheDeviceSize_;
   uint32_t writeBufferSize_ = 0;
+
+  // Trace replay related
   bool enableDirectIO_ = false;
+  bool enableFakeIO_ = true;
+  bool enableSynthenticCompression_ = false;
+  bool enableReplayFIU_ = true;
 
   // chunk algorithm
   // 0 - Strong hash (SHA1), 1 - Weak hash (MurmurHash3)

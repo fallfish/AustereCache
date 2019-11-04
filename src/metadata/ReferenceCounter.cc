@@ -12,22 +12,26 @@
 #include <csignal>
 
 namespace cache {
-  bool ReferenceCounter::clear() {
+  bool MapReferenceCounter::clear() {
     counters_.clear();
   }
 
-  bool ReferenceCounter::query(uint64_t key) {
-    return counters_.find(key) == counters_.end();
+  uint32_t MapReferenceCounter::query(uint64_t key) {
+    if (counters_.find(key) == counters_.end()) {
+      return 0;
+    } else {
+      return counters_[key];
+    }
   }
 
-  bool ReferenceCounter::reference(uint64_t key) {
+  bool MapReferenceCounter::reference(uint64_t key) {
     if (counters_.find(key) == counters_.end()) {
       counters_[key] = 0;
     }
     counters_[key] += 1;
   }
 
-  bool ReferenceCounter::dereference(uint64_t key) {
+  bool MapReferenceCounter::dereference(uint64_t key) {
     assert(counters_.find(key) != counters_.end());
     counters_[key] -= 1;
     if (counters_[key] == 0) {

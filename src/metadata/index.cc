@@ -30,7 +30,9 @@ namespace cache {
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
     data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
     valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
-    mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
+    if (Config::getInstance().isMultiThreadEnabled()) {
+      mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
+    }
 
     setCachePolicy(std::move(std::make_unique<LRU>()));
   }
@@ -73,9 +75,16 @@ namespace cache {
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
     data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
     valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
-    mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
-//    cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
-    cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
+    if (Config::getInstance().isMultiThreadEnabled()) {
+      mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
+    }
+    // 0 and 1 means ReferenceCount
+    // 2 means CAClock
+    if (Config::getInstance().getCachePolicyForFPIndex() == 2) {
+      cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
+    } else {
+      cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
+    }
   }
 
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
@@ -129,31 +138,43 @@ namespace cache {
   std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint64_t lbaHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
-    return std::move(
-        std::make_unique<std::lock_guard<std::mutex>>(
-          mutexes_[bucketId]));
+    if (Config::getInstance().isMultiThreadEnabled()) {
+      return std::move(
+          std::make_unique<std::lock_guard<std::mutex>>(
+            mutexes_[bucketId]));
+    } else {
+      return nullptr;
+    }
   }
 
   std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fpHash)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_;
-    return std::move(
-        std::make_unique<std::lock_guard<std::mutex>>(
-          mutexes_[bucketId]));
+    if (Config::getInstance().isMultiThreadEnabled()) {
+      return std::move(
+          std::make_unique<std::lock_guard<std::mutex>>(
+            mutexes_[bucketId]));
+    } else {
+      return nullptr;
+    }
   }
 
   void FPIndex::reference(uint64_t fpHash) {
-    //ReferenceCounter::getInstance().reference(fpHash);
-    SketchReferenceCounter::getInstance().reference(fpHash);
+    if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
+      if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
+        SketchReferenceCounter::getInstance().reference(fpHash);
+      } else {
+        MapReferenceCounter::getInstance().reference(fpHash);
+      }
+    }
   }
   void FPIndex::dereference(uint64_t fpHash) {
-    //ReferenceCounter::getInstance().dereference(fpHash);
-    SketchReferenceCounter::getInstance().dereference(fpHash);
-    if (Config::getInstance().currentEvictionIsRewrite && ReferenceCounter::getInstance().query(fpHash) == true) {
-      Config::getInstance().currentEvictionIsRewrite = false;
-      uint32_t bucketId = fpHash >> nBitsPerKey_,
-               signature = fpHash & ((1u << nBitsPerKey_) - 1);
-      //getFPBucket(bucketId)->evict(signature);
+    if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
+      if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
+        SketchReferenceCounter::getInstance().dereference(fpHash);
+      } else {
+        MapReferenceCounter::getInstance().dereference(fpHash);
+      }
     }
   }
 }
