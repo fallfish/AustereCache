@@ -47,9 +47,13 @@ namespace cache {
     uint8_t oldFP[20];
     bool evicted = DLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
     if (evicted) {
-      DLRU_FingerprintIndex::getInstance().dereference(oldFP);
+      if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
+        DLRU_FingerprintIndex::getInstance().dereference(oldFP);
+      }
     }
-    DLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
+    if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
+      DLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
+    }
     DLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 }

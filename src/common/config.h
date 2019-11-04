@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <algorithm>
 namespace cache {
 
 class Config
@@ -37,14 +38,15 @@ class Config
     if (lbaAmplifier_ == 0) {
       return workingSetSize_ / (chunkSize_ * nSlotsPerLbaBucket_);
     } else {
-      return cacheDeviceSize_ / (chunkSize_ * nSlotsPerLbaBucket_) * lbaAmplifier_;
+      return std::min(workingSetSize_ / (chunkSize_ * nSlotsPerLbaBucket_),
+         cacheDeviceSize_ / (chunkSize_ * nSlotsPerLbaBucket_) * lbaAmplifier_);
     }
   }
   uint32_t getnSourceIndexEntries() {
     if (lbaAmplifier_ == 0) {
       return workingSetSize_ / chunkSize_;
     } else {
-      return cacheDeviceSize_ / chunkSize_ * lbaAmplifier_;
+      return std::min(workingSetSize_ / chunkSize_, cacheDeviceSize_ / chunkSize_ * lbaAmplifier_);
     }
   }
   uint32_t getnBitsPerFpBucketId() {

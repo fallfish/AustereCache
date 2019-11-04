@@ -80,7 +80,7 @@ namespace cache {
             Config::getInstance().setnBitsPerFpSignature(atoi(value));
           } else if (strcmp(param, "--num-slots-lba-bucket") == 0) {
             Config::getInstance().setnSlotsPerLbaBucket(atoi(value));
-          } else if (strcmp(param, "--num-bits-fp-sig") == 0) {
+          } else if (strcmp(param, "--num-bits-lba-sig") == 0) {
             Config::getInstance().setnBitsPerLbaSignature(atoi(value));
           } else if (strcmp(param, "--sector-size") == 0) {
             Config::getInstance().setSectorSize(atoi(value));
