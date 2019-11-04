@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <csignal>
+#include <utility>
 
 namespace cache {
   CachePolicyExecutor::CachePolicyExecutor(Bucket *bucket) :
@@ -129,8 +130,6 @@ namespace cache {
     uint32_t nEvicts = 0;
     // check whether there is a contiguous space
     // try to evict those zero referenced fingerprint first
-    slotId = 0;
-    nSlotsAvailable = 0;
     for ( ; slotId < nSlots; ++slotId) {
       if (nSlotsAvailable >= nSlotsToOccupy)
         break;
@@ -228,6 +227,110 @@ namespace cache {
     }
   }
 
+  ThresholdRCClockExecutor::ThresholdRCClockExecutor(
+    Bucket *bucket, std::shared_ptr<Bucket> clock,
+    uint32_t *clockPtr,
+    uint32_t threshold
+    ) :
+    CAClockExecutor(bucket, std::move(clock), clockPtr),
+    threshold_(threshold)
+    {}
+
+  void ThresholdRCClockExecutor::promote(uint32_t slotId, uint32_t nSlotsOccupied)
+  {
+    CAClockExecutor::promote(slotId, nSlotsOccupied);
+  }
+
+  uint32_t ThresholdRCClockExecutor::allocate(uint32_t nSlotsToOccupy)
+  {
+    uint32_t slotId = 0, nSlotsAvailable = 0,
+      nSlots = bucket_->getnSlots();
+    std::vector<std::pair<uint32_t, uint32_t>> slotsToReferenceCounts;
+    for ( ; slotId < nSlots; ++slotId) {
+      if (nSlotsAvailable >= nSlotsToOccupy)
+        break;
+      // find an empty slot
+      if (!bucket_->isValid(slotId)) {
+        ++nSlotsAvailable;
+      } else {
+        nSlotsAvailable = 0;
+      }
+    }
+
+    if (nSlotsAvailable < nSlotsToOccupy) {
+      for (slotId = 0; slotId < nSlots; ) {
+        if (!bucket_->isValid(slotId)) {
+          ++slotId;
+          continue;
+        }
+        uint64_t key = bucket_->getKey(slotId);
+        uint64_t bucketId = bucket_->bucketId_;
+        uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFpSignature()) | key;
+        uint32_t refCount = 0;
+        if (Config::getInstance().getCachePolicyForFPIndex() == 3) {
+          refCount = SketchReferenceCounter::getInstance().query(fpHash);
+        } else if (Config::getInstance().getCachePolicyForFPIndex() == 4){
+          refCount = MapReferenceCounter::getInstance().query(fpHash);
+        }
+        if (refCount <= threshold_) {
+          slotsToReferenceCounts.emplace_back(slotId, refCount);
+        }
+        while (slotId < nSlots && bucket_->isValid(slotId)
+               && key == bucket_->getKey(slotId)) {
+          ++slotId;
+        }
+      }
+      std::sort(slotsToReferenceCounts.begin(),
+                slotsToReferenceCounts.end(),
+                [this](auto &left, auto &right) {
+                    return getClock(left.first) < getClock(right.first);
+                });
+    }
+
+    while (!slotsToReferenceCounts.empty()) {
+      // check whether there is a contiguous space
+      // try to evict those zero referenced fingerprint first
+      slotId = 0;
+      nSlotsAvailable = 0;
+      for (; slotId < nSlots; ++slotId) {
+        if (nSlotsAvailable >= nSlotsToOccupy)
+          break;
+        // find an empty slot
+        if (!bucket_->isValid(slotId)) {
+          ++nSlotsAvailable;
+        } else {
+          nSlotsAvailable = 0;
+        }
+      }
+
+      if (nSlotsAvailable >= nSlotsToOccupy) break;
+      // Evict the least RF entry
+      slotId = slotsToReferenceCounts[0].first;
+      uint64_t key = bucket_->getKey(slotId);
+      while (slotId < nSlots && bucket_->isValid(slotId)
+             && key == bucket_->getKey(slotId)) {
+        bucket_->setInvalid(slotId);
+        ++slotId;
+      }
+#ifdef WRITE_BACK_CACHE
+      DirtyList::getInstance().addEvictedChunk(
+        /* Compute ssd location of the evicted data */
+        /* Actually, full FP and address is sufficient. */
+        FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotsToReferenceCounts[0].first),
+        (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
+      );
+#endif
+
+      Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
+      slotsToReferenceCounts.erase(slotsToReferenceCounts.begin());
+    }
+
+    if (nSlotsAvailable < nSlotsToOccupy) {
+      slotId = CAClockExecutor::allocate(nSlotsToOccupy);
+    }
+    return slotId;
+  }
+
   CachePolicy::CachePolicy() = default;
   LRU::LRU() = default;
 
@@ -237,6 +340,7 @@ namespace cache {
     clock_ = std::make_unique< uint8_t[] >(nBytesPerBucket_ * nBuckets);
     clockPtr_ = 0;
   }
+
 
   std::shared_ptr<CachePolicyExecutor> LRU::getExecutor(Bucket *bucket)
   { 
@@ -260,16 +364,14 @@ namespace cache {
   }
 
   LeastReferenceCountExecutor::LeastReferenceCountExecutor(Bucket *bucket)
-    : CachePolicyExecutor(bucket)
-  {
-
-  }
+    : CachePolicyExecutor(bucket) {}
 
   void LeastReferenceCountExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy) {}
 
   void LeastReferenceCountExecutor::clearObsolete(std::shared_ptr<FPIndex> fpIndex) {}
 
-  uint32_t LeastReferenceCountExecutor::allocate(uint32_t nSlotsToOccupy) {
+  uint32_t LeastReferenceCountExecutor::allocate(uint32_t nSlotsToOccupy)
+  {
 
     std::vector<std::pair<uint32_t, uint32_t>> slotsToReferenceCounts;
     uint32_t slotId = 0, nSlotsAvailable = 0,
@@ -283,13 +385,14 @@ namespace cache {
       uint64_t key = bucket_->getKey(slotId);
       uint64_t bucketId = bucket_->bucketId_;
       uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFpSignature()) | key;
+      uint32_t refCount = 0;
+
       if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
-        slotsToReferenceCounts.emplace_back(slotId,
-          SketchReferenceCounter::getInstance().query(fpHash));
+        refCount = SketchReferenceCounter::getInstance().query(fpHash);
       } else {
-        slotsToReferenceCounts.emplace_back(slotId,
-          MapReferenceCounter::getInstance().query(fpHash));
+        refCount = MapReferenceCounter::getInstance().query(fpHash);
       }
+      slotsToReferenceCounts.emplace_back(slotId, refCount);
       while (slotId < nSlots && bucket_->isValid(slotId)
         && key == bucket_->getKey(slotId)) {
         ++slotId;
@@ -347,4 +450,18 @@ namespace cache {
   std::shared_ptr<CachePolicyExecutor> LeastReferenceCount::getExecutor(Bucket *bucket) {
     return std::make_shared<LeastReferenceCountExecutor>(bucket);
   }
+
+  std::shared_ptr<CachePolicyExecutor> ThresholdRCClock::getExecutor(cache::Bucket *bucket)
+  {
+    return std::make_shared<ThresholdRCClockExecutor>(
+          bucket, std::move(getBucket(bucket->getBucketId())),
+          &clockPtr_, threshold_);
+  }
+
+  ThresholdRCClock::ThresholdRCClock(uint32_t nSlotsPerBucket, uint32_t nBuckets, uint32_t threshold) :
+    CAClock(nSlotsPerBucket, nBuckets),
+    threshold_(threshold)
+    {}
+
+
 }

@@ -80,10 +80,14 @@ namespace cache {
     }
     // 0 and 1 means ReferenceCount
     // 2 means CAClock
-    if (Config::getInstance().getCachePolicyForFPIndex() == 2) {
-      cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
-    } else {
+    if (Config::getInstance().getCachePolicyForFPIndex() == 0
+      || Config::getInstance().getCachePolicyForFPIndex() == 1) {
       cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
+    } else if (Config::getInstance().getCachePolicyForFPIndex() == 2){
+      cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
+    } else if (Config::getInstance().getCachePolicyForFPIndex() == 3
+      || Config::getInstance().getCachePolicyForFPIndex() == 4) {
+      cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 1));
     }
   }
 
