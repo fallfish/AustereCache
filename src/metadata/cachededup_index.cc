@@ -132,7 +132,6 @@ namespace cache {
       promote(fp);
       return ;
     }
-    updateCount += 1;
 
     if (list_.size() == capacity_) {
 
@@ -197,7 +196,7 @@ namespace cache {
 
   void DARC_SourceIndex::init(uint32_t p, uint32_t x)
   {
-    capacity_ = Config::getInstance().getnSourceIndexEntries();
+    capacity_ = Config::getInstance().getnSourceIndexEntries() / 2;
     p_ = p;
     x_ = x; // capacity_;
   }

@@ -19,10 +19,10 @@ void CompressionModule::compress(Chunk &chunk)
 {
   BEGIN_TIMER();
 
-  if (Config::getInstance().isSynthenticCompressionEnabled()) {
+  if (Config::getInstance().isReplayFIUEnabled() && Config::getInstance().isSynthenticCompressionEnabled()) {
     chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
     memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
-  } else if (Config::getInstance().isFakeIOEnabled()) {
+  } else if (Config::getInstance().isReplayFIUEnabled() || Config::getInstance().isFakeIOEnabled()) {
     chunk.compressedLen_ = 0;
   } else {
 #ifdef CDARC
@@ -42,21 +42,22 @@ void CompressionModule::compress(Chunk &chunk)
     chunk.compressedBuf_ = chunk.buf_;
   }
 #else // ACDC
-  double compress_ratio = chunk.compressedLen_ * 1.0 / chunk.len_;
-  if (compress_ratio > 0.75 || chunk.compressedLen_ == 0) {
-    chunk.compressedLevel_ = 3;
-    chunk.compressedBuf_ = chunk.buf_;
+  uint32_t numCompressionLevels = Config::getInstance().getChunkSize() / Config::getInstance().getSectorSize();
+  if (chunk.compressedLen_ == 0) {
+    chunk.compressedLevel_ = numCompressionLevels - 1;
   } else {
-    if (compress_ratio > 0.5) {
-      chunk.compressedLevel_ = 2;
-    } else if (compress_ratio > 0.25) {
-      chunk.compressedLevel_ = 1;
-    } else {
-      chunk.compressedLevel_ = 0;
+    uint32_t compressedLen = chunk.compressedLen_;
+    chunk.compressedLevel_ = 0;
+    while (compressedLen > 0 && compressedLen <= chunk.compressedLen_) {
+      chunk.compressedLevel_ += 1;
+      compressedLen -= Config::getInstance().getSectorSize();
     }
+    --chunk.compressedLevel_;
+  }
+  if (chunk.compressedLevel_ == numCompressionLevels - 1) {
+    chunk.compressedBuf_ = chunk.buf_;
   }
 #endif
-
   END_TIMER(compression);
 }
 

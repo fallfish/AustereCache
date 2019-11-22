@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
+#include <iostream>
 namespace cache {
 
 class Config
@@ -39,14 +40,14 @@ class Config
       return workingSetSize_ / (chunkSize_ * nSlotsPerLbaBucket_);
     } else {
       return std::min(workingSetSize_ / (chunkSize_ * nSlotsPerLbaBucket_),
-         cacheDeviceSize_ / (chunkSize_ * nSlotsPerLbaBucket_) * lbaAmplifier_);
+         (uint64_t)(cacheDeviceSize_ / (chunkSize_ * nSlotsPerLbaBucket_) * lbaAmplifier_));
     }
   }
   uint32_t getnSourceIndexEntries() {
     if (lbaAmplifier_ == 0) {
       return workingSetSize_ / chunkSize_;
     } else {
-      return std::min(workingSetSize_ / chunkSize_, cacheDeviceSize_ / chunkSize_ * lbaAmplifier_);
+      return std::min(workingSetSize_ / chunkSize_, (uint64_t)(cacheDeviceSize_ / chunkSize_ * lbaAmplifier_));
     }
   }
   uint32_t getnBitsPerFpBucketId() {
@@ -56,9 +57,15 @@ class Config
     return cacheDeviceSize_ / (sectorSize_ * nSlotsPerFpBucket_);
   }
 
-  uint32_t getLBAAmplifier() {
+  float getLBAAmplifier() {
     return lbaAmplifier_;
   }
+
+  uint32_t getLBASlotSeperator() {
+    return 
+      (uint32_t)((32 - cacheDeviceSize_ / (uint64_t)chunkSize_ / (uint64_t)getnLbaBuckets()) / 4);
+  }
+
   uint32_t getnLBASlotsPerBucket() { return nSlotsPerLbaBucket_; }
   uint32_t getnFPSlotsPerBucket() { return nSlotsPerFpBucket_; }
   uint32_t getnBitsPerClock() { return nBitsPerClock_; }
@@ -66,9 +73,12 @@ class Config
   uint32_t getCachePolicyForFPIndex() {
     return cachePolicyForFPIndex_;
   }
+  bool isRecencyBasedRCEnabled() {
+    return enableRecencyBasedRC_;
+  }
 
 
-    uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
+  uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
   uint32_t getMaxNumLocalThreads() { return maxNumLocalThreads_; }
 
   char *getCacheDeviceName() { return cacheDeviceName_; }
@@ -88,11 +98,14 @@ class Config
   void setCacheDeviceSize(uint64_t cache_device_size) { cacheDeviceSize_ = cache_device_size; }
   void setWorkingSetSize(uint64_t working_set_size) { workingSetSize_ = working_set_size; }
 
-  void setLBAAmplifier(uint32_t v) {
+  void setLBAAmplifier(float v) {
     lbaAmplifier_ = v;
   }
   void setCachePolicyForFPIndex(uint32_t v) {
     cachePolicyForFPIndex_ = v;
+  }
+  void enableRecencyBasedRC() {
+    enableRecencyBasedRC_ = true;
   }
 
   void setnBitsPerFpSignature (uint32_t v) { nBitsPerFpSignature_ = v; }
@@ -170,7 +183,7 @@ class Config
     nSlotsPerFpBucket_ = 32;
     nBitsPerClock_ = 2;
     clockStartValue_ = 1;
-    lbaAmplifier_ = 1u;
+    lbaAmplifier_ = 1.0;
 
     enableMultiThreads_ = false;
     maxNumGlobalThreads_ = 32;
@@ -198,7 +211,7 @@ class Config
   // nBuckets_ = primary_storage_size / 32K / 32 = 512
   uint32_t nBitsPerLbaSignature_;
   uint32_t nSlotsPerLbaBucket_;
-  uint32_t lbaAmplifier_;
+  float lbaAmplifier_;
 
   uint32_t nBitsPerFpSignature_;
   uint32_t nSlotsPerFpBucket_;
@@ -209,6 +222,7 @@ class Config
   // 1 means MapRefCounterCachePolicy
   // 2 means ClockPolicy
   uint32_t cachePolicyForFPIndex_ = 0;
+  bool enableRecencyBasedRC_ = false;
 
   // Multi threading related
   uint32_t maxNumGlobalThreads_;

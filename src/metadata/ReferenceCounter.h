@@ -7,6 +7,7 @@
 #include <cstring>
 
 namespace cache {
+
   class MapReferenceCounter {
 
     std::map<uint64_t, uint32_t> counters_;
@@ -71,6 +72,40 @@ namespace cache {
         return instance;
       }
 
+  };
+
+  class ReferenceCounter {
+    public:
+    static uint32_t query(uint64_t key) {
+        if (Config::getInstance().getCachePolicyForFPIndex() == 0
+            || Config::getInstance().getCachePolicyForFPIndex() == 3) {
+          return SketchReferenceCounter::getInstance().query(key);
+        } else {
+          return MapReferenceCounter::getInstance().query(key);
+        }
+    }
+
+    static void reference(uint64_t key) {
+      if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
+        if (Config::getInstance().getCachePolicyForFPIndex() == 0
+            || Config::getInstance().getCachePolicyForFPIndex() == 3) {
+          SketchReferenceCounter::getInstance().reference(key);
+        } else {
+          MapReferenceCounter::getInstance().reference(key);
+        }
+      }
+    }
+
+    static void dereference(uint64_t key) {
+      if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
+        if (Config::getInstance().getCachePolicyForFPIndex() == 0
+            || Config::getInstance().getCachePolicyForFPIndex() == 3) {
+          SketchReferenceCounter::getInstance().dereference(key);
+        } else {
+          MapReferenceCounter::getInstance().dereference(key);
+        }
+      }
+    }
   };
 }
 #endif //SSDDUP_REFERENCECOUNTER_H

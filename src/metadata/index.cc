@@ -87,7 +87,7 @@ namespace cache {
       cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
     } else if (Config::getInstance().getCachePolicyForFPIndex() == 3
       || Config::getInstance().getCachePolicyForFPIndex() == 4) {
-      cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 1));
+      cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 0));
     }
   }
 
@@ -95,8 +95,8 @@ namespace cache {
   {
     // 8192 is chunk size, while 512 is the metadata size
     return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
-             Config::getInstance().getSectorSize() + Config::getInstance().getnFpBuckets() *
-                                                     Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
+             Config::getInstance().getSectorSize() + 
+             Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)
@@ -164,21 +164,9 @@ namespace cache {
   }
 
   void FPIndex::reference(uint64_t fpHash) {
-    if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
-      if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
-        SketchReferenceCounter::getInstance().reference(fpHash);
-      } else {
-        MapReferenceCounter::getInstance().reference(fpHash);
-      }
-    }
+    ReferenceCounter::reference(fpHash);
   }
   void FPIndex::dereference(uint64_t fpHash) {
-    if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
-      if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
-        SketchReferenceCounter::getInstance().dereference(fpHash);
-      } else {
-        MapReferenceCounter::getInstance().dereference(fpHash);
-      }
-    }
+    ReferenceCounter::dereference(fpHash);
   }
 }

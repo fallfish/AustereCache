@@ -6,6 +6,7 @@
 #include "bucket.h"
 #include "index.h"
 #include "CachePolicy.h"
+#include "ReferenceCounter.h"
 #include "common/stats.h"
 #include "manage/DirtyList.h"
 #include <csignal>
@@ -61,6 +62,9 @@ namespace cache {
         Stats::getInstance().add_lba_index_eviction_caused_by_collision();
         setEvictedSignature(getValue(slotId));
         Config::getInstance().currentEvictionIsRewrite = true;
+        if (Config::getInstance().isRecencyBasedRCEnabled() && slotId >= Config::getInstance().getLBASlotSeperator()) {
+          ReferenceCounter::dereference(getValue(slotId));
+        }
         setInvalid(slotId);
       }
     }
@@ -75,6 +79,9 @@ namespace cache {
     setKey(slotId, lbaSignature);
     setValue(slotId, fingerprintHash);
     setValid(slotId);
+    if (Config::getInstance().isRecencyBasedRCEnabled() && slotId >= Config::getInstance().getLBASlotSeperator()) {
+      ReferenceCounter::reference(fingerprintHash);
+    }
     cachePolicyExecutor_->promote(slotId);
     return evictedSignature_;
   }

@@ -30,9 +30,18 @@ namespace cache {
 
   void LRUExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy)
   {
+    uint32_t prevSlotId = slotId;
     uint32_t nSlots = bucket_->getnSlots();
     uint32_t k = bucket_->getKey(slotId);
     uint64_t v = bucket_->getValue(slotId);
+    if (Config::getInstance().isRecencyBasedRCEnabled()) {
+      if (prevSlotId < Config::getInstance().getLBASlotSeperator()) {
+        ReferenceCounter::reference(v);
+        if (bucket_->isValid(Config::getInstance().getLBASlotSeperator())) {
+          ReferenceCounter::dereference(bucket_->getValue(Config::getInstance().getLBASlotSeperator()));
+        }
+      }
+    }
     // Move each slot to the tail
     for ( ; slotId < nSlots - nSlotsToOccupy; ++slotId) {
       bucket_->setInvalid(slotId);
@@ -48,6 +57,10 @@ namespace cache {
       bucket_->setValue(slotId, v);
       bucket_->setValid(slotId);
     }
+
+    if (Config::getInstance().isRecencyBasedRCEnabled()) {
+    }
+
   }
 
   // Only LBA Index would call this function
@@ -266,12 +279,7 @@ namespace cache {
         uint64_t key = bucket_->getKey(slotId);
         uint64_t bucketId = bucket_->bucketId_;
         uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFpSignature()) | key;
-        uint32_t refCount = 0;
-        if (Config::getInstance().getCachePolicyForFPIndex() == 3) {
-          refCount = SketchReferenceCounter::getInstance().query(fpHash);
-        } else if (Config::getInstance().getCachePolicyForFPIndex() == 4){
-          refCount = MapReferenceCounter::getInstance().query(fpHash);
-        }
+        uint32_t refCount = ReferenceCounter::query(fpHash);
         if (refCount <= threshold_) {
           slotsToReferenceCounts.emplace_back(slotId, refCount);
         }
@@ -325,9 +333,7 @@ namespace cache {
       slotsToReferenceCounts.erase(slotsToReferenceCounts.begin());
     }
 
-    if (nSlotsAvailable < nSlotsToOccupy) {
-      slotId = CAClockExecutor::allocate(nSlotsToOccupy);
-    }
+    slotId = CAClockExecutor::allocate(nSlotsToOccupy);
     return slotId;
   }
 
@@ -385,13 +391,8 @@ namespace cache {
       uint64_t key = bucket_->getKey(slotId);
       uint64_t bucketId = bucket_->bucketId_;
       uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFpSignature()) | key;
-      uint32_t refCount = 0;
+      uint32_t refCount = ReferenceCounter::query(fpHash);
 
-      if (Config::getInstance().getCachePolicyForFPIndex() == 0) {
-        refCount = SketchReferenceCounter::getInstance().query(fpHash);
-      } else {
-        refCount = MapReferenceCounter::getInstance().query(fpHash);
-      }
       slotsToReferenceCounts.emplace_back(slotId, refCount);
       while (slotId < nSlots && bucket_->isValid(slotId)
         && key == bucket_->getKey(slotId)) {

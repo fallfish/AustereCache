@@ -61,7 +61,11 @@ namespace cache {
           param = argv[i];
           value = argv[i + 1];
           assert(value != nullptr);
-          if (strcmp(param, "--cache-device-size") == 0) {
+          if (strcmp(param, "--primary-device-name") == 0) {
+            Config::getInstance().setPrimaryDeviceName(argv[i + 1]);
+          } else if (strcmp(param, "--cache-device-name") == 0) {
+            Config::getInstance().setCacheDeviceName(argv[i + 1]);
+          } else if (strcmp(param, "--cache-device-size") == 0) {
             uint64_t cacheSize = 0;
             sscanf(value, "%llu", &cacheSize);
             Config::getInstance().setCacheDeviceSize(cacheSize);
@@ -70,10 +74,15 @@ namespace cache {
             sscanf(value, "%llu", &workingSetSize);
             Config::getInstance().setWorkingSetSize(workingSetSize);
           } else if (strcmp(param, "--lba-amplifier") == 0) {
-            Config::getInstance().setLBAAmplifier(atoi(value));
-            printf("LBAAmplifier: %d\n", atoi(value));
+            Config::getInstance().setLBAAmplifier(atof(value));
+            std::cout << "LBAAmplifier: " << Config::getInstance().getLBAAmplifier() << std::endl;
           } else if (strcmp(param, "--fp-index-cache-policy") == 0) {
             Config::getInstance().setCachePolicyForFPIndex(atoi(value));
+          } else if (strcmp(param, "--enable-recency-based-reference-count") == 0) {
+            if (atoi(value) == 1) {
+              Config::getInstance().enableRecencyBasedRC();
+            }
+          // Configurations for System 
           } else if (strcmp(param, "--num-slots-fp-bucket") == 0) {
             Config::getInstance().setnSlotsPerFpBucket(atoi(value));
           } else if (strcmp(param, "--num-bits-fp-sig") == 0) {
@@ -86,6 +95,7 @@ namespace cache {
             Config::getInstance().setSectorSize(atoi(value));
           } else if (strcmp(param, "--chunk-size") == 0) {
             Config::getInstance().setChunkSize(atoi(value));
+          // Configurations for algorithms
           } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
             Config::getInstance().setFingerprintAlgorithm(atoi(value));
           } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
@@ -103,16 +113,6 @@ namespace cache {
             generateCompression();
           }
         }
-
-        //Config::getInstance().setCacheDeviceName("./cache_device");
-        Config::getInstance().setPrimaryDeviceName("./primary_device");
-        //Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
-        //Config::getInstance().setPrimaryDeviceName("./primary_device");
-        //Config::getInstance().setPrimaryDeviceName("./ramdisk/primary_device");
-        Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
-        //Config::getInstance().setPrimaryDeviceName("/dev/sdb");
-        //Config::getInstance().setCacheDeviceName("/dev/sda");
-        //assert(has_access_pattern);
 
         printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
         printf("primary device size: %" PRId64 " GiB\n", Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
