@@ -32,7 +32,6 @@ namespace cache {
 #if defined(WRITE_BACK_CACHE)
     DirtyList::getInstance().addLatestUpdate(chunk.addr_, chunk.cachedataLocation_, chunk.len_);
 #endif
-
     Stats::getInstance().add_write_stat(chunk);
   }
 }

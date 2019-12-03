@@ -19,11 +19,12 @@ void CompressionModule::compress(Chunk &chunk)
 {
   BEGIN_TIMER();
 
-  if (Config::getInstance().isReplayFIUEnabled() && Config::getInstance().isSynthenticCompressionEnabled()) {
-    chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
-    memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
-  } else if (Config::getInstance().isReplayFIUEnabled() || Config::getInstance().isFakeIOEnabled()) {
-    chunk.compressedLen_ = 0;
+  if (Config::getInstance().isFakeIOEnabled()) {
+    if (Config::getInstance().isSynthenticCompressionEnabled()) {
+      chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
+    } else {
+      chunk.compressedLen_ = 0;
+    }
   } else {
 #ifdef CDARC
     chunk.compressedLen_ = LZ4_compress_default(
@@ -42,7 +43,7 @@ void CompressionModule::compress(Chunk &chunk)
     chunk.compressedBuf_ = chunk.buf_;
   }
 #else // ACDC
-  uint32_t numCompressionLevels = Config::getInstance().getChunkSize() / Config::getInstance().getSectorSize();
+  uint32_t numCompressionLevels = Config::getInstance().getCompressionLevels();
   if (chunk.compressedLen_ == 0) {
     chunk.compressedLevel_ = numCompressionLevels - 1;
   } else {
@@ -70,12 +71,10 @@ void CompressionModule::decompress(Chunk &chunk)
 #else // ACDC
   if (chunk.compressedLen_ != 0) {
 #endif
-    if (Config::getInstance().isSynthenticCompressionEnabled()) {
-      memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
-      chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
-    }
-
     if (!Config::getInstance().isFakeIOEnabled()) {
+      if (Config::getInstance().isSynthenticCompressionEnabled()) {
+        memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
+      }
       LZ4_decompress_safe((const char*)chunk.compressedBuf_, (char*)chunk.buf_,
                           chunk.compressedLen_, chunk.len_);
     }

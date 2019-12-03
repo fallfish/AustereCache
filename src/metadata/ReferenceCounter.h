@@ -77,8 +77,7 @@ namespace cache {
   class ReferenceCounter {
     public:
     static uint32_t query(uint64_t key) {
-        if (Config::getInstance().getCachePolicyForFPIndex() == 0
-            || Config::getInstance().getCachePolicyForFPIndex() == 3) {
+        if (Config::getInstance().isSketchRFEnabled()) {
           return SketchReferenceCounter::getInstance().query(key);
         } else {
           return MapReferenceCounter::getInstance().query(key);
@@ -86,24 +85,18 @@ namespace cache {
     }
 
     static void reference(uint64_t key) {
-      if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
-        if (Config::getInstance().getCachePolicyForFPIndex() == 0
-            || Config::getInstance().getCachePolicyForFPIndex() == 3) {
-          SketchReferenceCounter::getInstance().reference(key);
-        } else {
-          MapReferenceCounter::getInstance().reference(key);
-        }
+      if (Config::getInstance().isSketchRFEnabled()) {
+        SketchReferenceCounter::getInstance().reference(key);
+      } else {
+        MapReferenceCounter::getInstance().reference(key);
       }
     }
 
     static void dereference(uint64_t key) {
-      if (Config::getInstance().getCachePolicyForFPIndex() != 2) {
-        if (Config::getInstance().getCachePolicyForFPIndex() == 0
-            || Config::getInstance().getCachePolicyForFPIndex() == 3) {
-          SketchReferenceCounter::getInstance().dereference(key);
-        } else {
-          MapReferenceCounter::getInstance().dereference(key);
-        }
+      if (Config::getInstance().isSketchRFEnabled()) {
+        SketchReferenceCounter::getInstance().dereference(key);
+      } else {
+        MapReferenceCounter::getInstance().dereference(key);
       }
     }
   };

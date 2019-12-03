@@ -7,6 +7,13 @@
 #include <iostream>
 namespace cache {
 
+enum CachePolicyEnum {
+  // For ACDC
+  tCAClock, tGarbageAwareCAClock, tLeastReferenceCount, tRecencyAwareLeastReferenceCount,
+  // For DLRU
+  tNormal, tGarbageAware
+};
+
 class Config
 {
  public:
@@ -63,20 +70,22 @@ class Config
 
   uint32_t getLBASlotSeperator() {
     return 
-      (uint32_t)((32 - cacheDeviceSize_ / (uint64_t)chunkSize_ / (uint64_t)getnLbaBuckets()) / 4);
+      (uint32_t)((32 - cacheDeviceSize_ / (uint64_t)chunkSize_ /
+            (uint64_t)getnLbaBuckets()) / 4);
+    // 25% core list 
   }
 
   uint32_t getnLBASlotsPerBucket() { return nSlotsPerLbaBucket_; }
   uint32_t getnFPSlotsPerBucket() { return nSlotsPerFpBucket_; }
   uint32_t getnBitsPerClock() { return nBitsPerClock_; }
   uint32_t getClockStartValue() { return clockStartValue_; }
-  uint32_t getCachePolicyForFPIndex() {
+  uint32_t getCompressionLevels() { return chunkSize_ / sectorSize_; }
+
+  // CachePolicy:
+  // 
+  CachePolicyEnum getCachePolicyForFPIndex() {
     return cachePolicyForFPIndex_;
   }
-  bool isRecencyBasedRCEnabled() {
-    return enableRecencyBasedRC_;
-  }
-
 
   uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
   uint32_t getMaxNumLocalThreads() { return maxNumLocalThreads_; }
@@ -101,11 +110,8 @@ class Config
   void setLBAAmplifier(float v) {
     lbaAmplifier_ = v;
   }
-  void setCachePolicyForFPIndex(uint32_t v) {
+  void setCachePolicyForFPIndex(CachePolicyEnum v) {
     cachePolicyForFPIndex_ = v;
-  }
-  void enableRecencyBasedRC() {
-    enableRecencyBasedRC_ = true;
   }
 
   void setnBitsPerFpSignature (uint32_t v) { nBitsPerFpSignature_ = v; }
@@ -124,10 +130,12 @@ class Config
   void enableFakeIO(bool v) { enableFakeIO_ = v; }
   void enableSynthenticCompression(bool v) { enableSynthenticCompression_ = v; }
   void enableReplayFIU(bool v) { enableReplayFIU_ = v; }
+  void enableSketchRF(bool v) { enableSketchRF_ = v; }
   bool isDirectIOEnabled() { return enableDirectIO_; }
   bool isFakeIOEnabled() { return enableFakeIO_; }
   bool isReplayFIUEnabled() { return enableReplayFIU_; }
   bool isSynthenticCompressionEnabled() { return enableSynthenticCompression_; }
+  bool isSketchRFEnabled() { return enableSketchRF_; }
 
   void setFingerprintAlgorithm(uint32_t v) {
     if (v == 0) setFingerprintLength(20);
@@ -190,7 +198,7 @@ class Config
     maxNumLocalThreads_ = 8;
 
     // io related
-    cacheDeviceName_ = "./cache_device";
+    cacheDeviceName_ = "./ramdisk/cache_device";
     primaryDeviceName_ = "./primary_device";
 
     // NORMAL_DIST_COMPRESSION related
@@ -218,11 +226,12 @@ class Config
   // bits for CLOCK policy
   uint32_t nBitsPerClock_;
   uint32_t clockStartValue_;
-  // 0 means SketchRefCounterCachePolicy
-  // 1 means MapRefCounterCachePolicy
-  // 2 means ClockPolicy
-  uint32_t cachePolicyForFPIndex_ = 0;
-  bool enableRecencyBasedRC_ = false;
+#if defined(DLRU)
+  CachePolicyEnum cachePolicyForFPIndex_ = CachePolicyEnum::tNormal;
+#else
+  CachePolicyEnum cachePolicyForFPIndex_ = CachePolicyEnum::tRecencyAwareLeastReferenceCount;
+#endif
+  bool enableSketchRF_ = true;
 
   // Multi threading related
   uint32_t maxNumGlobalThreads_;

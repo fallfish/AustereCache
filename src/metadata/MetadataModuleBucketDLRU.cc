@@ -40,12 +40,15 @@ namespace cache {
   void MetadataModule::update(Chunk &c)
   {
     uint8_t oldFP[20];
-    memset(oldFP, 0, sizeof(oldFP));
     bool evicted = BucketizedDLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
     if (evicted) {
-      BucketizedDLRU_FingerprintIndex::getInstance().dereference(oldFP);
+      if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
+        BucketizedDLRU_FingerprintIndex::getInstance().dereference(oldFP);
+      }
     }
-    BucketizedDLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
+    if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicy::tGarbageAware) {
+      BucketizedDLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
+    }
     BucketizedDLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 }

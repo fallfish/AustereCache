@@ -30,7 +30,7 @@ namespace cache {
     Config::getInstance().release();
     double vm, rss;
     dumpMemoryUsage(vm, rss);
-    std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
+    std::cout << std::fixed << "VM: " << vm << "; RSS: " << rss << std::endl;
   }
 
   void SSDDup::read(uint64_t addr, void *buf, uint32_t len)

@@ -62,7 +62,9 @@ namespace cache {
         Stats::getInstance().add_lba_index_eviction_caused_by_collision();
         setEvictedSignature(getValue(slotId));
         Config::getInstance().currentEvictionIsRewrite = true;
-        if (Config::getInstance().isRecencyBasedRCEnabled() && slotId >= Config::getInstance().getLBASlotSeperator()) {
+        if (Config::getInstance().getCachePolicyForFPIndex() == 
+              CachePolicyEnum::tRecencyAwareLeastReferenceCount && 
+            slotId >= Config::getInstance().getLBASlotSeperator()) {
           ReferenceCounter::dereference(getValue(slotId));
         }
         setInvalid(slotId);
@@ -79,7 +81,9 @@ namespace cache {
     setKey(slotId, lbaSignature);
     setValue(slotId, fingerprintHash);
     setValid(slotId);
-    if (Config::getInstance().isRecencyBasedRCEnabled() && slotId >= Config::getInstance().getLBASlotSeperator()) {
+    if (Config::getInstance().getCachePolicyForFPIndex() == 
+          CachePolicyEnum::tRecencyAwareLeastReferenceCount && 
+        slotId >= Config::getInstance().getLBASlotSeperator()) {
       ReferenceCounter::reference(fingerprintHash);
     }
     cachePolicyExecutor_->promote(slotId);
@@ -153,6 +157,14 @@ namespace cache {
         ++_slotId) {
       setKey(_slotId, fpSignature);
       setValid(_slotId);
+    }
+
+    // Assign more Clock to those highly compressible chunks
+    if (Config::getInstance().getCachePolicyForFPIndex() == tGarbageAwareCAClock 
+        || Config::getInstance().getCachePolicyForFPIndex() == tCAClock) {
+      if (nSlotsToOccupy <= Config::getInstance().getCompressionLevels() / 2) {
+        cachePolicyExecutor_->promote(slotId, nSlotsToOccupy);
+      }
     }
 
     return slotId;

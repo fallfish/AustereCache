@@ -21,8 +21,6 @@
 #include <thread>
 #include <atomic>
 
-#define DIRECT_IO
-
 typedef long long int LL;
 typedef struct req_rec_t {
   LL addr;
@@ -39,14 +37,20 @@ namespace cache {
       RunSystem() {
         _multi_thread = 0;
         genzipf::rand_val(2);
-
+        compressedChunks_ = nullptr;
+        originalChunks_ = nullptr;
       }
+
       ~RunSystem() {
         _reqs.clear();
-        for (auto it : comp_data) free(it.second); 
-        for (auto it : comp_original_data) free(it.second); 
-        comp_data.clear();
-        comp_original_data.clear();
+        if (compressedChunks_ != nullptr) {
+          for (int i = 0; i <= Config::getInstance().getChunkSize(); ++i) {
+            if (compressedChunks_[i] != nullptr) free(compressedChunks_[i]);
+            if (originalChunks_[i] != nullptr) free(originalChunks_[i]);
+          }
+          free(compressedChunks_);
+          free(originalChunks_);
+        }
       }
 
 
@@ -69,6 +73,10 @@ namespace cache {
             uint64_t cacheSize = 0;
             sscanf(value, "%llu", &cacheSize);
             Config::getInstance().setCacheDeviceSize(cacheSize);
+          } else if (strcmp(param, "--primary-device-size") == 0) {
+            uint64_t primarySize = 0;
+            sscanf(value, "%llu", &primarySize);
+            Config::getInstance().setPrimaryDeviceSize(primarySize);
           } else if (strcmp(param, "--working-set-size") == 0) {
             uint64_t workingSetSize = 0;
             sscanf(value, "%llu", &workingSetSize);
@@ -77,11 +85,31 @@ namespace cache {
             Config::getInstance().setLBAAmplifier(atof(value));
             std::cout << "LBAAmplifier: " << Config::getInstance().getLBAAmplifier() << std::endl;
           } else if (strcmp(param, "--fp-index-cache-policy") == 0) {
-            Config::getInstance().setCachePolicyForFPIndex(atoi(value));
-          } else if (strcmp(param, "--enable-recency-based-reference-count") == 0) {
-            if (atoi(value) == 1) {
-              Config::getInstance().enableRecencyBasedRC();
+            std::cout << "FP policy: " << value << std::endl;
+#if defined(DLRU)
+            if (strcmp(value, "Normal") == 0) {
+              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tNormal);
+            } else if (strcmp(value, "GarbageAware") == 0) {
+              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAware);
             }
+#else
+            if (strcmp(value, "CAClock") == 0) {
+              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tCAClock);
+            } else if (strcmp(value, "GarbageAwareCAClock") == 0) {
+              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAwareCAClock);
+            } else if (strcmp(value, "LeastReferenceCount") == 0) {
+              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tLeastReferenceCount);
+            } else if (strcmp(value, "RecencyAwareLeastReferenceCount") == 0) {
+              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tRecencyAwareLeastReferenceCount);
+            }
+#endif
+          } else if (strcmp(param, "--enable-sketch-rf") == 0) {
+            if (atoi(value) == 1) {
+              std::cout << "Enable Sketch Reference Counter" << std::endl;
+            } else {
+              std::cout << "Disable Sketch Reference Counter" << std::endl;
+            }
+            Config::getInstance().enableSketchRF(atoi(value));
           // Configurations for System 
           } else if (strcmp(param, "--num-slots-fp-bucket") == 0) {
             Config::getInstance().setnSlotsPerFpBucket(atoi(value));
@@ -110,8 +138,11 @@ namespace cache {
             Config::getInstance().enableFakeIO(atoi(value));
           } else if (strcmp(param, "--enable-synthentic-compression") == 0) {
             Config::getInstance().enableSynthenticCompression(atoi(value));
-            generateCompression();
           }
+        }
+
+        if (Config::getInstance().isSynthenticCompressionEnabled()) {
+          generateCompression();
         }
 
         printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
@@ -230,7 +261,7 @@ namespace cache {
           if (Config::getInstance().isSynthenticCompressionEnabled()) {
             int clen = (double)chunk_size / compressibility; 
             if (clen >= chunk_size) clen = chunk_size;
-            while (!comp_data.count(clen) && clen < chunk_size) clen++;
+            while (compressedChunks_[clen] == nullptr && clen < chunk_size) clen++;
             req.compressed_len = clen;
           }
 
@@ -238,8 +269,8 @@ namespace cache {
 
           _reqs.push_back(req);
           continue;
-          if (cnt % 100000 == 0) printf("req %d\n", cnt); // , num of unique sha1 = %d\n", i, sets.size());
-          sendRequest(req, rwdata, sha1);
+          //if (cnt % 100000 == 0) printf("req %d\n", cnt); // , num of unique sha1 = %d\n", i, sets.size());
+          //sendRequest(req, rwdata, sha1);
           //if (_reqs[i].r) printf("req %d\n", i);
 
         }
@@ -266,18 +297,18 @@ namespace cache {
           Config::getInstance().setCurrentFingerprint(sha1);
         }
 
-#if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) && defined(NORMAL_DIST_COMPRESSION)
-        if (req.r) {
+        //if (req.r) {
           //printf("compressed len: %d\n", req.compressed_len);
-          Config::getInstance().setCurrentData(comp_data[req.compressed_len], req.compressed_len);
+        if (Config::getInstance().isSynthenticCompressionEnabled()) {
+          Config::getInstance().setCurrentData(compressedChunks_[req.compressed_len], req.compressed_len);
           Config::getInstance().setCurrentCompressedLen(req.compressed_len);
+          if (!req.r) {
+            memcpy(rwdata, originalChunks_[req.compressed_len], len);
+          }
         } else {
-          memcpy(rwdata, comp_data[req.compressed_len], chunkSize); 
+          if (!req.r)
+            memcpy40Bto32K(rwdata, req.sha1);
         }
-#else
-        if (!req.r)
-          memcpy40Bto32K(rwdata, req.sha1);
-#endif
 
         if (req.r) {
           _ssddup->read(begin, rwdata, len);
@@ -286,19 +317,17 @@ namespace cache {
         }
 
         // Debug
-#if ((defined(CACHE_DEDUP) && defined(CDARC)) || (!defined(CACHE_DEDUP))) 
         if (Config::getInstance().isSynthenticCompressionEnabled()) {
           if (false && req.r) {
-            if (!memcmp(rwdata, comp_original_data[req.compressed_len], chunkSize)) printf("OK, same\n");
+            if (!memcmp(rwdata, originalChunks_[req.compressed_len], chunkSize)) printf("OK, same\n");
             else {
               printf("not ok, not same\nOriginal data: ");
-              print_SHA1(comp_original_data[req.compressed_len], chunkSize);
+              print_SHA1(originalChunks_[req.compressed_len], chunkSize);
               printf("Read data: ");
               print_SHA1(rwdata, chunkSize);
             }
           }
         }
-#endif
       }
 
       /**
@@ -329,62 +358,44 @@ namespace cache {
         std::cout << _reqs.size() << std::endl;
         char sha1[23];
         for (uint32_t i = 0; i < _reqs.size(); i++) {
-          //if (i == 5000000) break;
           if (i % 100000 == 0) printf("req %d\n", i); // , num of unique sha1 = %d\n", i, sets.size());
           //if (_reqs[i].r) printf("req %d\n", i);
 
           sendRequest(_reqs[i], rwdata, sha1);
+          total_bytes += chunk_size;
         }
         sync();
       }
 
     void generateCompression() {
-
-      static int ok = 0;
-
-      if (ok == 0) {
-        comp_original_data = {};
-        comp_data = {};
-
-        using random_bytes_engine = std::independent_bits_engine<
-          std::default_random_engine, CHAR_BIT, unsigned char>;
-
-        random_bytes_engine rbe;
-
-        char* data_a, *comp_data_a; 
-        int chunk_size = Config::getInstance().getChunkSize();
-
-        data_a = (char*)malloc(sizeof(char) * chunk_size);
-        comp_data_a = (char*)malloc(sizeof(char) * chunk_size);
-
-        memset(data_a, 1, sizeof(char) * chunk_size);
-        memset(comp_data_a, 1, sizeof(char) * chunk_size);
-
-        for (int i = 0; i < chunk_size; i+=8) {
-
-          if (i) std::generate(data_a, data_a + i, std::ref(rbe));
-          int clen = LZ4_compress_default(data_a, comp_data_a, chunk_size, chunk_size-1);
-
-          if (clen && !comp_data.count(clen) && !comp_original_data.count(clen)) {
-            comp_data[clen] = (char*)malloc(sizeof(char) * chunk_size);
-            comp_original_data[clen] = (char*)malloc(sizeof(char) * chunk_size);
-            memcpy(comp_data[clen], comp_data_a, sizeof(char) * clen);
-            memcpy(comp_original_data[clen], data_a, sizeof(char) * chunk_size);
-          }
-
-          if (clen == 0 && !comp_data.count(chunk_size) && !comp_original_data.count(clen)) {
-            comp_data[chunk_size] = (char*)malloc(sizeof(char) * chunk_size);
-            comp_original_data[chunk_size] = (char*)malloc(sizeof(char) * chunk_size);
-            memcpy(comp_data[chunk_size], data_a, sizeof(char) * chunk_size);
-            memcpy(comp_original_data[chunk_size], data_a, sizeof(char) * chunk_size);
-          }
-        }
-
-        free(data_a);
-        free(comp_data_a);
+      int chunkSize = Config::getInstance().getChunkSize();
+      compressedChunks_ = (char**)malloc(sizeof(char*) * (1 + chunkSize));
+      originalChunks_ = (char**)malloc(sizeof(char*) * (1 + chunkSize));
+      char originalChunk[chunkSize], compressedChunk[chunkSize];
+      memset(originalChunk, 1, sizeof(char) * chunkSize);
+      memset(compressedChunk, 1, sizeof(char) * chunkSize);
+      for (int i = 0; i <= chunkSize; ++i) {
+        compressedChunks_[i] = nullptr;
+        originalChunks_[i] = nullptr;
       }
 
-      ok = 1;
+      using random_bytes_engine = std::independent_bits_engine<
+        std::default_random_engine, CHAR_BIT, unsigned char>;
+      random_bytes_engine rbe(1007);
+
+      for (int i = 0; i < chunkSize; i+=8) {
+
+        if (i) std::generate(originalChunk, originalChunk + i, std::ref(rbe));
+        int clen = LZ4_compress_default(originalChunk, compressedChunk, chunkSize, chunkSize-1);
+        if (clen == 0) clen = chunkSize;
+
+        if (compressedChunks_[clen] == nullptr) {
+          compressedChunks_[clen] = (char*)malloc(sizeof(char) * chunkSize);
+          originalChunks_[clen] = (char*)malloc(sizeof(char) * chunkSize);
+          memcpy(compressedChunks_[clen], compressedChunk, sizeof(char) * clen);
+          memcpy(originalChunks_[clen], originalChunk, sizeof(char) * chunkSize);
+        }
+      }
     }
 
     private: 
@@ -404,8 +415,8 @@ namespace cache {
       std::vector<req_rec> _reqs;
 
       // for compression
-      std::map<int, char*> comp_data;
-      std::map<int, char*> comp_original_data;
+      char** compressedChunks_;
+      char** originalChunks_;
   };
 
 }
@@ -439,7 +450,7 @@ int main(int argc, char **argv)
   run_system.parse_argument(argc, argv);
 
   std::atomic<uint64_t> total_bytes(0);
-  int elapsed = 0;
+  long long elapsed = 0;
   PERF_FUNCTION(elapsed, run_system.work, total_bytes);
 
   std::cout << "Replay finished, statistics: \n";

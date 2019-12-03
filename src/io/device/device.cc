@@ -9,6 +9,7 @@
 #include <csignal>
 
 #include "common/env.h"
+#include "common/config.h"
 #include "utils/utils.h"
 #include "device.h"
 #include "utils/MurmurHash3.h"
@@ -120,7 +121,7 @@ namespace cache {
       // error: new file needs to be created, however the size given is 0.
       return -1;
     }
-    if (_direct_io)
+    if (Config::getInstance().isDirectIOEnabled())
       fd = ::open(filename, O_RDWR | O_DIRECT | O_CREAT, 0666);
     else
       fd = ::open(filename, O_RDWR | O_CREAT, 0666);
@@ -145,7 +146,7 @@ namespace cache {
   {
     int fd = 0;
     std::cout << "BlockDevice::Open existing device!" << std::endl;
-    if (_direct_io)
+    if (Config::getInstance().isDirectIOEnabled())
       fd = ::open(filename, O_RDWR | O_DIRECT);
     else
       fd = ::open(filename, O_RDWR);

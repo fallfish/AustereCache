@@ -34,7 +34,8 @@ namespace cache {
     uint32_t nSlots = bucket_->getnSlots();
     uint32_t k = bucket_->getKey(slotId);
     uint64_t v = bucket_->getValue(slotId);
-    if (Config::getInstance().isRecencyBasedRCEnabled()) {
+    if (Config::getInstance().getCachePolicyForFPIndex() == 
+        CachePolicyEnum::tRecencyAwareLeastReferenceCount) {
       if (prevSlotId < Config::getInstance().getLBASlotSeperator()) {
         ReferenceCounter::reference(v);
         if (bucket_->isValid(Config::getInstance().getLBASlotSeperator())) {
@@ -57,10 +58,6 @@ namespace cache {
       bucket_->setValue(slotId, v);
       bucket_->setValid(slotId);
     }
-
-    if (Config::getInstance().isRecencyBasedRCEnabled()) {
-    }
-
   }
 
   // Only LBA Index would call this function

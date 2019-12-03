@@ -30,6 +30,21 @@ namespace cache {
    * After that, it allocates recycled space. Each allocation (after full)
    * will firstly trigger an eviction.
    */
+  struct Fingerprint {
+    Fingerprint() { memset(v_, 0, sizeof(v_)); }
+    uint8_t v_[20]{};
+    bool operator<(const Fingerprint &fp) const {
+      return memcmp(v_, fp.v_, 20) < 0;
+    }
+    bool operator==(const Fingerprint &fp) const {
+      for (uint32_t i = 0; i < 20 / 4; ++i) {
+        if (((uint32_t*)v_)[i] != ((uint32_t*)fp.v_)[i])
+          return false;
+      }
+      return true;
+    }
+  };
+
   struct SpaceAllocator {
     uint64_t capacity_;
     uint64_t nextLocation_;
@@ -162,6 +177,7 @@ namespace cache {
   class DARC_SourceIndex {
     public:
       friend class DARC_FingerprintIndex;
+      friend class CDARC_FingerprintIndex;
 
       enum EntryLocation {
           INVALID, IN_T1, IN_T2, IN_B1, IN_B2, IN_B3
@@ -250,6 +266,29 @@ namespace cache {
       }
 
       uint32_t capacity_;
+      void getFingerprints(std::set<Fingerprint> &v) {
+        Fingerprint arr;
+        for (auto t : t1_) {
+          memcpy(arr.v_, mp_[t].v_, 20);
+          v.insert(arr);
+        }
+        for (auto t : t2_) {
+          memcpy(arr.v_, mp_[t].v_, 20);
+          v.insert(arr);
+        }
+        for (auto t : b1_) {
+          memcpy(arr.v_, mp_[t].v_, 20);
+          v.insert(arr);
+        }
+        for (auto t : b2_) {
+          memcpy(arr.v_, mp_[t].v_, 20);
+          v.insert(arr);
+        }
+        for (auto t : b3_) {
+          memcpy(arr.v_, mp_[t].v_, 20);
+          v.insert(arr);
+        }
+      }
   public:
       std::map<uint64_t, FP> mp_;
       std::list<uint64_t> t1_, t2_, b1_, b2_, b3_;
@@ -375,6 +414,25 @@ namespace cache {
           uint32_t &offset, uint32_t length);
 
       uint32_t capacity_;
+
+      void dump_statistics() {
+        std::set<Fingerprint> fingerprints;
+        DARC_SourceIndex::getInstance().getFingerprints(fingerprints);
+        uint32_t nInvalidFingerprints = 0;
+        uint32_t nTotalFingerprints = 0;
+        Fingerprint arr;
+        for (auto pr : mp_) {
+          if (weuReferenceCount_.find(pr.second.weuId_) == weuReferenceCount_.end()) continue;
+          nTotalFingerprints += 1;
+          memcpy(arr.v_, pr.first.v_, 20);
+          if (fingerprints.find(arr) == fingerprints.end()) {
+            nInvalidFingerprints += 1;
+          }
+        }
+        printf("Zero Referenced WEUs: %lu, Total WEUs: %lu\n", zeroReferenceList_.size(), weuReferenceCount_.size());
+        printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
+        fingerprints.clear();
+      }
   private:
       std::map<FP, DP> mp_;
       std::map<uint32_t, uint32_t> weuReferenceCount_; // reference count for each weu
@@ -424,7 +482,7 @@ namespace cache {
     class BucketizedDLRU_FingerprintIndex {
     public:
         BucketizedDLRU_FingerprintIndex() {
-          nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket() / 4;
+          nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
           nBuckets_ = Config::getInstance().getnFpBuckets();
           buckets_ = new DLRU_FingerprintIndex*[nBuckets_];
           std::cout << "Number of FP buckets: " << nBuckets_ << std::endl;

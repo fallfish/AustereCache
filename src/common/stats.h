@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <map>
 #include <cassert>
+#include "metadata/cachededup_index.h"
 namespace cache {
   /*
    * class Stats is used to statistic in the data path.
@@ -57,32 +58,35 @@ struct Stats {
                 << "    FP Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
                 << std::endl;
 
-#if !defined(CACHE_DEDUP)
-      uint32_t n_lba_bucket = 1 << Config::getInstance().getnBitsPerLbaBucketId();
-      uint32_t n_fp_bucket = 1 << Config::getInstance().getnBitsPerFpBucketId();
-
-      std::cerr << "LBA Index Lookups: " << std::endl;
-      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_lookups_lba_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-      std::cerr << "LBA Index Updates: " << std::endl;
-      for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_updates_lba_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-      std::cerr << "FP Index Lookups: " << std::endl;
-      for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_lookups_fp_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-      std::cerr << "FP Index Updates: " << std::endl;
-      for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        fprintf(stderr, "(%d,%d) ", i, _n_updates_fp_buckets[i].load());
-      }
-      fprintf(stderr, "\n");
-
+#if defined(CDARC)
+      CDARC_FingerprintIndex::getInstance().dump_statistics();
 #endif
+//#if !defined(CACHE_DEDUP)
+      //uint32_t n_lba_bucket = 1 << Config::getInstance().getnBitsPerLbaBucketId();
+      //uint32_t n_fp_bucket = 1 << Config::getInstance().getnBitsPerFpBucketId();
+
+      //std::cerr << "LBA Index Lookups: " << std::endl;
+      //for (uint32_t i = 0; i < n_lba_bucket; ++i) {
+        //fprintf(stderr, "(%d,%d) ", i, _n_lookups_lba_buckets[i].load());
+      //}
+      //fprintf(stderr, "\n");
+      //std::cerr << "LBA Index Updates: " << std::endl;
+      //for (uint32_t i = 0; i < n_lba_bucket; ++i) {
+        //fprintf(stderr, "(%d,%d) ", i, _n_updates_lba_buckets[i].load());
+      //}
+      //fprintf(stderr, "\n");
+      //std::cerr << "FP Index Lookups: " << std::endl;
+      //for (uint32_t i = 0; i < n_fp_bucket; ++i) {
+        //fprintf(stderr, "(%d,%d) ", i, _n_lookups_fp_buckets[i].load());
+      //}
+      //fprintf(stderr, "\n");
+      //std::cerr << "FP Index Updates: " << std::endl;
+      //for (uint32_t i = 0; i < n_fp_bucket; ++i) {
+        //fprintf(stderr, "(%d,%d) ", i, _n_updates_fp_buckets[i].load());
+      //}
+      //fprintf(stderr, "\n");
+
+//#endif
 
       std::cout << "IO statistics: " << std::endl
                 << "    Num bytes metadata written to ssd: " <<          _n_metadata_bytes_written_to_ssd << std::endl
@@ -117,6 +121,7 @@ struct Stats {
       std::cout << std::setprecision(2) << "Overall Stats: " << std::endl
                 << "    Hit ratio: " << _n_read_hit * 1.0 / (_n_read_hit + _n_read_not_hit) * 100.0 << "%" << std::endl
                 << "    Dup ratio: " << 1.0 * (_n_write_dup_write + _n_write_dup_content + _n_read_not_hit_dup_content) / (_n_write + _n_read_not_hit) * 100.0 << "%" << std::endl
+                << "    Dup ratio (not include read): " << 1.0 * (_n_write_dup_write + _n_write_dup_content) / _n_write  * 100.0 << "%" << std::endl
                 << "    Dup write to the total write ratio: " << 1.0 * _n_write_dup_write / _n_write * 100.0 << "%" << std::endl;
 
       std::cout << std::defaultfloat;
@@ -154,13 +159,17 @@ struct Stats {
     }
 
     inline void add_read_post_dedup_stat(Chunk &c) {
-      _n_read_not_hit_not_dup.fetch_add(1, std::memory_order_relaxed);
-      if (c.hitFPIndex_ == false) {
-        _n_read_not_hit_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
+      if (c.dedupResult_ == DUP_CONTENT) {
+        _n_read_not_hit_dup_content.fetch_add(1, std::memory_order_relaxed);
       } else {
-        if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
-            || c.verficationResult_ == ONLY_LBA_VALID) {
-          _n_read_not_hit_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
+        _n_read_not_hit_not_dup.fetch_add(1, std::memory_order_relaxed);
+        if (c.hitFPIndex_ == false) {
+          _n_read_not_hit_not_dup_ca_not_hit.fetch_add(1, std::memory_order_relaxed);
+        } else {
+          if (c.verficationResult_ == BOTH_LBA_AND_FP_NOT_VALID
+              || c.verficationResult_ == ONLY_LBA_VALID) {
+            _n_read_not_hit_not_dup_ca_not_match.fetch_add(1, std::memory_order_relaxed);
+          }
         }
       }
     }
