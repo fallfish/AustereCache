@@ -70,7 +70,7 @@ enum DeviceType {
  *      Compress_level varies from [0, 1, 2, 3]
  *      which specifies 25%, 50%, 75%, 100% compression ratio, respectively.
  *
- *   7. (CacheDedup-DARC-specific) weu_id, weu_offset, and evicted_weu_id from the decision of the DARC_FingerprintIndex.
+ *   7. (CacheDedup-DARC-specific) weu_id, weu_offset, and evicted_weu_id from the decision of the DARCFPIndex.
  **/
 
 struct Chunk {

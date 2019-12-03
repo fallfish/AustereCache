@@ -13,6 +13,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <set>
 #include "bitmap.h"
 namespace cache {
   // Bucket is an abstraction of multiple key-value pairs (mapping)
@@ -149,6 +150,8 @@ namespace cache {
        * @param fingerprintIndex used to evict obsolete entries that has been evicted in ca_index
        */
       uint64_t update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex);
+
+      void getFingerprints(std::set<uint64_t> &fpSet);
   };
 
   /**
@@ -194,6 +197,8 @@ namespace cache {
       // Delete an entry for a certain ca signature
       // This is required for hit but verification-failed chunk.
       void evict(uint64_t fpSignature);
+
+      void getFingerprints(std::set<uint64_t> &fpSet);
   };
 }
 #endif

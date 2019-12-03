@@ -14,7 +14,7 @@
 
 + Slot size: 8KiB + 512B
 + Bucket size: 32 \* (8KiB + 512B) = 272KiB
-+ If FP Bits are 11, then the minimum cache (SSD) size should be (2^11) * 272KiB = 544MiB
++ If Fingerprint Bits are 11, then the minimum cache (SSD) size should be (2^11) * 272KiB = 544MiB
 
 ### src/benchmark
 
@@ -87,7 +87,7 @@ Public methods `read()` and `write()` response requests by calling `internal_rea
 
 The function can be divided into several steps:
 
-+ Look up the FP index
++ Look up the Fingerprint index
 + Decompress data
 + Update metadata (if needed)
 
@@ -97,7 +97,7 @@ The function can be divided into several steps:
 
 #### cachededup_index.{cc|h}
 
-Implement the D-LRU and D-ARC algorithms.
+Implement the D-BucketAwareLRU and D-ARC algorithms.
 
 (Common) Functions:
 
@@ -107,11 +107,11 @@ Implement the D-LRU and D-ARC algorithms.
 
 Classes: 
 
-+ `DLRU_SourceIndex`
-+ `DLRU_FingerprintIndex`: A dedup-only design (?)
-+ `DARC_SourceIndex`
-+ `DLRU_FingerprintIndex`
-+ `CDARC_FingerprintIndex`
++ `DLRULBAIndex`
++ `DLRUFPIndex`: A dedup-only design (?)
++ `DARCLBAIndex`
++ `DLRUFPIndex`
++ `CDARCFPIndex`
 
 #### metadatamodule.{cc|h} - MetaData Module
 

@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <map>
 #include <cassert>
-#include "metadata/cachededup_index.h"
+#include "metadata/cacheDedup/cacheDedupCommon.h"
 namespace cache {
   /*
    * class Stats is used to statistic in the data path.
@@ -54,13 +54,10 @@ struct Stats {
       std::cout << "Index statistics: " << std::endl
                 << "    LBA Index eviction caused by hash collision: " << _n_lba_index_eviction_caused_by_collision << std::endl
                 << "    LBA Index eviction caused by full capacity: " << _n_lba_index_eviction_caused_by_capacity << std::endl
-                << "    FP Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
-                << "    FP Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
+                << "    Fingerprint Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
+                << "    Fingerprint Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
                 << std::endl;
 
-#if defined(CDARC)
-      CDARC_FingerprintIndex::getInstance().dump_statistics();
-#endif
 //#if !defined(CACHE_DEDUP)
       //uint32_t n_lba_bucket = 1 << Config::getInstance().getnBitsPerLbaBucketId();
       //uint32_t n_fp_bucket = 1 << Config::getInstance().getnBitsPerFpBucketId();
@@ -75,12 +72,12 @@ struct Stats {
         //fprintf(stderr, "(%d,%d) ", i, _n_updates_lba_buckets[i].load());
       //}
       //fprintf(stderr, "\n");
-      //std::cerr << "FP Index Lookups: " << std::endl;
+      //std::cerr << "Fingerprint Index Lookups: " << std::endl;
       //for (uint32_t i = 0; i < n_fp_bucket; ++i) {
         //fprintf(stderr, "(%d,%d) ", i, _n_lookups_fp_buckets[i].load());
       //}
       //fprintf(stderr, "\n");
-      //std::cerr << "FP Index Updates: " << std::endl;
+      //std::cerr << "Fingerprint Index Updates: " << std::endl;
       //for (uint32_t i = 0; i < n_fp_bucket; ++i) {
         //fprintf(stderr, "(%d,%d) ", i, _n_updates_fp_buckets[i].load());
       //}
@@ -273,9 +270,9 @@ struct Stats {
      * Description:
      *   LBA signature collision caused eviction could be detected
      *   in the metadata/bucket.cc:LBABucket::update procedure, 
-     *   where stored FP signature is checked against
+     *   where stored Fingerprint signature is checked against
      *   the "real" (either fetched from a read hit or computed from a write/read not hit)
-     *   FP signature, if not match, a collision is bound to happen.
+     *   Fingerprint signature, if not match, a collision is bound to happen.
      */
     inline void add_lba_index_eviction_caused_by_collision() {
       if (_current_request_type == 0)
@@ -286,7 +283,7 @@ struct Stats {
      * Description:
      *   LBA eviction caused by capacity is triggered each time
      *   the space is full and we need to accommodate new entry.
-     *   1. cache_policy.cc:LRUExecutor::allocate
+     *   1. cache_policy.cc:BucketAwareLRUExecutor::allocate
      *   2. cachededup.cc:(XX)AddressIndex::allocate
      */
     inline void add_lba_index_eviction_caused_by_capacity() {
@@ -297,9 +294,9 @@ struct Stats {
 
     /* 
      * Description:
-     *   FP signature collision caused eviction could only happen in
-     *   1. Write not dup - caused by FP hit but FP not valid
-     *   2. Read not hit not dup - caused by FP hit but FP not valid
+     *   Fingerprint signature collision caused eviction could only happen in
+     *   1. Write not dup - caused by Fingerprint hit but Fingerprint not valid
+     *   2. Read not hit not dup - caused by Fingerprint hit but Fingerprint not valid
      */
     inline void add_fp_index_eviction_caused_by_collision() {
       _n_ca_index_eviction_caused_by_collision.fetch_add(1, std::memory_order_relaxed);
@@ -307,7 +304,7 @@ struct Stats {
 
     /* 
      * Description:
-     *   FP eviction caused by capacity is triggered each time
+     *   Fingerprint eviction caused by capacity is triggered each time
      *   the space is full and we need to accommodate new entry.
      *   1. cache_policy.cc:CAClockExecutor::allocate
      *   2. cachededup.cc:(XX)FingerprintIndex::allocate

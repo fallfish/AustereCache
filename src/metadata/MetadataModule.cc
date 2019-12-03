@@ -22,7 +22,26 @@ namespace cache {
     metaVerification_ = std::make_unique<MetaVerification>();
     metaJournal_ = std::make_unique<MetaJournal>();
     std::cout << "Number of LBA buckets: " << Config::getInstance().getnLbaBuckets() << std::endl;
-    std::cout << "Number of FP buckets: " << Config::getInstance().getnFpBuckets() << std::endl;
+    std::cout << "Number of Fingerprint buckets: " << Config::getInstance().getnFpBuckets() << std::endl;
+  }
+
+  MetadataModule::~MetadataModule() {
+    dumpStats();
+  }
+
+  void MetadataModule::dumpStats() {
+    std::set<uint64_t> fpSetLbaIndex;
+    std::set<uint64_t> fpSetFpIndex;
+    lbaIndex_->getFingerprints(fpSetLbaIndex);
+    fpIndex_->getFingerprints(fpSetLbaIndex);
+    uint32_t nTotalFingerprints = 0, nInvalidFingerprints = 0;
+    for (uint64_t fingerprint : fpSetFpIndex) {
+      nTotalFingerprints += 1;
+      if (fpSetLbaIndex.find(fingerprint) == fpSetLbaIndex.end()) {
+        nInvalidFingerprints += 1;
+      }
+    }
+    printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
   }
 
   // Note:

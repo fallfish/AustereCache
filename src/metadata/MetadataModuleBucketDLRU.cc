@@ -8,6 +8,8 @@
 #include "common/config.h"
 #include "common/stats.h"
 #include "utils/utils.h"
+#include "cacheDedup/BucketDLRULBAIndex.h"
+#include "cacheDedup/BucketDLRUFPIndex.h"
 #include <cassert>
 
 namespace cache {
@@ -17,10 +19,11 @@ namespace cache {
     }
 
     MetadataModule::MetadataModule() = default;
+    MetadataModule::~MetadataModule() = default;
 
   void MetadataModule::dedup(Chunk &c)
   {
-    c.hitFPIndex_ = BucketizedDLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
+    c.hitFPIndex_ = BucketizedDLRUFPIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
     else
@@ -28,9 +31,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c.hitLBAIndex_ = BucketizedDLRU_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
+    c.hitLBAIndex_ = BucketizedDLRULBAIndex::getInstance().lookup(c.addr_, c.fingerprint_);
     if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = BucketizedDLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
+      c.hitFPIndex_ = BucketizedDLRUFPIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
@@ -40,16 +43,16 @@ namespace cache {
   void MetadataModule::update(Chunk &c)
   {
     uint8_t oldFP[20];
-    bool evicted = BucketizedDLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
+    bool evicted = BucketizedDLRULBAIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
     if (evicted) {
       if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
-        BucketizedDLRU_FingerprintIndex::getInstance().dereference(oldFP);
+        BucketizedDLRUFPIndex::getInstance().dereference(oldFP);
       }
     }
-    if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicy::tGarbageAware) {
-      BucketizedDLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
+    if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
+      BucketizedDLRUFPIndex::getInstance().reference(c.fingerprint_);
     }
-    BucketizedDLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
+    BucketizedDLRUFPIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 }
 

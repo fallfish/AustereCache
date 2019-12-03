@@ -7,8 +7,8 @@ Functions:
 **dedup()**
 
 1. Checks the LBA index
-2. Checks the FP index
-3. if FP index OK -> Verify metadata by the `MetaVerification` class. It reads the metadata from the SSD to check whether the metadata (LBA and FP) matches the Chunk metadata.
+2. Checks the Fingerprint index
+3. if Fingerprint index OK -> Verify metadata by the `MetaVerification` class. It reads the metadata from the SSD to check whether the metadata (LBA and Fingerprint) matches the Chunk metadata.
 4. Finally it checks whether the write is:
    + a duplicated write (Same Addr, same content)
    + duplicated content (Diff Addr, same content)
@@ -17,8 +17,8 @@ Functions:
 **lookup()**
 
 1. Checks the LBA index
-2. If LBA index OK -> Checks the FP index
-3. If FP index OK -> Verify metadata
+2. If LBA index OK -> Checks the Fingerprint index
+3. If Fingerprint index OK -> Verify metadata
 4. (?)
 
 
@@ -37,11 +37,11 @@ Functions:
 
  `lba_hash` is the hash value of the LBA; `ca_hash` is the hash value of the fingerprint. 
 
-This function uses some most significant bits of `lba_hash` to find the bucket **LBABucket**, and then find the rest least significant bits in the corresponding bucket as the *key*. Also, it will update `ca_hash` (as the *value*) by the `lookup()` function of **LBABucket** if the FP is found.
+This function uses some most significant bits of `lba_hash` to find the bucket **LBABucket**, and then find the rest least significant bits in the corresponding bucket as the *key*. Also, it will update `ca_hash` (as the *value*) by the `lookup()` function of **LBABucket** if the Fingerprint is found.
 
 **promote(lba_sig)**
 
-It assumes that `lba_sig` exists in the bucket. "Promote" means calling the `cachePolicyExecutor_` to improve the priority of the accessed value. (e.g. LRU)
+It assumes that `lba_sig` exists in the bucket. "Promote" means calling the `cachePolicyExecutor_` to improve the priority of the accessed value. (e.g. BucketAwareLRU)
 
 **update(lba_hash, ca_hash)**
 

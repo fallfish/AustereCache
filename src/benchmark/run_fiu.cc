@@ -85,7 +85,7 @@ namespace cache {
             Config::getInstance().setLBAAmplifier(atof(value));
             std::cout << "LBAAmplifier: " << Config::getInstance().getLBAAmplifier() << std::endl;
           } else if (strcmp(param, "--fp-index-cache-policy") == 0) {
-            std::cout << "FP policy: " << value << std::endl;
+            std::cout << "Fingerprint policy: " << value << std::endl;
 #if defined(DLRU)
             if (strcmp(value, "Normal") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tNormal);

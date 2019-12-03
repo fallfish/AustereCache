@@ -1,4 +1,7 @@
 #ifdef CDARC
+
+#include <metadata/cacheDedup/CDARCFPIndex.h>
+#include <metadata/cacheDedup/DARCLBAIndex.h>
 #include "common/env.h"
 #include "MetadataModule.h"
 #include "metajournal.h"
@@ -10,17 +13,20 @@ namespace cache {
       static MetadataModule instance;
       return instance;
     }
+    MetadataModule::~MetadataModule() {
+      CDARCFPIndex::getInstance().dumpStats();
+    }
 
     MetadataModule::MetadataModule() {
-      DARC_SourceIndex::getInstance().init(0, 0);
-      CDARC_FingerprintIndex::getInstance().init();
-      std::cout << "SourceIndex capacity: " <<  DARC_SourceIndex::getInstance().capacity_ << std::endl;
-      std::cout << "FingerprintIndex capacity: " << CDARC_FingerprintIndex::getInstance().capacity_ << std::endl;
+      DARCLBAIndex::getInstance().init(0, 0);
+      CDARCFPIndex::getInstance().init();
+      std::cout << "SourceIndex capacity: " << DARCLBAIndex::getInstance().capacity_ << std::endl;
+      std::cout << "FingerprintIndex capacity: " << CDARCFPIndex::getInstance().capacity_ << std::endl;
     }
 
   void MetadataModule::dedup(Chunk &c)
   {
-    c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
+    c.hitFPIndex_ = CDARCFPIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
     if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
     else
@@ -28,9 +34,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c.hitLBAIndex_ = DARC_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
+    c.hitLBAIndex_ = DARCLBAIndex::getInstance().lookup(c.addr_, c.fingerprint_);
     if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = CDARC_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
+      c.hitFPIndex_ = CDARCFPIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
@@ -39,10 +45,10 @@ namespace cache {
   }
   void MetadataModule::update(Chunk &c)
   {
-    DARC_SourceIndex::getInstance().adjust_adaptive_factor(c.addr_);
-    c.evictedWEUId_ = CDARC_FingerprintIndex::getInstance().update(c.addr_, c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
+    DARCLBAIndex::getInstance().adjust_adaptive_factor(c.addr_);
+    c.evictedWEUId_ = CDARCFPIndex::getInstance().update(c.addr_, c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
     //printf("%d %d %d %d\n", c.evictedWEUId_, c.weuId_, c.weuOffset_, c.compressedLen_);
-    DARC_SourceIndex::getInstance().update(c.addr_, c.fingerprint_);
+    DARCLBAIndex::getInstance().update(c.addr_, c.fingerprint_);
   }
 }
 #endif

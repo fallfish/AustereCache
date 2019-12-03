@@ -11,10 +11,12 @@ namespace cache {
 class MetadataModule {
  public:
   static MetadataModule& getInstance();
+  ~MetadataModule();
   // initialize all submodules and start the journalling thread
   void dedup(Chunk &chunk);
   void lookup(Chunk &chunk);
   void update(Chunk &chunk);
+  void dumpStats();
 
   std::unique_ptr<LBAIndex> lbaIndex_;
   std::shared_ptr<FPIndex> fpIndex_;

@@ -15,7 +15,7 @@ list(APPEND CacheLibSources
         src/metadata/metaverification.cc
         src/metadata/metajournal.cc
         src/metadata/CachePolicy.cc
-        src/metadata/cachededup_index.cc
+        src/metadata/cacheDedup/cacheDedupCommon.cc
 
         src/chunk/chunkmodule.cc
 
@@ -35,6 +35,15 @@ list(APPEND CacheLibSources
         src/io/writebuffer.cc
         src/metadata/ReferenceCounter.cc
         src/metadata/ReferenceCounter.h
+        src/metadata/cacheDedup/DLRULBAIndex.cc
+        src/metadata/cacheDedup/DLRUFPIndex.cc
+        src/metadata/cacheDedup/DARCLBAIndex.cc
+        src/metadata/cacheDedup/DARCFPIndex.cc
+        src/metadata/cacheDedup/CDARCFPIndex.cc
+        src/metadata/cacheDedup/BucketDLRULBAIndex.cc
+        src/metadata/cacheDedup/BucketDLRUFPIndex.cc
+        src/metadata/cacheDedup/BucketDLRUFPIndex.h
+        src/metadata/cacheDedup/BucketDLRULBAIndex.h
         )
 if (DLRU)
   add_definitions(-DCACHE_DEDUP)

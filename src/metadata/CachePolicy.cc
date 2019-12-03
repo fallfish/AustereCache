@@ -16,7 +16,7 @@ namespace cache {
     bucket_(bucket)
   {}
 
-  LRUExecutor::LRUExecutor(Bucket *bucket) :
+  BucketAwareLRUExecutor::BucketAwareLRUExecutor(Bucket *bucket) :
     CachePolicyExecutor(bucket)
   {}
 
@@ -28,7 +28,7 @@ namespace cache {
 
   CAClockExecutor::~CAClockExecutor() = default;
 
-  void LRUExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy)
+  void BucketAwareLRUExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy)
   {
     uint32_t prevSlotId = slotId;
     uint32_t nSlots = bucket_->getnSlots();
@@ -63,7 +63,7 @@ namespace cache {
   // Only LBA Index would call this function
   // LBA signature only takes one slot.
   // So there is no need to care about the entry may take contiguous slots.
-  void LRUExecutor::clearObsolete(std::shared_ptr<FPIndex> fpIndex)
+  void BucketAwareLRUExecutor::clearObsolete(std::shared_ptr<FPIndex> fpIndex)
   {
     for (uint32_t slotId = 0; slotId < bucket_->getnSlots(); ++slotId) {
       if (!bucket_->isValid(slotId)) continue;
@@ -81,7 +81,7 @@ namespace cache {
     }
   }
 
-  uint32_t LRUExecutor::allocate(uint32_t nSlotsToOccupy)
+  uint32_t BucketAwareLRUExecutor::allocate(uint32_t nSlotsToOccupy)
   {
     uint32_t slotId = 0, nSlotsAvailable = 0,
              nSlots = bucket_->getnSlots();
@@ -199,7 +199,7 @@ namespace cache {
 #ifdef WRITE_BACK_CACHE
           DirtyList::getInstance().addEvictedChunk(
               /* Compute ssd location of the evicted data */
-              /* Actually, full FP and address is sufficient. */
+              /* Actually, full Fingerprint and address is sufficient. */
                 FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
                 (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
               );
@@ -320,7 +320,7 @@ namespace cache {
 #ifdef WRITE_BACK_CACHE
       DirtyList::getInstance().addEvictedChunk(
         /* Compute ssd location of the evicted data */
-        /* Actually, full FP and address is sufficient. */
+        /* Actually, full Fingerprint and address is sufficient. */
         FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotsToReferenceCounts[0].first),
         (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
       );
@@ -335,7 +335,7 @@ namespace cache {
   }
 
   CachePolicy::CachePolicy() = default;
-  LRU::LRU() = default;
+  BucketAwareLRU::BucketAwareLRU() = default;
 
   CAClock::CAClock(uint32_t nSlotsPerBucket, uint32_t nBuckets) : CachePolicy() {
     nSlotsPerBucket_ = nSlotsPerBucket;
@@ -345,9 +345,9 @@ namespace cache {
   }
 
 
-  std::shared_ptr<CachePolicyExecutor> LRU::getExecutor(Bucket *bucket)
+  std::shared_ptr<CachePolicyExecutor> BucketAwareLRU::getExecutor(Bucket *bucket)
   { 
-    return std::make_shared<LRUExecutor>(bucket);
+    return std::make_shared<BucketAwareLRUExecutor>(bucket);
   }
 
   // TODO: Check whether there is memory leak when destructing
@@ -430,7 +430,7 @@ namespace cache {
 #ifdef WRITE_BACK_CACHE
       DirtyList::getInstance().addEvictedChunk(
         /* Compute ssd location of the evicted data */
-        /* Actually, full FP and address is sufficient. */
+        /* Actually, full Fingerprint and address is sufficient. */
         FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotsToReferenceCounts[0].first),
         (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
       );
@@ -462,4 +462,46 @@ namespace cache {
     {}
 
 
+    std::shared_ptr<CachePolicyExecutor> LRU::getExecutor(Bucket *bucket) {
+      return std::make_shared<LRUExecutor>(&lists_[bucket->getBucketId()]);
+    }
+
+    LRUExecutor::LRUExecutor(Bucket *bucket, std::list<uint32_t> *list) :
+        CachePolicyExecutor(bucket) {
+      list_ = list;
+    }
+
+    uint32_t LRUExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy) {
+      list_->remove(slotId);
+      list_->push_front(slotId);
+    }
+
+    uint32_t LRUExecutor::allocate(uint32_t nSlotsToOccupy) {
+      uint32_t slotId = 0, nSlotsAvailable = 0,
+        nSlots = bucket_->getnSlots();
+      for ( ; slotId < nSlots; ++slotId) {
+        if (nSlotsAvailable == nSlotsToOccupy)
+          break;
+        // find an empty slot
+        if (!bucket_->isValid(slotId)) {
+          ++nSlotsAvailable;
+        } else {
+          nSlotsAvailable = 0;
+        }
+      }
+
+      if (nSlotsAvailable < nSlotsToOccupy) {
+        slotId = list_->back();
+        uint32_t key = bucket_->getKey(slotId);
+        while (nSlotsAvailable < nSlotsToOccupy && slotId < nSlots) {
+          if (bucket_->isValid(slotId)
+              && key == bucket_->getKey(slotId)) {
+            nSlotsAvailable += 1;
+          }
+          ++slotId;
+        }
+      }
+
+      return slotId - nSlotsToOccupy;
+    }
 }

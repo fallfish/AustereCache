@@ -34,7 +34,7 @@ namespace cache {
       mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
     }
 
-    setCachePolicy(std::move(std::make_unique<LRU>()));
+    setCachePolicy(std::move(std::make_unique<BucketAwareLRU>()));
   }
 
   bool LBAIndex::lookup(uint64_t lbaHash, uint64_t &fpHash)
@@ -150,7 +150,18 @@ namespace cache {
     }
   }
 
-  std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fpHash)
+  void LBAIndex::getFingerprints(std::set<uint64_t> &fpSet) {
+    for (uint32_t i = 0; i < nBuckets_; ++i) {
+      getLBABucket(i)->getFingerprints(fpSet);
+    }
+  }
+    void FPIndex::getFingerprints(std::set<uint64_t> &fpSet) {
+      for (uint32_t i = 0; i < nBuckets_; ++i) {
+        getFPBucket(i)->getFingerprints(fpSet);
+      }
+    }
+
+    std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fpHash)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_;
     if (Config::getInstance().isMultiThreadEnabled()) {
@@ -168,4 +179,5 @@ namespace cache {
   void FPIndex::dereference(uint64_t fpHash) {
     ReferenceCounter::dereference(fpHash);
   }
+
 }

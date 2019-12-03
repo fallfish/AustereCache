@@ -21,7 +21,7 @@
 #include "bucket.h"
 #include "CachePolicy.h"
 #include "common/config.h"
-#include "cachededup_index.h"
+#include "metadata/cacheDedup/cacheDedupCommon.h"
 namespace cache {
   class Index {
     public:
@@ -61,6 +61,8 @@ namespace cache {
             valid_.get() + nBytesPerBucketForValid_ * bucketId,
             cachePolicy_.get(), bucketId));
       }
+
+      void getFingerprints(std::set<uint64_t> &fpSet);
     private:
       std::shared_ptr<FPIndex> fpIndex_;
   };
@@ -74,6 +76,8 @@ namespace cache {
       void promote(uint64_t fpHash);
       void update(uint64_t fpHash, uint32_t compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t fpHash);
+
+      void getFingerprints(std::set<uint64_t> &fpSet);
 
       std::unique_ptr<FPBucket> getFPBucket(uint32_t bucketId) {
         return std::move(std::make_unique<FPBucket>(

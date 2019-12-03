@@ -9,6 +9,8 @@
 #include "common/stats.h"
 #include "utils/utils.h"
 #include <cassert>
+#include <metadata/cacheDedup/DLRULBAIndex.h>
+#include <metadata/cacheDedup/DLRUFPIndex.h>
 
 namespace cache {
     MetadataModule& MetadataModule::getInstance() {
@@ -17,15 +19,16 @@ namespace cache {
     }
 
     MetadataModule::MetadataModule() {
-      DLRU_SourceIndex::getInstance().init();
-      DLRU_FingerprintIndex::getInstance().init();
-      std::cout << "SourceIndex capacity: " <<  DLRU_SourceIndex::getInstance().capacity_ << std::endl;
-      std::cout << "FingerprintIndex capacity: " << DLRU_FingerprintIndex::getInstance().capacity_ << std::endl;
+      DLRULBAIndex::getInstance().init();
+      DLRUFPIndex::getInstance().init();
+      std::cout << "SourceIndex capacity: " << DLRULBAIndex::getInstance().capacity_ << std::endl;
+      std::cout << "FingerprintIndex capacity: " << DLRUFPIndex::getInstance().capacity_ << std::endl;
     }
+    MetadataModule::~MetadataModule() = default;
 
   void MetadataModule::dedup(Chunk &c)
   {
-    c.hitFPIndex_ = DLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
+    c.hitFPIndex_ = DLRUFPIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
     else
@@ -33,9 +36,9 @@ namespace cache {
   }
   void MetadataModule::lookup(Chunk &c)
   {
-    c.hitLBAIndex_ = DLRU_SourceIndex::getInstance().lookup(c.addr_, c.fingerprint_);
+    c.hitLBAIndex_ = DLRULBAIndex::getInstance().lookup(c.addr_, c.fingerprint_);
     if (c.hitLBAIndex_) {
-      c.hitFPIndex_ = DLRU_FingerprintIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
+      c.hitFPIndex_ = DLRUFPIndex::getInstance().lookup(c.fingerprint_, c.cachedataLocation_);
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
@@ -45,17 +48,18 @@ namespace cache {
   void MetadataModule::update(Chunk &c)
   {
     uint8_t oldFP[20];
-    bool evicted = DLRU_SourceIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
+    bool evicted = DLRULBAIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
     if (evicted) {
       if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
-        DLRU_FingerprintIndex::getInstance().dereference(oldFP);
+        DLRUFPIndex::getInstance().dereference(oldFP);
       }
     }
     if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
-      DLRU_FingerprintIndex::getInstance().reference(c.fingerprint_);
+      DLRUFPIndex::getInstance().reference(c.fingerprint_);
     }
-    DLRU_FingerprintIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
+    DLRUFPIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
+
 }
 
 #endif
