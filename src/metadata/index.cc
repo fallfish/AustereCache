@@ -34,7 +34,12 @@ namespace cache {
       mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
     }
 
-    setCachePolicy(std::move(std::make_unique<BucketAwareLRU>()));
+    if (Config::getInstance().isSmartDedupPolicyEnabled()) {
+      setCachePolicy(std::move(std::make_unique<BucketAwareLRU>()));
+    } else {
+      // setting the cache policy for fp index as LRU means that we disable the acdc cache policy
+      setCachePolicy(std::move(std::make_unique<LRU>()));
+    }
   }
 
   bool LBAIndex::lookup(uint64_t lbaHash, uint64_t &fpHash)
@@ -79,14 +84,19 @@ namespace cache {
       mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
     }
 
-    if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tCAClock) {
-      cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
-    } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAwareCAClock) {
-      cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 0));
-    } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tLeastReferenceCount) {
-      cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
-    } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tRecencyAwareLeastReferenceCount) {
-      cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
+    if (Config::getInstance().isSmartDedupPolicyEnabled()) {
+      if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tCAClock) {
+        cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
+      } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAwareCAClock) {
+        cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 0));
+      } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tLeastReferenceCount) {
+        cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
+      } else if (Config::getInstance().getCachePolicyForFPIndex() ==
+                 CachePolicyEnum::tRecencyAwareLeastReferenceCount) {
+        cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
+      }
+    } else {
+      cachePolicy_ = std::move(std::make_unique<LRU>());
     }
   }
 

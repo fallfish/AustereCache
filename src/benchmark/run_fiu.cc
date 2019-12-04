@@ -99,7 +99,7 @@ namespace cache {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAwareCAClock);
             } else if (strcmp(value, "LeastReferenceCount") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tLeastReferenceCount);
-            } else if (strcmp(value, "RecencyAwareLeastReferenceCount") == 0) {
+            } else if (strcmp(value, "LeastReferenceCount") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tRecencyAwareLeastReferenceCount);
             }
 #endif
