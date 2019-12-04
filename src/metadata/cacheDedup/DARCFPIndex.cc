@@ -3,6 +3,8 @@
 //
 
 #include "DARCFPIndex.h"
+#include "DARCLBAIndex.h"
+#include "common/stats.h"
 
 namespace cache {
     DARCFPIndex::DARCFPIndex() = default;
@@ -105,10 +107,5 @@ namespace cache {
 
       mp_[_fp] = _dp;
       cachedataLocation = _dp.cachedataLocation_;
-    }
-
-    CDARCFPIndex::CDARCFPIndex() {
-      capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getWriteBufferSize();
-      weuAllocator_.init();
     }
 }

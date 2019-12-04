@@ -11,7 +11,7 @@ namespace cache {
     struct CachePolicyExecutor {
         explicit CachePolicyExecutor(Bucket *bucket);
 
-        virtual uint32_t promote(uint32_t slotId, uint32_t nSlotsToOccupy = 1) = 0;
+        virtual void promote(uint32_t slotId, uint32_t nSlotsToOccupy = 1) = 0;
         virtual uint32_t allocate(uint32_t nSlotsToOccupy = 1) = 0;
         virtual void clearObsolete(std::shared_ptr<FPIndex> fpIndex) = 0;
 
@@ -121,13 +121,15 @@ namespace cache {
     };
 
     class LRUExecutor : public CachePolicyExecutor {
+      public:
         explicit LRUExecutor(Bucket *bucket, std::list<uint32_t> *list);
 
         std::list<uint32_t> *list_;
 
         uint32_t allocate(uint32_t nSlotsToOccupy);
+        void clearObsolete(std::shared_ptr<FPIndex> fpIndex);
 
-        uint32_t promote(uint32_t slotId, uint32_t nSlotsToOccupy);
+        void promote(uint32_t slotId, uint32_t nSlotsToOccupy);
     };
 
     // LRU policy that uses a list to maintain

@@ -463,7 +463,7 @@ namespace cache {
 
 
     std::shared_ptr<CachePolicyExecutor> LRU::getExecutor(Bucket *bucket) {
-      return std::make_shared<LRUExecutor>(&lists_[bucket->getBucketId()]);
+      return std::make_shared<LRUExecutor>(bucket, &lists_[bucket->getBucketId()]);
     }
 
     LRUExecutor::LRUExecutor(Bucket *bucket, std::list<uint32_t> *list) :
@@ -471,7 +471,7 @@ namespace cache {
       list_ = list;
     }
 
-    uint32_t LRUExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy) {
+    void LRUExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy) {
       list_->remove(slotId);
       list_->push_front(slotId);
     }

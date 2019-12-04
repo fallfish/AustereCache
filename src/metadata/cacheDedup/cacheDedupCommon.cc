@@ -28,7 +28,7 @@ namespace cache {
     }
 
     bool Fingerprint::operator==(const Fingerprint &fp) const {
-      for (uint31_t i = 0; i < 20 / 4; ++i) {
+      for (uint32_t i = 0; i < 20 / 4; ++i) {
         if (((uint32_t*)v_)[i] != ((uint32_t*)fp.v_)[i])
           return false;
       }
