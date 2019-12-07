@@ -4,6 +4,15 @@
 
 namespace cache {
 
+  ThresholdRCClockExecutor::ThresholdRCClockExecutor(
+      Bucket *bucket, std::shared_ptr<Bucket> clock,
+      uint32_t *clockPtr,
+      uint32_t threshold
+      ) :
+    CAClockExecutor(bucket, std::move(clock), clockPtr),
+    threshold_(threshold)
+  {}
+
     void ThresholdRCClockExecutor::promote(uint32_t slotId, uint32_t nSlotsOccupied)
     {
       CAClockExecutor::promote(slotId, nSlotsOccupied);

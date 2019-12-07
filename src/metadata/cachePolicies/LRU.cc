@@ -1,9 +1,6 @@
 #include "LRU.h"
 
 namespace cache {
-    std::shared_ptr<CachePolicyExecutor> LRU::getExecutor(Bucket *bucket) {
-      return std::make_shared<LRUExecutor>(bucket, &lists_[bucket->getBucketId()]);
-    }
 
     LRUExecutor::LRUExecutor(Bucket *bucket, std::list<uint32_t> *list) :
       CachePolicyExecutor(bucket) {
@@ -46,5 +43,13 @@ namespace cache {
       }
 
       return slotId - nSlotsToOccupy;
+    }
+
+    std::shared_ptr<CachePolicyExecutor> LRU::getExecutor(Bucket *bucket) {
+      return std::make_shared<LRUExecutor>(bucket, &lists_[bucket->getBucketId()]);
+    }
+
+    LRU::LRU(uint32_t nBuckets) {
+      lists_ = std::make_unique<std::list<uint32_t>[]>(nBuckets);
     }
 }

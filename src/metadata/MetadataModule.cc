@@ -33,7 +33,7 @@ namespace cache {
     std::set<uint64_t> fpSetLbaIndex;
     std::set<uint64_t> fpSetFpIndex;
     lbaIndex_->getFingerprints(fpSetLbaIndex);
-    fpIndex_->getFingerprints(fpSetLbaIndex);
+    fpIndex_->getFingerprints(fpSetFpIndex);
     uint32_t nTotalFingerprints = 0, nInvalidFingerprints = 0;
     for (uint64_t fingerprint : fpSetFpIndex) {
       nTotalFingerprints += 1;

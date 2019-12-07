@@ -19,7 +19,7 @@
 #include <map>
 #include <list>
 #include "bucket.h"
-#include "CachePolicy.h"
+#include "cachePolicies/CachePolicy.h"
 #include "common/config.h"
 #include "metadata/cacheDedup/cacheDedupCommon.h"
 namespace cache {

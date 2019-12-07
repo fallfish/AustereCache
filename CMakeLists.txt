@@ -44,7 +44,14 @@ list(APPEND CacheLibSources
         src/metadata/cacheDedup/BucketDLRUFPIndex.cc
         src/metadata/cacheDedup/BucketDLRUFPIndex.h
         src/metadata/cacheDedup/BucketDLRULBAIndex.h
+        src/metadata/cachePolicies/LRU.cc
+        src/metadata/cachePolicies/BucketAwareLRU.cc
+        src/metadata/cachePolicies/LeastReferenceCount.cc
+        src/metadata/cachePolicies/CAClock.cc 
+        src/metadata/cachePolicies/ThresholdRCClock.cc
+        src/metadata/cachePolicies/CachePolicy.cc
         )
+
 if (DLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DDLRU)
@@ -88,7 +95,7 @@ add_executable(trace_gen src/benchmark/trace_gen.cc)
 set_target_properties(trace_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(trace_gen cache)
 
-add_executable(access_pattern_gen src/benchmark/access_pattern_gen.cc src/metadata/cachePolicies/LRU.cc src/metadata/cachePolicies/LRU.h src/metadata/cachePolicies/BucketAwareLRU.cc src/metadata/cachePolicies/BucketAwareLRU.h src/metadata/cachePolicies/LeastReferenceCount.cc src/metadata/cachePolicies/LeastReferenceCount.h src/metadata/cachePolicies/CAClock.cc src/metadata/cachePolicies/CAClock.h src/metadata/cachePolicies/CachePolicy.h src/metadata/cachePolicies/ThresholdRCClock.cc src/metadata/cachePolicies/ThresholdRCClock.h src/metadata/cachePolicies/CachePolicy.cc)
+add_executable(access_pattern_gen src/benchmark/access_pattern_gen.cc)
 set_target_properties(access_pattern_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(access_pattern_gen cache)
 
@@ -96,7 +103,7 @@ add_executable(run_ssddup src/benchmark/run_ssddup.cc)
 set_target_properties(run_ssddup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_ssddup cache)
 
-add_executable(run_fiu src/benchmark/run_fiu.cc)
+add_executable(run_fiu src/benchmark/run_fiu.cc src/utils/cJSON.c)
 set_target_properties(run_fiu PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_fiu cache)
 

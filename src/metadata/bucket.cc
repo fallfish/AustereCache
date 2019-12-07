@@ -5,7 +5,7 @@
 #include "bitmap.h"
 #include "bucket.h"
 #include "index.h"
-#include "CachePolicy.h"
+#include "cachePolicies/CachePolicy.h"
 #include "ReferenceCounter.h"
 #include "common/stats.h"
 #include "manage/DirtyList.h"

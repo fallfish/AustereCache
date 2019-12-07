@@ -131,13 +131,13 @@ namespace cache {
         void enableSynthenticCompression(bool v) { enableSynthenticCompression_ = v; }
         void enableReplayFIU(bool v) { enableReplayFIU_ = v; }
         void enableSketchRF(bool v) { enableSketchRF_ = v; }
-        void enableSmartDedupPolicy(bool v) { enableSmartDedupPolicy_ = v; }
+        void enableCompactCachePolicy(bool v) { enableCompactCachePolicy_ = v; }
         bool isDirectIOEnabled() { return enableDirectIO_; }
         bool isFakeIOEnabled() { return enableFakeIO_; }
         bool isReplayFIUEnabled() { return enableReplayFIU_; }
         bool isSynthenticCompressionEnabled() { return enableSynthenticCompression_; }
         bool isSketchRFEnabled() { return enableSketchRF_; }
-        bool isSmartDedupPolicyEnabled() { return enableSmartDedupPolicy_; }
+        bool isCompactCachePolicyEnabled() { return enableCompactCachePolicy_; }
 
         void setFingerprintAlgorithm(uint32_t v) {
           if (v == 0) setFingerprintLength(20);
@@ -268,7 +268,7 @@ namespace cache {
         // Used when using NORMAL_DIST_COMPRESSION
         char* dataOfCurrentChunk_;
         int compressedLenOfCurrentChunk_{};
-        bool enableSmartDedupPolicy_ = true;
+        bool enableCompactCachePolicy_ = true;
     };
 
 }

@@ -56,6 +56,8 @@ namespace cache {
 
     CacheDedupFPBucket::CacheDedupFPBucket(uint32_t capacity) {
       capacity_ = capacity;
+      keys_ = std::make_unique<Fingerprint[]>(capacity);
+      valid_ = std::make_unique<bool[]>(capacity);
     }
 
     BucketizedDLRUFPIndex::BucketizedDLRUFPIndex() {

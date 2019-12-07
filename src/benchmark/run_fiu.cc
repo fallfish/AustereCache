@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include "utils/utils.h"
 #include "utils/gen_zipf.h"
+#include "utils/cJSON.h"
 #include "ssddup/ssddup.h"
 #include "workload_conf.h"
 
@@ -56,88 +57,86 @@ namespace cache {
 
       void parse_argument(int argc, char **argv)
       {
-        bool has_ini_stat = false, has_config = false, has_access_pattern = false;
-        char *param, *value;
         Config::getInstance().setCacheDeviceSize(16LL * 1024 * 1024 * 1024);
         Config::getInstance().setPrimaryDeviceSize(300LL * 1024 * 1024 * 1024);
 
-        for (int i = 1; i < argc; i += 2) {
-          param = argv[i];
-          value = argv[i + 1];
-          assert(value != nullptr);
-          if (strcmp(param, "--primary-device-name") == 0) {
-            Config::getInstance().setPrimaryDeviceName(argv[i + 1]);
-          } else if (strcmp(param, "--cache-device-name") == 0) {
-            Config::getInstance().setCacheDeviceName(argv[i + 1]);
-          } else if (strcmp(param, "--cache-device-size") == 0) {
-            uint64_t cacheSize = 0;
-            sscanf(value, "%llu", &cacheSize);
-            Config::getInstance().setCacheDeviceSize(cacheSize);
-          } else if (strcmp(param, "--primary-device-size") == 0) {
-            uint64_t primarySize = 0;
-            sscanf(value, "%llu", &primarySize);
-            Config::getInstance().setPrimaryDeviceSize(primarySize);
-          } else if (strcmp(param, "--working-set-size") == 0) {
-            uint64_t workingSetSize = 0;
-            sscanf(value, "%llu", &workingSetSize);
-            Config::getInstance().setWorkingSetSize(workingSetSize);
-          } else if (strcmp(param, "--lba-amplifier") == 0) {
-            Config::getInstance().setLBAAmplifier(atof(value));
-            std::cout << "LBAAmplifier: " << Config::getInstance().getLBAAmplifier() << std::endl;
-          } else if (strcmp(param, "--fp-index-cache-policy") == 0) {
-            std::cout << "Fingerprint policy: " << value << std::endl;
+        char source[1000 + 1];
+        FILE *fp = fopen("/home/qpwang/Workspace/ssddup/conf/webvm_no_compression.json", "r");
+        if (fp != NULL) {
+          size_t newLen = fread(source, sizeof(char), 1001, fp);
+          if ( ferror( fp ) != 0 ) {
+            fputs("Error reading file", stderr);
+          } else {
+            source[newLen++] = '\0'; /* Just to be safe. */
+          }
+
+          fclose(fp);
+        }
+
+        cJSON *config = cJSON_Parse(source);
+        for (cJSON *param = config->child->next->child; param != nullptr; param = param->next) {
+          char *name = param->string;
+          char *valuestring = param->valuestring;
+          uint64_t valuell = (uint64_t)param->valuedouble;
+
+          if (strcmp(name, "primaryDeviceName") == 0) {
+            Config::getInstance().setPrimaryDeviceName(valuestring);
+          } else if (strcmp(name, "cacheDeviceName") == 0) {
+            Config::getInstance().setCacheDeviceName(valuestring);
+          } else if (strcmp(name, "primaryDeviceSize") == 0) {
+            Config::getInstance().setPrimaryDeviceSize(valuell);
+          } else if (strcmp(name, "cacheDeviceSize") == 0) {
+            Config::getInstance().setCacheDeviceSize(valuell);
+          } else if (strcmp(name, "workingSetSize") == 0) {
+            Config::getInstance().setWorkingSetSize(valuell);
+          } else if (strcmp(name, "nSlotsPerFpBucket") == 0) {
+            Config::getInstance().setnSlotsPerFpBucket(valuell);
+          } else if (strcmp(name, "nSlotsPerLbaBucket") == 0) {
+            Config::getInstance().setnSlotsPerLbaBucket(valuell);
+          } else if (strcmp(name, "nBitsPerFpSignature") == 0) {
+            Config::getInstance().setnBitsPerFpSignature(valuell);
+          } else if (strcmp(name, "nBitsPerLbaSignature") == 0) {
+            Config::getInstance().setnBitsPerLbaSignature(valuell);
+          } else if (strcmp(name, "chunkSize") == 0) {
+            Config::getInstance().setChunkSize(valuell);
+          } else if (strcmp(name, "sectorSize") == 0) {
+            Config::getInstance().setSectorSize(valuell);
+          } else if (strcmp(name, "lbaAmplifier") == 0) {
+            Config::getInstance().setLBAAmplifier(valuell);
+          } else if (strcmp(name, "writeBufferSize") == 0) {
+            Config::getInstance().setWriteBufferSize(valuell);
+          } else if (strcmp(name, "cachePolicyForFPIndex") == 0) {
 #if defined(DLRU)
-            if (strcmp(value, "Normal") == 0) {
+            if (strcmp(valuestring, "Normal") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tNormal);
-            } else if (strcmp(value, "GarbageAware") == 0) {
+            } else if (strcmp(valuestring, "GarbageAware") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAware);
             }
 #else
-            if (strcmp(value, "CAClock") == 0) {
+            if (strcmp(valuestring, "CAClock") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tCAClock);
-            } else if (strcmp(value, "GarbageAwareCAClock") == 0) {
+            } else if (strcmp(valuestring, "GarbageAwareCAClock") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAwareCAClock);
-            } else if (strcmp(value, "LeastReferenceCount") == 0) {
+            } else if (strcmp(valuestring, "LeastReferenceCount") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tLeastReferenceCount);
-            } else if (strcmp(value, "LeastReferenceCount") == 0) {
+            } else if (strcmp(valuestring, "LeastReferenceCount") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tRecencyAwareLeastReferenceCount);
             }
 #endif
-          } else if (strcmp(param, "--enable-sketch-rf") == 0) {
-            if (atoi(value) == 1) {
-              std::cout << "Enable Sketch Reference Counter" << std::endl;
-            } else {
-              std::cout << "Disable Sketch Reference Counter" << std::endl;
-            }
-            Config::getInstance().enableSketchRF(atoi(value));
           // Configurations for System 
-          } else if (strcmp(param, "--num-slots-fp-bucket") == 0) {
-            Config::getInstance().setnSlotsPerFpBucket(atoi(value));
-          } else if (strcmp(param, "--num-bits-fp-sig") == 0) {
-            Config::getInstance().setnBitsPerFpSignature(atoi(value));
-          } else if (strcmp(param, "--num-slots-lba-bucket") == 0) {
-            Config::getInstance().setnSlotsPerLbaBucket(atoi(value));
-          } else if (strcmp(param, "--num-bits-lba-sig") == 0) {
-            Config::getInstance().setnBitsPerLbaSignature(atoi(value));
-          } else if (strcmp(param, "--sector-size") == 0) {
-            Config::getInstance().setSectorSize(atoi(value));
-          } else if (strcmp(param, "--chunk-size") == 0) {
-            Config::getInstance().setChunkSize(atoi(value));
+          } else if (strcmp(name, "compactCachePolicy") == 0) {
+            Config::getInstance().enableCompactCachePolicy(valuell);
           // Configurations for algorithms
-          } else if (strcmp(param, "--fingerprint-algorithm") == 0) {
-            Config::getInstance().setFingerprintAlgorithm(atoi(value));
-          } else if (strcmp(param, "--fingerprint-computation-method") == 0) {
-            Config::getInstance().setFingerprintMode(atoi(value));
-          } else if (strcmp(param, "--write-buffer-size") == 0) {
-            Config::getInstance().setWriteBufferSize(atoi(value));
-          } else if (strcmp(param, "--enable-direct-io") == 0) {
-            Config::getInstance().enableDirectIO(atoi(value));
-          } else if (strcmp(param, "--enable-replay-fiu") == 0) {
-            Config::getInstance().enableReplayFIU(atoi(value));
-          } else if (strcmp(param, "--enable-fake-io") == 0) {
-            Config::getInstance().enableFakeIO(atoi(value));
-          } else if (strcmp(param, "--enable-synthentic-compression") == 0) {
-            Config::getInstance().enableSynthenticCompression(atoi(value));
+          } else if (strcmp(name, "directIO") == 0) {
+            Config::getInstance().enableDirectIO(valuell);
+          } else if (strcmp(name, "replayFIU") == 0) {
+            Config::getInstance().enableReplayFIU(valuell);
+          } else if (strcmp(name, "fakeIO") == 0) {
+            Config::getInstance().enableFakeIO(valuell);
+          } else if (strcmp(name, "synthenticCompression") == 0) {
+            Config::getInstance().enableSynthenticCompression(valuell);
+          } else if (strcmp(name, "sketchBasedReferenceCounter") == 0) {
+            Config::getInstance().enableSketchRF(valuell);
           }
         }
 
@@ -149,14 +148,9 @@ namespace cache {
         printf("primary device size: %" PRId64 " GiB\n", Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
         printf("woring set size: %" PRId64 " MiB\n", Config::getInstance().getWorkingSetSize() / 1024 / 1024);
         _ssddup = std::make_unique<SSDDup>();
-        for (int i = 1; i < argc; i += 2) {
-          param = argv[i];
-          value = argv[i + 1];
-          if (strcmp(param, "--access-pattern") == 0) {
-            has_access_pattern = (readFIUaps(&i, argc, argv) == 0);
-          }
-        }
-        assert(has_access_pattern);
+
+        assert(readFIUaps(config->child->valuestring) == 0);
+        cJSON_Delete(config);
       }
 
       /**
@@ -204,26 +198,21 @@ namespace cache {
            */
       }
 
-      int readFIUaps(int* i, int argc, char** argv) {
+      int readFIUaps(char* str) {
         printf("start reading access patterns ...\n");
+        char match[100];
         int begin, end;
-        if (strstr(argv[*i+1],"%02d")) {
-          if (*i+3 < argc) {
-            if (sscanf(argv[*i+2], "%d", &begin) <= 0) return 1;
-            if (sscanf(argv[*i+3], "%d", &end) <= 0) return 1;
-            if (begin > end) return 1;
-          }
-
+        std::cout << str << std::endl;
+        sscanf(str, "%s %d %d", match, &begin, &end);
+        if (strstr(match, "%02d")) {
           for (int j = begin; j <= end; j++) {
             char filename[100];
-            sprintf(filename, argv[*i+1], j);
+            sprintf(filename, match, j);
             readFIUap(filename);
           }
-
-          *i += 2;
+        } else {
+          readFIUap(match);
         }
-        else
-          readFIUap(argv[*i+1]);
         printf("end reading access patterns ...\n");
 
         return 0;

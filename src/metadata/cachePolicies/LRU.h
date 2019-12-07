@@ -23,7 +23,8 @@ namespace cache {
 
     // LRU policy that uses a list to maintain
     class LRU : public CachePolicy {
-        LRU();
+      public:
+        LRU(uint32_t nBuckets);
         std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) override;
         std::unique_ptr<std::list<uint32_t> []> lists_;
     };

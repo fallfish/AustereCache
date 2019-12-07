@@ -1,4 +1,5 @@
 #include "CAClock.h"
+#include "common/stats.h"
 
 namespace cache {
     CAClockExecutor::CAClockExecutor(Bucket *bucket, std::shared_ptr<Bucket> clock, uint32_t *clockPtr) :
@@ -108,19 +109,19 @@ namespace cache {
       return slotId - nSlotsToOccupy;
     }
 
-    inline void CAClockExecutor::initClock(uint32_t index) {
+    void CAClockExecutor::initClock(uint32_t index) {
       clock_->setValue(index, Config::getInstance().getClockStartValue());
     }
-    inline uint32_t CAClockExecutor::getClock(uint32_t index) {
+    uint32_t CAClockExecutor::getClock(uint32_t index) {
       return clock_->getValue(index);
     }
-    inline void CAClockExecutor::incClock(uint32_t index) {
+    void CAClockExecutor::incClock(uint32_t index) {
       uint32_t v = clock_->getValue(index);
       if (v != (1u << Config::getInstance().getnBitsPerClock()) - 1) {
         clock_->setValue(index, v + 1);
       }
     }
-    inline void CAClockExecutor::decClock(uint32_t index) {
+    void CAClockExecutor::decClock(uint32_t index) {
       uint32_t v = clock_->getValue(index);
       if (v != 0) {
         clock_->setValue(index, v - 1);

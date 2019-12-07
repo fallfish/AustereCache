@@ -152,11 +152,13 @@ int ManageModule::write(Chunk &chunk)
   uint64_t addr;
   uint8_t *buf;
   uint32_t len;
-#if defined(WRITE_BACK_CACHE) == 0 // If enable write back cache
-  if (generatePrimaryWriteRequest(chunk, deviceType, addr, buf, len)) {
-    IOModule::getInstance().write(deviceType, addr, buf, len);
+
+  if (Config::getInstance().getCacheMode() == CacheMode::tWriteThrough) {
+    if (generatePrimaryWriteRequest(chunk, deviceType, addr, buf, len)) {
+      IOModule::getInstance().write(deviceType, addr, buf, len);
+    }
   }
-#endif
+
   if (generateCacheWriteRequest(chunk, deviceType, addr, buf, len)) {
     IOModule::getInstance().write(deviceType, addr, buf, len);
   }

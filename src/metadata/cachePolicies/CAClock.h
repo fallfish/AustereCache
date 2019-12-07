@@ -19,13 +19,13 @@ namespace cache {
 
         uint32_t allocate(uint32_t nSlotsToOccupy) override;
 
-        inline void initClock(uint32_t index);
+        void initClock(uint32_t index);
 
-        inline uint32_t getClock(uint32_t index);
+        uint32_t getClock(uint32_t index);
 
-        inline void incClock(uint32_t index);
+        void incClock(uint32_t index);
 
-        inline void decClock(uint32_t index);
+        void decClock(uint32_t index);
 
         std::shared_ptr<Bucket> clock_;
         uint32_t *clockPtr_;

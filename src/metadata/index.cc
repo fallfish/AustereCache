@@ -1,10 +1,14 @@
 #include "index.h"
 
 #include <utility>
-#include "CachePolicy.h"
 #include "common/config.h"
 #include "common/stats.h"
 #include "ReferenceCounter.h"
+#include "cachePolicies/LRU.h"
+#include "cachePolicies/BucketAwareLRU.h"
+#include "cachePolicies/ThresholdRCClock.h"
+#include "cachePolicies/CAClock.h"
+#include "cachePolicies/LeastReferenceCount.h"
 
 namespace cache {
 
@@ -30,15 +34,15 @@ namespace cache {
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
     data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
     valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
-    if (Config::getInstance().isMultiThreadEnabled()) {
+    if (Config::getInstance().isMultiThreadingEnabled()) {
       mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
     }
 
-    if (Config::getInstance().isSmartDedupPolicyEnabled()) {
+    if (Config::getInstance().isCompactCachePolicyEnabled()) {
       setCachePolicy(std::move(std::make_unique<BucketAwareLRU>()));
     } else {
       // setting the cache policy for fp index as LRU means that we disable the acdc cache policy
-      setCachePolicy(std::move(std::make_unique<LRU>()));
+      setCachePolicy(std::move(std::make_unique<LRU>(nBuckets_)));
     }
   }
 
@@ -80,11 +84,11 @@ namespace cache {
     nBytesPerBucketForValid_ = (1 * nSlotsPerBucket_ + 7) / 8;
     data_ = std::make_unique<uint8_t[]>(nBytesPerBucket_ * nBuckets_ + 1);
     valid_ = std::make_unique<uint8_t[]>(nBytesPerBucketForValid_ * nBuckets_ + 1);
-    if (Config::getInstance().isMultiThreadEnabled()) {
+    if (Config::getInstance().isMultiThreadingEnabled()) {
       mutexes_ = std::make_unique<std::mutex[]>(nBuckets_);
     }
 
-    if (Config::getInstance().isSmartDedupPolicyEnabled()) {
+    if (Config::getInstance().isCompactCachePolicyEnabled()) {
       if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tCAClock) {
         cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
       } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAwareCAClock) {
@@ -96,7 +100,7 @@ namespace cache {
         cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
       }
     } else {
-      cachePolicy_ = std::move(std::make_unique<LRU>());
+      cachePolicy_ = std::move(std::make_unique<LRU>(nBuckets_));
     }
   }
 
@@ -151,7 +155,7 @@ namespace cache {
   std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint64_t lbaHash)
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
-    if (Config::getInstance().isMultiThreadEnabled()) {
+    if (Config::getInstance().isMultiThreadingEnabled()) {
       return std::move(
           std::make_unique<std::lock_guard<std::mutex>>(
             mutexes_[bucketId]));
@@ -174,7 +178,7 @@ namespace cache {
     std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fpHash)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_;
-    if (Config::getInstance().isMultiThreadEnabled()) {
+    if (Config::getInstance().isMultiThreadingEnabled()) {
       return std::move(
           std::make_unique<std::lock_guard<std::mutex>>(
             mutexes_[bucketId]));

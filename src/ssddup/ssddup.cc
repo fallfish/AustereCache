@@ -35,7 +35,7 @@ namespace cache {
 
   void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
   {
-    if (Config::getInstance().isMultiThreadEnabled()) {
+    if (Config::getInstance().isMultiThreadingEnabled()) {
       readMultiThread(addr, buf, len);
     } else {
       readSingleThread(addr, buf, len);
