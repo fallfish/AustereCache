@@ -140,14 +140,14 @@ namespace cache {
       if (slotId != ~((uint32_t)0)) {
         // TODO: Add it into the evicted data of dirty list
         Stats::getInstance().add_fp_index_eviction_caused_by_collision();
-#ifdef WRITE_BACK_CACHE
-        DirtyList::getInstance().addEvictedChunk(
-          /* Compute ssd location of the evicted data */
-          /* Actually, full Fingerprint and address is sufficient. */
-          FPIndex::computeCachedataLocation(bucketId_, slotId),
-          nSlotsOccupied * Config::getInstance().getSectorSize()
-        );
-#endif
+        if (Config::getInstance().getCacheMode() == tWriteBack) {
+          DirtyList::getInstance().addEvictedChunk(
+            /* Compute ssd location of the evicted data */
+            /* Actually, full Fingerprint and address is sufficient. */
+            FPIndex::computeCachedataLocation(bucketId_, slotId),
+            nSlotsOccupied * Config::getInstance().getSectorSize()
+          );
+        }
 
         for (uint32_t _slotId = slotId;
              _slotId < slotId + nSlotsOccupied;

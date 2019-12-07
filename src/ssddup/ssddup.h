@@ -72,6 +72,10 @@ class SSDDup {
   Stats* stats_;
 
   std::unique_ptr<ThreadPool> threadPool_;
+
+    void writeSingleThread(uint64_t addr, void *buf, uint32_t len);
+
+    void writeMultiThread(uint64_t addr, void *buf, uint32_t len);
 };
 }
 

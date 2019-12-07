@@ -41,8 +41,8 @@ class RunCompressionModule {
         posix_memalign(reinterpret_cast<void **>(_original_data), 512, _workload_conf._working_set_size);
         posix_memalign(reinterpret_cast<void **>(_compressed_data), 512, _workload_conf._working_set_size);
 #else
-        _original_data = reinterpret_cast<uint8_t*>(malloc(_workload_conf._working_set_size));
-        _compressed_data = reinterpret_cast<uint8_t*>(malloc(_workload_conf._working_set_size));
+        _original_data = reinterpret_cast<uint8_t*>(malloc(_workload_conf.workingSetSize_));
+        _compressed_data = reinterpret_cast<uint8_t*>(malloc(_workload_conf.workingSetSize_));
 #endif
 
         n = read(fd, _original_data, _workload_conf._working_set_size);

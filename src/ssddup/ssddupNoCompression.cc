@@ -1,3 +1,4 @@
+#include <manage/DirtyList.h>
 #include "ssddup.h"
 
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC) || defined(BUCKETDLRU))
@@ -29,9 +30,10 @@ namespace cache {
     DeduplicationModule::dedup(chunk);
     ManageModule::getInstance().updateMetadata(chunk);
     ManageModule::getInstance().write(chunk);
-#if defined(WRITE_BACK_CACHE)
-    DirtyList::getInstance().addLatestUpdate(chunk.addr_, chunk.cachedataLocation_, chunk.len_);
-#endif
+
+    if (Config::getInstance().getCacheMode() == tWriteBack) {
+      DirtyList::getInstance().addLatestUpdate(chunk.addr_, chunk.cachedataLocation_, chunk.len_);
+    }
     Stats::getInstance().add_write_stat(chunk);
   }
 }

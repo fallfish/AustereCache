@@ -48,7 +48,7 @@ class RunChunkModule {
 #ifdef DIRECT_IO
         posix_memalign(reinterpret_cast<void **>(_original_data), 512, _workload_conf._working_set_size);
 #else
-        _original_data = (char *)malloc(_workload_conf._working_set_size);
+        _original_data = (char *)malloc(_workload_conf.workingSetSize_);
 #endif
         n = read(fd, _original_data, _workload_conf._working_set_size);
         if (n != _workload_conf._working_set_size) {

@@ -49,29 +49,29 @@ class RunSystem {
           exit(1);
         }
         // parse workload configuration
-        _chunk_size = _workload_conf._chunk_size;
+        chunkSize_ = _workload_conf._chunk_size;
         _num_unique_chunks = _workload_conf._num_unique_chunks;
         _num_chunks = _workload_conf._num_chunks;
-        _working_set_size = (uint64_t)_chunk_size * _num_chunks;
+        workingSetSize_ = (uint64_t)chunkSize_ * _num_chunks;
         _distribution = _workload_conf._distribution;
         _skewness = _workload_conf._skewness;
-        std::cout << _chunk_size << " " << _num_unique_chunks << " " << _num_chunks << " " << _working_set_size << " " << _distribution << " " << _skewness << std::endl;
+        std::cout << chunkSize_ << " " << _num_unique_chunks << " " << _num_chunks << " " << workingSetSize_ << " " << _distribution << " " << _skewness << std::endl;
 
         // read working set
 #ifdef DIRECT_IO
-        posix_memalign(reinterpret_cast<void **>(_workload_chunks), 512, _working_set_size);
-        posix_memalign(reinterpret_cast<void **>(_unique_chunks), 512, _num_unique_chunks * _chunk_size);
+        posix_memalign(reinterpret_cast<void **>(_workload_chunks), 512, workingSetSize_);
+        posix_memalign(reinterpret_cast<void **>(_unique_chunks), 512, _num_unique_chunks * chunkSize_);
 #else
-        _workload_chunks = reinterpret_cast<char*>(malloc(_working_set_size));
+        _workload_chunks = reinterpret_cast<char*>(malloc(workingSetSize_));
         _unique_chunks = reinterpret_cast<char*>(malloc((uint64_t)_num_unique_chunks * chunkSize_));
 #endif
-        n = read(fd, _workload_chunks, _working_set_size);
-        std::cout << n << " " << _working_set_size << std::endl;
-        if (n != _working_set_size) {
+        n = read(fd, _workload_chunks, workingSetSize_);
+        std::cout << n << " " << workingSetSize_ << std::endl;
+        if (n != workingSetSize_) {
           std::cout << "RunSystem: read working set failed!" << std::endl; 
           exit(1);
         }
-        n = read(fd, _unique_chunks, _num_unique_chunks * _chunk_size);
+        n = read(fd, _unique_chunks, _num_unique_chunks * chunkSize_);
       } else if (strcmp(param, "--wr-ratio") == 0) {
         _wr_ratio = atof(value);
       } else if (strcmp(param, "--multi-thread") == 0) {
@@ -107,7 +107,7 @@ class RunSystem {
     {
       _read_data = (char**)malloc(sizeof(char*) * _num_workers);
       for (int i = 0; i < _num_workers; i++) {
-        posix_memalign(reinterpret_cast<void **>(_read_data[i]), 512, _working_set_size);
+        posix_memalign(reinterpret_cast<void **>(_read_data[i]), 512, workingSetSize_);
       }
     }
     _workload_conf.print_current_parameters();
@@ -119,16 +119,16 @@ class RunSystem {
     //Config::getInstance().setCacheDeviceName("./ramdisk/cache_device");
     //Config::getInstance().setPrimaryDeviceName("/dev/sdb");
     //Config::getInstance().setCacheDeviceName("/dev/sda");
-    _ssddup = std::make_unique<SSDDup>();
+    ssddup_ = std::make_unique<SSDDup>();
   }
 
   void warm_up()
   {
     std::cout << sizeof(WorkloadConfiguration) << std::endl;
-    _ssddup->write(0, _workload_chunks, _working_set_size);
-    _ssddup->resetStatistics();
+    ssddup_->write(0, _workload_chunks, workingSetSize_);
+    ssddup_->resetStatistics();
     sync();
-    //_ssddup->sync();
+    //ssddup_->sync();
     DEBUG("finish warm up");
   }
 
@@ -136,7 +136,7 @@ class RunSystem {
   {
     //for (uint64_t addr = 0; addr < Config::getInstance().getPrimaryDeviceSize(); addr += chunkSize_) {
       //std::cout << addr << std::endl;
-      //_ssddup->read(addr, _read_data[0], chunkSize_);
+      //ssddup_->read(addr, _read_data[0], chunkSize_);
     //}
     //return;
 
@@ -155,24 +155,24 @@ class RunSystem {
             len = _accesses[i].second;
 
             uint32_t op = rand() % 100;
-            total_bytes.fetch_add(len * _chunk_size, std::memory_order_relaxed);
+            total_bytes.fetch_add(len * chunkSize_, std::memory_order_relaxed);
             if (op < 0) {
             //if (op < _wr_ratio / (_wr_ratio + 1) * 100) {
               modify_chunk(begin, len);
-              _ssddup->write(begin * _chunk_size, _workload_chunks + begin * _chunk_size, len * _chunk_size);
+              ssddup_->write(begin * chunkSize_, _workload_chunks + begin * chunkSize_, len * chunkSize_);
             } else {
-              _ssddup->read(begin * _chunk_size, _read_data[thread_id] + begin * _chunk_size, len * _chunk_size);
+              ssddup_->read(begin * chunkSize_, _read_data[thread_id] + begin * chunkSize_, len * chunkSize_);
               int result = -1;
               result = compare_array(
-                  _workload_chunks + begin * _chunk_size, _read_data[thread_id] + begin * _chunk_size, 
-                  len * _chunk_size
+                  _workload_chunks + begin * chunkSize_, _read_data[thread_id] + begin * chunkSize_,
+                  len * chunkSize_
                   );
-              if (result != len * _chunk_size) {
+              if (result != len * chunkSize_) {
                 std::cout << "RunSystem:work content not match for address: "
-                  << (begin * _chunk_size) << ", length: " << (len * _chunk_size)
-                  << " matched length: " << result << std::endl;
+                          << (begin * chunkSize_) << ", length: " << (len * chunkSize_)
+                          << " matched length: " << result << std::endl;
                 std::cout << "The request num: " << i << std::endl;
-                _ssddup->dumpStatistics();
+                ssddup_->dumpStatistics();
                 exit(1);
               }
             }
@@ -219,17 +219,17 @@ class RunSystem {
         rd = genzipf::zipf(_skewness, _num_unique_chunks);
       }
       rd %= _num_unique_chunks;
-      memcpy(_workload_chunks + ((uint64_t)(chunk_id + i)) * _chunk_size,
-          _unique_chunks + rd * _chunk_size,
-          _chunk_size);
+      memcpy(_workload_chunks + ((uint64_t)(chunk_id + i)) * chunkSize_,
+          _unique_chunks + rd * chunkSize_,
+             chunkSize_);
     }
   }
 
   char *_workload_chunks, *_unique_chunks, **_read_data;
 
   WorkloadConfiguration _workload_conf; 
-  uint64_t _working_set_size;
-  uint32_t _chunk_size;
+  uint64_t workingSetSize_;
+  uint32_t chunkSize_;
   uint32_t _num_unique_chunks;
   uint32_t _num_chunks;
   uint32_t _distribution;
@@ -239,7 +239,7 @@ class RunSystem {
   int _num_workers;
   double _wr_ratio;
 
-  std::unique_ptr<SSDDup> _ssddup;
+  std::unique_ptr<SSDDup> ssddup_;
   std::vector<std::pair<uint32_t, uint32_t>> _accesses;
 };
 

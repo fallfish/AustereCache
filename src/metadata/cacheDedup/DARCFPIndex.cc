@@ -2,6 +2,7 @@
 // Created by 王秋平 on 12/3/19.
 //
 
+#include <manage/DirtyList.h>
 #include "DARCFPIndex.h"
 #include "DARCLBAIndex.h"
 #include "common/stats.h"
@@ -91,10 +92,10 @@ namespace cache {
         zeroReferenceList_.pop_back();
 
         spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
-#if defined(WRITE_BACK_CACHE)
-        DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
-                                                 Config::getInstance().getChunkSize());
-#endif
+        if (Config::getInstance().getCacheMode() == tWriteBack) {
+          DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
+                                                   Config::getInstance().getChunkSize());
+        }
         mp_.erase(_fp);
 
         memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());

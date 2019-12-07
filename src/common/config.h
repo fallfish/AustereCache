@@ -14,6 +14,10 @@ namespace cache {
           tNormal, tGarbageAware,
     };
 
+    enum CacheModeEnum {
+        tWriteThrough, tWriteBack
+    };
+
     class Config
     {
     public:
@@ -98,9 +102,6 @@ namespace cache {
 
         uint32_t getWriteBufferSize() { return writeBufferSize_; }
 
-        bool isMultiThreadEnabled() { return enableMultiThreads_; }
-
-
         // setters
         void setFingerprintLength(uint32_t ca_length) { fingerprintLen_ = ca_length; }
         void setPrimaryDeviceSize(uint64_t primary_device_size) { primaryDeviceSize_ = primary_device_size; }
@@ -126,18 +127,23 @@ namespace cache {
 
         void setWriteBufferSize(uint32_t v) { writeBufferSize_ = v; }
 
+        void enableMultiThreading(bool v) { enableMultiThreading_ = v; }
         void enableDirectIO(bool v) { enableDirectIO_ = v; }
         void enableFakeIO(bool v) { enableFakeIO_ = v; }
         void enableSynthenticCompression(bool v) { enableSynthenticCompression_ = v; }
         void enableReplayFIU(bool v) { enableReplayFIU_ = v; }
         void enableSketchRF(bool v) { enableSketchRF_ = v; }
         void enableCompactCachePolicy(bool v) { enableCompactCachePolicy_ = v; }
+        void setCacheMode(CacheModeEnum v) { cacheMode_ = v; }
+
+        bool isMultiThreadingEnabled() { return enableMultiThreading_; }
         bool isDirectIOEnabled() { return enableDirectIO_; }
         bool isFakeIOEnabled() { return enableFakeIO_; }
         bool isReplayFIUEnabled() { return enableReplayFIU_; }
         bool isSynthenticCompressionEnabled() { return enableSynthenticCompression_; }
         bool isSketchRFEnabled() { return enableSketchRF_; }
         bool isCompactCachePolicyEnabled() { return enableCompactCachePolicy_; }
+        CacheModeEnum getCacheMode() { return cacheMode_; }
 
         void setFingerprintAlgorithm(uint32_t v) {
           if (v == 0) setFingerprintLength(20);
@@ -195,7 +201,7 @@ namespace cache {
           clockStartValue_ = 1;
           lbaAmplifier_ = 1.0;
 
-          enableMultiThreads_ = false;
+          enableMultiThreading_ = false;
           maxNumGlobalThreads_ = 32;
           maxNumLocalThreads_ = 8;
 
@@ -238,7 +244,7 @@ namespace cache {
         // Multi threading related
         uint32_t maxNumGlobalThreads_;
         uint32_t maxNumLocalThreads_;
-        bool     enableMultiThreads_;
+        bool     enableMultiThreading_;
 
         // io related
         char *primaryDeviceName_;
@@ -253,6 +259,7 @@ namespace cache {
         bool enableFakeIO_ = true;
         bool enableSynthenticCompression_ = false;
         bool enableReplayFIU_ = true;
+        CacheModeEnum cacheMode_ = tWriteThrough;
 
         // chunk algorithm
         // 0 - Strong hash (SHA1), 1 - Weak hash (MurmurHash3)

@@ -72,10 +72,10 @@ namespace cache {
           }
         } while (mp_.find(_fp) == mp_.end());
         // assign the evicted free ssd location to the newly inserted data
-#if defined(WRITE_BACK_CACHE)
-        DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
-                                                 Config::getInstance().getChunkSize());
-#endif
+        if (Config::getInstance().getCacheMode() == tWriteBack) {
+          DirtyList::getInstance().addEvictedChunk(mp_[_fp].cachedataLocation_,
+                                                   Config::getInstance().getChunkSize());
+        }
         if (inRecencyList) {
           if (mp_[_fp].zeroReferenceListIter_ != zeroReferenceList_.end()) {
             zeroReferenceList_.erase(mp_[_fp].zeroReferenceListIter_);

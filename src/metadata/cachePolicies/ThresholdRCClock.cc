@@ -1,5 +1,6 @@
 #include <metadata/ReferenceCounter.h>
 #include <common/stats.h>
+#include <manage/DirtyList.h>
 #include "ThresholdRCClock.h"
 
 namespace cache {
@@ -84,14 +85,14 @@ namespace cache {
           bucket_->setInvalid(slotId);
           ++slotId;
         }
-#ifdef WRITE_BACK_CACHE
-        DirtyList::getInstance().addEvictedChunk(
-        /* Compute ssd location of the evicted data */
-        /* Actually, full Fingerprint and address is sufficient. */
-        FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotsToReferenceCounts[0].first),
-        (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
-      );
-#endif
+        if (Config::getInstance().getCacheMode() == tWriteBack) {
+          DirtyList::getInstance().addEvictedChunk(
+            /* Compute ssd location of the evicted data */
+            /* Actually, full Fingerprint and address is sufficient. */
+            FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotsToReferenceCounts[0].first),
+            (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
+          );
+        }
 
         Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
         slotsToReferenceCounts.erase(slotsToReferenceCounts.begin());

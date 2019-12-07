@@ -54,11 +54,12 @@ namespace cache {
           CompressionModule::compress(chunk);
         }
         ManageModule::getInstance().updateMetadata(chunk);
-#if defined(WRITE_BACK_CACHE)
-        DirtyList::getInstance().addLatestUpdate(chunk.addr_,
-                                                 chunk.cachedataLocation_,
-                                                 (chunk.compressedLevel_ + 1) * Config::getInstance().getSectorSize());
-#endif
+        if (Config::getInstance().getCacheMode() == tWriteBack) {
+          DirtyList::getInstance().addLatestUpdate(chunk.addr_,
+                                                   chunk.cachedataLocation_,
+                                                   (chunk.compressedLevel_ + 1) *
+                                                   Config::getInstance().getSectorSize());
+        }
         ManageModule::getInstance().write(chunk);
         Stats::getInstance().add_write_stat(chunk);
       }

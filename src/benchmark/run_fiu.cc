@@ -23,27 +23,26 @@
 #include <atomic>
 
 typedef long long int LL;
-typedef struct req_rec_t {
+struct Request {
   LL addr;
   int len;
   bool r;
   char sha1[42];
   int compressed_len;
-} req_rec; 
+};
 
 namespace cache {
 
   class RunSystem {
     public:
       RunSystem() {
-        _multi_thread = 0;
         genzipf::rand_val(2);
         compressedChunks_ = nullptr;
         originalChunks_ = nullptr;
       }
 
       ~RunSystem() {
-        _reqs.clear();
+        reqs_.clear();
         if (compressedChunks_ != nullptr) {
           for (int i = 0; i <= Config::getInstance().getChunkSize(); ++i) {
             if (compressedChunks_[i] != nullptr) free(compressedChunks_[i]);
@@ -79,6 +78,7 @@ namespace cache {
           char *valuestring = param->valuestring;
           uint64_t valuell = (uint64_t)param->valuedouble;
 
+          // 1. Disk related configurations
           if (strcmp(name, "primaryDeviceName") == 0) {
             Config::getInstance().setPrimaryDeviceName(valuestring);
           } else if (strcmp(name, "cacheDeviceName") == 0) {
@@ -89,6 +89,11 @@ namespace cache {
             Config::getInstance().setCacheDeviceSize(valuell);
           } else if (strcmp(name, "workingSetSize") == 0) {
             Config::getInstance().setWorkingSetSize(valuell);
+          } else if (strcmp(name, "chunkSize") == 0) {
+            Config::getInstance().setChunkSize(valuell);
+          } else if (strcmp(name, "sectorSize") == 0) {
+            Config::getInstance().setSectorSize(valuell);
+          // 2. Index related configurations
           } else if (strcmp(name, "nSlotsPerFpBucket") == 0) {
             Config::getInstance().setnSlotsPerFpBucket(valuell);
           } else if (strcmp(name, "nSlotsPerLbaBucket") == 0) {
@@ -97,14 +102,8 @@ namespace cache {
             Config::getInstance().setnBitsPerFpSignature(valuell);
           } else if (strcmp(name, "nBitsPerLbaSignature") == 0) {
             Config::getInstance().setnBitsPerLbaSignature(valuell);
-          } else if (strcmp(name, "chunkSize") == 0) {
-            Config::getInstance().setChunkSize(valuell);
-          } else if (strcmp(name, "sectorSize") == 0) {
-            Config::getInstance().setSectorSize(valuell);
           } else if (strcmp(name, "lbaAmplifier") == 0) {
             Config::getInstance().setLBAAmplifier(valuell);
-          } else if (strcmp(name, "writeBufferSize") == 0) {
-            Config::getInstance().setWriteBufferSize(valuell);
           } else if (strcmp(name, "cachePolicyForFPIndex") == 0) {
 #if defined(DLRU)
             if (strcmp(valuestring, "Normal") == 0) {
@@ -123,20 +122,31 @@ namespace cache {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tRecencyAwareLeastReferenceCount);
             }
 #endif
-          // Configurations for System 
-          } else if (strcmp(name, "compactCachePolicy") == 0) {
+          // Configurations for Techniques (Design)
+          } else if (strcmp(name, "synthenticCompression") == 0) { // Compression
+            Config::getInstance().enableSynthenticCompression(valuell);
+          } else if (strcmp(name, "compactCachePolicy") == 0) { // CompactCache Replacement Policies
             Config::getInstance().enableCompactCachePolicy(valuell);
-          // Configurations for algorithms
+          } else if (strcmp(name, "sketchBasedReferenceCounter") == 0) { // Sketch
+            Config::getInstance().enableSketchRF(valuell);
+          // Configurations for Techniques (Implementation)
+          } else if (strcmp(name, "multiThreading") == 0) { // Concurrency
+            Config::getInstance().enableMultiThreading(valuell);
+          } else if (strcmp(name, "writeBufferSize") == 0) { // Write Buffer
+            Config::getInstance().setWriteBufferSize(valuell);
+          } else if (strcmp(name, "cacheMode") == 0) { // Write Back and Write Through
+            if (strcmp(valuestring, "WriteThrough") == 0) {
+              Config::getInstance().setCacheMode(CacheModeEnum::tWriteThrough);
+            } else if (strcmp(valuestring, "WriteBack") == 0) {
+              Config::getInstance().setCacheMode(CacheModeEnum::tWriteBack);
+            }
+          // Configurations related to trace replay
           } else if (strcmp(name, "directIO") == 0) {
             Config::getInstance().enableDirectIO(valuell);
           } else if (strcmp(name, "replayFIU") == 0) {
             Config::getInstance().enableReplayFIU(valuell);
           } else if (strcmp(name, "fakeIO") == 0) {
             Config::getInstance().enableFakeIO(valuell);
-          } else if (strcmp(name, "synthenticCompression") == 0) {
-            Config::getInstance().enableSynthenticCompression(valuell);
-          } else if (strcmp(name, "sketchBasedReferenceCounter") == 0) {
-            Config::getInstance().enableSketchRF(valuell);
           }
         }
 
@@ -147,7 +157,7 @@ namespace cache {
         printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
         printf("primary device size: %" PRId64 " GiB\n", Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
         printf("woring set size: %" PRId64 " MiB\n", Config::getInstance().getWorkingSetSize() / 1024 / 1024);
-        _ssddup = std::make_unique<SSDDup>();
+        ssddup_ = std::make_unique<SSDDup>();
 
         assert(readFIUaps(config->child->valuestring) == 0);
         cJSON_Delete(config);
@@ -232,7 +242,7 @@ namespace cache {
 
         int chunk_id, length;
         assert(f != nullptr);
-        req_rec req;
+        Request req;
         LL cnt = 0;
 
         double compressibility;
@@ -256,29 +266,29 @@ namespace cache {
 
           req.r = (op[0] == 'r' || op[0] == 'R');
 
-          _reqs.push_back(req);
+          reqs_.push_back(req);
           continue;
           //if (cnt % 100000 == 0) printf("req %d\n", cnt); // , num of unique sha1 = %d\n", i, sets.size());
           //sendRequest(req, rwdata, sha1);
-          //if (_reqs[i].r) printf("req %d\n", i);
+          //if (reqs_[i].r) printf("req %d\n", i);
 
         }
-        printf("%s: Go through %lld operations, selected %lu\n", ap_file, cnt, _reqs.size());
+        printf("%s: Go through %lld operations, selected %lu\n", ap_file, cnt, reqs_.size());
 
         free(rwdata);
         fclose(f);
       }
 
-      void sendRequest(req_rec_t &req, char *rwdata, char *sha1) {
+      void sendRequest(Request &req, char *rwdata, char *sha1) {
         LL begin;
         int len;
-        uint32_t chunkSize = _chunk_size;
+        uint32_t chunkSize = chunkSize_;
 
         begin = req.addr;
         len = req.len;
 
         //Zero hit ratio test
-        //sprintf(_reqs[i].sha1, "0000_0000_0000_0000_0000_0000_00_%07d", i);
+        //sprintf(reqs_[i].sha1, "0000_0000_0000_0000_0000_0000_00_%07d", i);
         std::string s = std::string(req.sha1);
         convertStr2Sha1(req.sha1, sha1);
 
@@ -286,8 +296,6 @@ namespace cache {
           Config::getInstance().setCurrentFingerprint(sha1);
         }
 
-        //if (req.r) {
-          //printf("compressed len: %d\n", req.compressed_len);
         if (Config::getInstance().isSynthenticCompressionEnabled()) {
           Config::getInstance().setCurrentData(compressedChunks_[req.compressed_len], req.compressed_len);
           Config::getInstance().setCurrentCompressedLen(req.compressed_len);
@@ -300,9 +308,9 @@ namespace cache {
         }
 
         if (req.r) {
-          _ssddup->read(begin, rwdata, len);
+          ssddup_->read(begin, rwdata, len);
         } else {
-          _ssddup->write(begin, rwdata, len);
+          ssddup_->write(begin, rwdata, len);
         }
 
         // Debug
@@ -338,20 +346,32 @@ namespace cache {
 
       void work(std::atomic<uint64_t> &total_bytes)
       {
-        char* rwdata;
-        posix_memalign(reinterpret_cast<void **>(&rwdata), 512, 32768 + 10);
-        //rwdata = (char*)malloc(32768 + 10);
-        std::string s;
-        int chunk_size = Config::getInstance().getChunkSize();
+        int nThreads = 1;
+        if (Config::getInstance().isMultiThreadingEnabled()) {
+          nThreads = Config::getInstance().getMaxNumGlobalThreads();
+        }
 
-        std::cout << _reqs.size() << std::endl;
+        char **content, **fingerprint;
+        content = (char**)malloc(sizeof(char*) * nThreads);
+        fingerprint = (char**)malloc(sizeof(char*) * nThreads);
+        for (int i = 0; i < nThreads; ++i) {
+          posix_memalign(reinterpret_cast<void **>(content[i]), 512, 32768 + 10);
+          fingerprint[i] = (char*)malloc(sizeof(char) * 20);
+        }
+
+
+        std::cout << reqs_.size() << std::endl;
+
+        AThreadPool threadPool(nThreads);
         char sha1[23];
-        for (uint32_t i = 0; i < _reqs.size(); i++) {
-          if (i % 100000 == 0) printf("req %d\n", i); // , num of unique sha1 = %d\n", i, sets.size());
-          //if (_reqs[i].r) printf("req %d\n", i);
-
-          sendRequest(_reqs[i], rwdata, sha1);
-          total_bytes += chunk_size;
+        for (uint32_t i = 0; i < reqs_.size(); ++i) {
+          if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
+          if (Config::getInstance().isMultiThreadingEnabled()) {
+            threadPool.doJob([this, &content, &fingerprint, i]() {
+              sendRequest(reqs_[i], content[i], fingerprint[i]);
+            });
+          }
+          total_bytes += chunkSize_;
         }
         sync();
       }
@@ -388,20 +408,11 @@ namespace cache {
     }
 
     private: 
-      void print_help()
-      {
-      }
+      uint64_t workingSetSize_;
+      uint32_t chunkSize_;
 
-      WorkloadConfiguration _workload_conf; 
-      uint32_t _working_set_size;
-      LL _working_set_size_LBA;
-      uint32_t _chunk_size;
-
-      bool _multi_thread;
-      double _wr_ratio;
-
-      std::unique_ptr<SSDDup> _ssddup;
-      std::vector<req_rec> _reqs;
+      std::unique_ptr<SSDDup> ssddup_;
+      std::vector<Request> reqs_;
 
       // for compression
       char** compressedChunks_;
@@ -420,9 +431,11 @@ int main(int argc, char **argv)
     printf("defined: REPLAY_FIU\n");
   }
 
-#if defined(WRITE_BACK_CACHE)
-  printf("defined: WRITE_BACK_CACHE\n");
-#endif
+  if (cache::Config::getInstance().getCacheMode() == cache::CacheModeEnum::tWriteBack) {
+    printf("Write Back\n");
+  } else {
+    printf("Write Through\n");
+  }
 
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
   printf("defined: CACHE_DEDUP\n");
@@ -433,6 +446,7 @@ int main(int argc, char **argv)
   printf(" -- DARC\n");
 #endif
 #endif
+
   srand(0);
   cache::RunSystem run_system;
 

@@ -73,10 +73,6 @@ else ()
   list(APPEND CacheLibSources src/metadata/MetadataModule.cc src/ssddup/ssddupCompression.cc src/manage/DirtyListACDC.cc)
 endif()
 
-if (ENABLE_WRITE_BACK)
-  add_definitions(-DWRITE_BACK_CACHE)
-endif()
-
 add_library(cache ${CacheLibSources})
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)

@@ -1,3 +1,4 @@
+#include <manage/DirtyList.h>
 #include "CAClock.h"
 #include "common/stats.h"
 
@@ -87,14 +88,14 @@ namespace cache {
             ++slotId;
           }
           if (evicted) {
-#ifdef WRITE_BACK_CACHE
-            DirtyList::getInstance().addEvictedChunk(
-              /* Compute ssd location of the evicted data */
-              /* Actually, full Fingerprint and address is sufficient. */
+            if (Config::getInstance().getCacheMode() == tWriteBack) {
+              DirtyList::getInstance().addEvictedChunk(
+                /* Compute ssd location of the evicted data */
+                /* Actually, full Fingerprint and address is sufficient. */
                 FPIndex::computeCachedataLocation(bucket_->getBucketId(), slot_id_begin),
                 (slotId - slot_id_begin) * Config::getInstance().getSectorSize()
               );
-#endif
+            }
             Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
           }
         }
