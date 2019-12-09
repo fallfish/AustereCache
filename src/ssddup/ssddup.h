@@ -25,6 +25,8 @@ class SSDDup {
   void write(uint64_t addr, void *buf, uint32_t len);
   void readMultiThread(uint64_t addr, void *buf, uint32_t len);
   void readSingleThread(uint64_t addr, void *buf, uint32_t len);
+  void writeSingleThread(uint64_t addr, void *buf, uint32_t len);
+  void writeMultiThread(uint64_t addr, void *buf, uint32_t len);
   inline void resetStatistics() { stats_->reset(); }
   inline void dumpStatistics() { stats_->dump(); }
   void dumpMemoryUsage(double& vm_usage, double& resident_set)
@@ -71,11 +73,8 @@ class SSDDup {
   // Statistics
   Stats* stats_;
 
-  std::unique_ptr<ThreadPool> threadPool_;
+  std::unique_ptr<AThreadPool> threadPool_;
 
-    void writeSingleThread(uint64_t addr, void *buf, uint32_t len);
-
-    void writeMultiThread(uint64_t addr, void *buf, uint32_t len);
 };
 }
 

@@ -27,6 +27,8 @@ namespace cache {
         void dumpStats();
         uint32_t capacity_;
 
+        void clearObsolete();
+
     private:
         std::map<Fingerprint, DP> mp_;
         std::map<uint32_t, uint32_t> weuReferenceCount_; // reference count for each weu

@@ -64,12 +64,9 @@ namespace cache {
         std::set<uint32_t> evictedWEUIds;
 
         bool hasRecycled(uint32_t weuId);
-        inline void recycle(uint32_t weuId);
-        inline bool isCurrentWEUFull(uint32_t length);
+        void recycle(uint32_t weuId);
+        bool isCurrentWEUFull(uint32_t length);
         void allocate(uint32_t &weuId, uint32_t &offset, uint32_t length);
     };
-
-
-
 }
 #endif

@@ -29,6 +29,7 @@ class ManageModule {
 
 
 #if defined(CDARC)
+ public:
   // maintain WEU to SSD locations
   std::map<uint32_t, uint64_t> weuToCachedataLocation_;
   uint32_t weuSize_;

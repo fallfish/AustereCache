@@ -5,8 +5,12 @@
 #include <common/stats.h>
 #include "DARCLBAIndex.h"
 #include "CDARCFPIndex.h"
+#include "manage/DirtyList.h"
+#include "manage/managemodule.h"
 
 namespace cache {
+    CDARCFPIndex::CDARCFPIndex() {}
+
     CDARCFPIndex &CDARCFPIndex::getInstance()
     {
       static CDARCFPIndex instance;
@@ -104,6 +108,10 @@ namespace cache {
         zeroReferenceList_.pop_back();
         weuReferenceCount_.erase(weu_id);
 
+        if (Config::getInstance().getCacheMode() == tWriteBack) {
+          DirtyList::getInstance().addEvictedChunk(ManageModule::getInstance().weuToCachedataLocation_[weu_id],
+                                                   Config::getInstance().getWriteBufferSize());
+        }
         weuAllocator_.recycle(weu_id);
         evicted_weu_id = weu_id;
         Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
@@ -118,7 +126,8 @@ namespace cache {
       return evicted_weu_id;
     }
 
-    void CDARCFPIndex::dumpStats() {
+    void CDARCFPIndex::dumpStats()
+    {
       std::set<Fingerprint> fingerprints;
       DARCLBAIndex::getInstance().getFingerprints(fingerprints);
       uint32_t nInvalidFingerprints = 0;
@@ -135,5 +144,19 @@ namespace cache {
       printf("Zero Referenced WEUs: %lu, Total WEUs: %lu\n", zeroReferenceList_.size(), weuReferenceCount_.size());
       printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
       fingerprints.clear();
+    }
+
+    void CDARCFPIndex::clearObsolete()
+    {
+      std::vector<Fingerprint> invalidFingerprints;
+      for (auto &pr : mp_) {
+        if (weuAllocator_.hasRecycled(pr.second.weuId_)) {
+          invalidFingerprints.push_back(pr.first);
+        }
+      }
+      for (auto &fingerprint : invalidFingerprints) {
+        mp_.erase(fingerprint);
+      }
+      weuAllocator_.evictedWEUIds.clear();
     }
 }

@@ -3,6 +3,7 @@
 #include "common/config.h"
 
 #include "manage/DirtyList.h"
+#include "metadata/cacheDedup/CDARCFPIndex.h"
 
 #include <unistd.h>
 
@@ -11,6 +12,8 @@
 #include <cassert>
 #include <csignal>
 #include <chrono>
+
+#include <malloc.h>
 
 namespace cache {
     SSDDup::SSDDup()
@@ -28,6 +31,11 @@ namespace cache {
       Stats::getInstance().dump();
       Stats::getInstance().release();
       Config::getInstance().release();
+#ifdef CDARC
+      CDARCFPIndex::getInstance().clearObsolete();
+#endif
+      // trim all released memory
+      malloc_trim(0);
       double vm, rss;
       dumpMemoryUsage(vm, rss);
       std::cout << std::fixed << "VM: " << vm << "; RSS: " << rss << std::endl;

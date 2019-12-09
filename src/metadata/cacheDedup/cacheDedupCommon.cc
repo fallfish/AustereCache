@@ -65,5 +65,4 @@ namespace cache {
       offset = currentOffset;
       currentOffset += length;
     }
-
 }

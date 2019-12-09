@@ -39,7 +39,6 @@ list(APPEND CacheLibSources
         src/metadata/cacheDedup/DLRUFPIndex.cc
         src/metadata/cacheDedup/DARCLBAIndex.cc
         src/metadata/cacheDedup/DARCFPIndex.cc
-        src/metadata/cacheDedup/CDARCFPIndex.cc
         src/metadata/cacheDedup/BucketDLRULBAIndex.cc
         src/metadata/cacheDedup/BucketDLRUFPIndex.cc
         src/metadata/cacheDedup/BucketDLRUFPIndex.h
@@ -63,7 +62,7 @@ elseif (DARC)
 elseif (CDARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DCDARC)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleCDARC.cc src/ssddup/ssddupCompression.cc)
+  list(APPEND CacheLibSources src/metadata/MetadataModuleCDARC.cc src/ssddup/ssddupCompression.cc src/metadata/cacheDedup/CDARCFPIndex.cc src/manage/DirtyListCDARC.cc)
 elseif (BUCKETDLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DBUCKETDLRU)

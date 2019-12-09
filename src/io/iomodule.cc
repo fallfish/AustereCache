@@ -11,11 +11,7 @@ IOModule::IOModule()
 {
   if (Config::getInstance().getWriteBufferSize() != 0) {
     std::cout << "Write Buffer init" << std::endl;
-#ifdef DIRECT_IO
     posix_memalign(reinterpret_cast<void **>(&inMemBuffer_.buf_), 512, Config::getInstance().getWriteBufferSize());
-#else
-    buf_ = (uint8_t*)malloc(buffer_size);
-#endif
     inMemBuffer_.len_ = Config::getInstance().getWriteBufferSize();
   } else {
     inMemBuffer_.len_ = 0;

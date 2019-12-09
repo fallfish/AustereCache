@@ -1,0 +1,16 @@
+{
+  "workload": "/home/qpwang/Workspace/ssddup/trace/fiu_test/homes_final_trace_%02d.txt 1 21",
+  "config": {
+    "primaryDeviceName": "./primary_device",
+    "cacheDeviceName": "./ramdisk/cache_device",
+    "workingSetSize": 34359738368,
+    "cacheDeviceSize": 12884901888,
+    "sectorSize": 8192,
+    "lbaAmplifier": 4,
+
+    
+    "replayFIU": 1,
+    "fakeIO": 1,
+    "writeBufferSize": 2097152
+  }
+}

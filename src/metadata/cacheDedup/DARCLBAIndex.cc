@@ -4,6 +4,7 @@
 
 #include "DARCLBAIndex.h"
 #include "DARCFPIndex.h"
+#include "CDARCFPIndex.h"
 
 namespace cache {
     DARCLBAIndex::DARCLBAIndex() {}

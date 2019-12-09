@@ -75,6 +75,15 @@ namespace cache {
     assert(len % 512 == 0);
 #endif
 
+#if defined(CDARC)
+    // if enabled direct io, the request must be aligned with the disk
+    uint64_t realAddr = addr, realLen = len;
+    if (Config::getInstance().isDirectIOEnabled()) {
+      addr = addr - addr % 512;
+      len = (len + 511) / 512 * 512;
+    }
+#endif
+
     if (addr + len > _size) {
       len -= addr + len - _size;
     }
@@ -100,6 +109,13 @@ namespace cache {
         len -= n;
       }
     }
+#if defined(CDARC)
+    // if enabled direct io, the request must be aligned with the disk
+    if (Config::getInstance().isDirectIOEnabled()) {
+      memmove(buf, buf + realAddr - addr, realLen);
+      n_read_bytes = realLen;
+    }
+#endif
     return n_read_bytes;
   }
 

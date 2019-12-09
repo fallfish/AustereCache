@@ -22,13 +22,22 @@
 #include <thread>
 #include <atomic>
 
+#include <malloc.h>
+
 typedef long long int LL;
 struct Request {
+  Request() { 
+    addr = 0;
+    len = 0;
+    r = 0;
+    compressed_len = 0;
+  }
+
   LL addr;
   int len;
   bool r;
+  uint32_t compressed_len;
   char sha1[42];
-  int compressed_len;
 };
 
 namespace cache {
@@ -41,16 +50,29 @@ namespace cache {
         originalChunks_ = nullptr;
       }
 
-      ~RunSystem() {
+      void clear() {
         reqs_.clear();
+        reqs_.shrink_to_fit();
+        uint32_t chunkSize = Config::getInstance().getChunkSize();
         if (compressedChunks_ != nullptr) {
           for (int i = 0; i <= Config::getInstance().getChunkSize(); ++i) {
-            if (compressedChunks_[i] != nullptr) free(compressedChunks_[i]);
-            if (originalChunks_[i] != nullptr) free(originalChunks_[i]);
+            if (compressedChunks_[i] != nullptr) {
+              free(compressedChunks_[i]);
+              compressedChunks_[i] = nullptr;
+            }
+            if (originalChunks_[i] != nullptr) {
+              free(originalChunks_[i]);
+              originalChunks_[i] = nullptr;
+            }
           }
           free(compressedChunks_);
+          compressedChunks_ = nullptr;
           free(originalChunks_);
+          originalChunks_ = nullptr;
         }
+      }
+
+      ~RunSystem() {
       }
 
 
@@ -58,9 +80,10 @@ namespace cache {
       {
         Config::getInstance().setCacheDeviceSize(16LL * 1024 * 1024 * 1024);
         Config::getInstance().setPrimaryDeviceSize(300LL * 1024 * 1024 * 1024);
+        chunkSize_ = 32768;
 
-        char source[1000 + 1];
-        FILE *fp = fopen("/home/qpwang/Workspace/ssddup/conf/webvm_no_compression.json", "r");
+        char source[2000 + 1];
+        FILE *fp = fopen(argv[1], "r");
         if (fp != NULL) {
           size_t newLen = fread(source, sizeof(char), 1001, fp);
           if ( ferror( fp ) != 0 ) {
@@ -91,6 +114,7 @@ namespace cache {
             Config::getInstance().setWorkingSetSize(valuell);
           } else if (strcmp(name, "chunkSize") == 0) {
             Config::getInstance().setChunkSize(valuell);
+            chunkSize_ = valuell;
           } else if (strcmp(name, "sectorSize") == 0) {
             Config::getInstance().setSectorSize(valuell);
           // 2. Index related configurations
@@ -118,7 +142,7 @@ namespace cache {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAwareCAClock);
             } else if (strcmp(valuestring, "LeastReferenceCount") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tLeastReferenceCount);
-            } else if (strcmp(valuestring, "LeastReferenceCount") == 0) {
+            } else if (strcmp(valuestring, "RecencyAwareLeastReferenceCount") == 0) {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tRecencyAwareLeastReferenceCount);
             }
 #endif
@@ -158,6 +182,7 @@ namespace cache {
         printf("primary device size: %" PRId64 " GiB\n", Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
         printf("woring set size: %" PRId64 " MiB\n", Config::getInstance().getWorkingSetSize() / 1024 / 1024);
         ssddup_ = std::make_unique<SSDDup>();
+        
 
         assert(readFIUaps(config->child->valuestring) == 0);
         cJSON_Delete(config);
@@ -238,7 +263,7 @@ namespace cache {
         uint32_t len;
         char sha1[50];
         char op[2];
-        int chunk_size = Config::getInstance().getChunkSize();
+        int chunkSize = Config::getInstance().getChunkSize();
 
         int chunk_id, length;
         assert(f != nullptr);
@@ -247,42 +272,37 @@ namespace cache {
 
         double compressibility;
 
-        char* rwdata;
-        posix_memalign(reinterpret_cast<void **>(&rwdata), 512, 32768 + 10);
-        std::string s;
-
         while (fscanf(f, "%lld %d %s %s %lf", &req.addr, &req.len, op, req.sha1, &compressibility) != -1) {
           cnt++;
-          //if (req.addr >= Config::getInstance().getPrimaryDeviceSize()) {
-            //continue;
-          //}
 
           if (Config::getInstance().isSynthenticCompressionEnabled()) {
-            int clen = (double)chunk_size / compressibility; 
-            if (clen >= chunk_size) clen = chunk_size;
-            while (compressedChunks_[clen] == nullptr && clen < chunk_size) clen++;
+            int clen = (double)chunkSize / compressibility; 
+            if (clen >= chunkSize) clen = chunkSize;
             req.compressed_len = clen;
+            while (req.compressed_len < chunkSize) {
+              if (compressedChunks_[req.compressed_len] != nullptr) break;
+              req.compressed_len += 1;
+            }
           }
 
           req.r = (op[0] == 'r' || op[0] == 'R');
 
-          reqs_.push_back(req);
+          reqs_.emplace_back(req);
           continue;
-          //if (cnt % 100000 == 0) printf("req %d\n", cnt); // , num of unique sha1 = %d\n", i, sets.size());
-          //sendRequest(req, rwdata, sha1);
-          //if (reqs_[i].r) printf("req %d\n", i);
-
+          //sendRequest(req);
         }
         printf("%s: Go through %lld operations, selected %lu\n", ap_file, cnt, reqs_.size());
 
-        free(rwdata);
         fclose(f);
       }
 
-      void sendRequest(Request &req, char *rwdata, char *sha1) {
+      void sendRequest(Request &req) {
         LL begin;
         int len;
-        uint32_t chunkSize = chunkSize_;
+        char sha1[43];
+        uint32_t chunkSize = Config::getInstance().getChunkSize();
+        char *rwdata = nullptr;
+        posix_memalign(reinterpret_cast<void**>(&rwdata), 512, chunkSize_);
 
         begin = req.addr;
         len = req.len;
@@ -312,19 +332,7 @@ namespace cache {
         } else {
           ssddup_->write(begin, rwdata, len);
         }
-
-        // Debug
-        if (Config::getInstance().isSynthenticCompressionEnabled()) {
-          if (false && req.r) {
-            if (!memcmp(rwdata, originalChunks_[req.compressed_len], chunkSize)) printf("OK, same\n");
-            else {
-              printf("not ok, not same\nOriginal data: ");
-              print_SHA1(originalChunks_[req.compressed_len], chunkSize);
-              printf("Read data: ");
-              print_SHA1(rwdata, chunkSize);
-            }
-          }
-        }
+        free(rwdata);
       }
 
       /**
@@ -347,43 +355,34 @@ namespace cache {
       void work(std::atomic<uint64_t> &total_bytes)
       {
         int nThreads = 1;
+        uint32_t chunkSize = Config::getInstance().getChunkSize();
         if (Config::getInstance().isMultiThreadingEnabled()) {
           nThreads = Config::getInstance().getMaxNumGlobalThreads();
         }
 
-        char **content, **fingerprint;
-        content = (char**)malloc(sizeof(char*) * nThreads);
-        fingerprint = (char**)malloc(sizeof(char*) * nThreads);
-        for (int i = 0; i < nThreads; ++i) {
-          posix_memalign(reinterpret_cast<void **>(content[i]), 512, 32768 + 10);
-          fingerprint[i] = (char*)malloc(sizeof(char) * 20);
-        }
-
-
         std::cout << reqs_.size() << std::endl;
 
-        AThreadPool threadPool(nThreads);
+        AThreadPool *threadPool = new AThreadPool(nThreads);
         char sha1[23];
         for (uint32_t i = 0; i < reqs_.size(); ++i) {
-          if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
-          if (Config::getInstance().isMultiThreadingEnabled()) {
-            threadPool.doJob([this, &content, &fingerprint, i]() {
-              sendRequest(reqs_[i], content[i], fingerprint[i]);
-            });
-          }
-          total_bytes += chunkSize_;
+          threadPool->doJob([this, i]() {
+              if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
+              sendRequest(reqs_[i]);
+          });
+          total_bytes += chunkSize;
         }
+        delete threadPool;
         sync();
       }
 
     void generateCompression() {
-      int chunkSize = Config::getInstance().getChunkSize();
-      compressedChunks_ = (char**)malloc(sizeof(char*) * (1 + chunkSize));
-      originalChunks_ = (char**)malloc(sizeof(char*) * (1 + chunkSize));
+      uint32_t chunkSize = Config::getInstance().getChunkSize();
+      posix_memalign(reinterpret_cast<void **>(&compressedChunks_), 512, sizeof(char*) * (1 + chunkSize));
+      posix_memalign(reinterpret_cast<void **>(&originalChunks_), 512, sizeof(char*) * (1 + chunkSize));
       char originalChunk[chunkSize], compressedChunk[chunkSize];
       memset(originalChunk, 1, sizeof(char) * chunkSize);
       memset(compressedChunk, 1, sizeof(char) * chunkSize);
-      for (int i = 0; i <= chunkSize; ++i) {
+      for (uint32_t i = 0; i <= chunkSize; ++i) {
         compressedChunks_[i] = nullptr;
         originalChunks_[i] = nullptr;
       }
@@ -392,15 +391,15 @@ namespace cache {
         std::default_random_engine, CHAR_BIT, unsigned char>;
       random_bytes_engine rbe(1007);
 
-      for (int i = 0; i < chunkSize; i+=8) {
+      for (uint32_t i = 0; i < chunkSize; i+=8) {
 
         if (i) std::generate(originalChunk, originalChunk + i, std::ref(rbe));
         int clen = LZ4_compress_default(originalChunk, compressedChunk, chunkSize, chunkSize-1);
         if (clen == 0) clen = chunkSize;
 
         if (compressedChunks_[clen] == nullptr) {
-          compressedChunks_[clen] = (char*)malloc(sizeof(char) * chunkSize);
-          originalChunks_[clen] = (char*)malloc(sizeof(char) * chunkSize);
+          posix_memalign(reinterpret_cast<void **>(&compressedChunks_[clen]), 512, chunkSize);
+          posix_memalign(reinterpret_cast<void **>(&originalChunks_[clen]), 512, chunkSize);
           memcpy(compressedChunks_[clen], compressedChunk, sizeof(char) * clen);
           memcpy(originalChunks_[clen], originalChunk, sizeof(char) * chunkSize);
         }
@@ -411,12 +410,12 @@ namespace cache {
       uint64_t workingSetSize_;
       uint32_t chunkSize_;
 
-      std::unique_ptr<SSDDup> ssddup_;
-      std::vector<Request> reqs_;
-
       // for compression
       char** compressedChunks_;
       char** originalChunks_;
+      std::unique_ptr<SSDDup> ssddup_;
+      std::vector<Request> reqs_;
+      char *rwdata;
   };
 
 }
@@ -454,6 +453,7 @@ int main(int argc, char **argv)
 
   std::atomic<uint64_t> total_bytes(0);
   long long elapsed = 0;
+  
   PERF_FUNCTION(elapsed, run_system.work, total_bytes);
 
   std::cout << "Replay finished, statistics: \n";
@@ -461,6 +461,7 @@ int main(int argc, char **argv)
   std::cout << "elapsed: " << elapsed << " us" << std::endl;
   std::cout << "Throughput: " << (double)total_bytes / elapsed << " MBytes/s" << std::endl;
 
+  run_system.clear();
   return 0;
 }
 
