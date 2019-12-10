@@ -5,6 +5,7 @@
 #include <map>
 #include <common/config.h>
 #include <cstring>
+#include <mutex>
 
 namespace cache {
 
@@ -71,34 +72,42 @@ namespace cache {
         static SketchReferenceCounter instance;
         return instance;
       }
-
   };
 
   class ReferenceCounter {
     public:
-    static uint32_t query(uint64_t key) {
+      ReferenceCounter() {}
+      static ReferenceCounter& getInstance() {
+        static ReferenceCounter instance;
+        return instance;
+      }
+      uint32_t query(uint64_t key) {
+        std::lock_guard<std::mutex> lock(rfMutex_);
         if (Config::getInstance().isSketchRFEnabled()) {
           return SketchReferenceCounter::getInstance().query(key);
         } else {
           return MapReferenceCounter::getInstance().query(key);
         }
-    }
-
-    static void reference(uint64_t key) {
-      if (Config::getInstance().isSketchRFEnabled()) {
-        SketchReferenceCounter::getInstance().reference(key);
-      } else {
-        MapReferenceCounter::getInstance().reference(key);
       }
-    }
 
-    static void dereference(uint64_t key) {
-      if (Config::getInstance().isSketchRFEnabled()) {
-        SketchReferenceCounter::getInstance().dereference(key);
-      } else {
-        MapReferenceCounter::getInstance().dereference(key);
+      void reference(uint64_t key) {
+        std::lock_guard<std::mutex> lock(rfMutex_);
+        if (Config::getInstance().isSketchRFEnabled()) {
+          SketchReferenceCounter::getInstance().reference(key);
+        } else {
+          MapReferenceCounter::getInstance().reference(key);
+        }
       }
-    }
+
+      void dereference(uint64_t key) {
+        std::lock_guard<std::mutex> lock(rfMutex_);
+        if (Config::getInstance().isSketchRFEnabled()) {
+          SketchReferenceCounter::getInstance().dereference(key);
+        } else {
+          MapReferenceCounter::getInstance().dereference(key);
+        }
+      }
+      std::mutex rfMutex_;
   };
 }
 #endif //SSDDUP_REFERENCECOUNTER_H

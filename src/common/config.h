@@ -5,6 +5,9 @@
 #include <cstdlib>
 #include <algorithm>
 #include <iostream>
+#include <map>
+#include <mutex>
+#include <cassert>
 namespace cache {
 
     enum CachePolicyEnum {
@@ -27,7 +30,10 @@ namespace cache {
         }
 
         void release() {
-          free(dataOfCurrentChunk_);
+          for (auto pr : lba2Fingerprints_) {
+            free(pr.second);
+          }
+          lba2Fingerprints_.clear();
         }
 
         // getters
@@ -155,24 +161,21 @@ namespace cache {
           else setFingerprintAlgorithm(1);
           fingerprintMode_ = v;
         }
-        char *getCurrentFingerprint() {
-          return fingerprintOfCurrentChunk_;
+
+        void setFingerprint(uint64_t lba, char *fingerprint) {
+          std::lock_guard<std::mutex> lock(mutex_);
+          if (lba2Fingerprints_.find(lba) != lba2Fingerprints_.end()) {
+            free(lba2Fingerprints_[lba]);
+          }
+          lba2Fingerprints_[lba] = (char*)malloc(fingerprintLen_ * sizeof(char));
+          memcpy(lba2Fingerprints_[lba], fingerprint, fingerprintLen_ * sizeof(char));
         }
-        void setCurrentFingerprint(char *fingerprint) {
-          memcpy(fingerprintOfCurrentChunk_, fingerprint, fingerprintLen_);
-        }
-        char *getCurrentData() {
-          return dataOfCurrentChunk_;
-        }
-        void setCurrentData(char *data, int len) {
-          if (len > chunkSize_) len = chunkSize_;
-          memcpy(dataOfCurrentChunk_, data, len);
-        }
-        int getCurrentCompressedLen() {
-          return compressedLenOfCurrentChunk_;
-        }
-        void setCurrentCompressedLen(int compressedLen) {
-          compressedLenOfCurrentChunk_ = compressedLen;
+
+        void getFingerprint(uint64_t lba, char *fingerprint) {
+          std::lock_guard<std::mutex> lock(mutex_);
+          if (lba2Fingerprints_.find(lba) != lba2Fingerprints_.end()) {
+            memcpy(fingerprint, lba2Fingerprints_[lba], fingerprintLen_ * sizeof(char));
+          }
         }
 
         bool currentEvictionIsRewrite = false;
@@ -202,15 +205,13 @@ namespace cache {
           lbaAmplifier_ = 1.0;
 
           enableMultiThreading_ = false;
-          maxNumGlobalThreads_ = 32;
+          maxNumGlobalThreads_ = 16;
           maxNumLocalThreads_ = 8;
 
           // io related
           cacheDeviceName_ = "./ramdisk/cache_device";
           primaryDeviceName_ = "./primary_device";
 
-          // NORMAL_DIST_COMPRESSION related
-          dataOfCurrentChunk_ = (char*)malloc(sizeof(char) * chunkSize_);
           setFingerprintMode(0);
           setFingerprintAlgorithm(1);
         }
@@ -242,8 +243,8 @@ namespace cache {
         bool enableSketchRF_ = true;
 
         // Multi threading related
-        uint32_t maxNumGlobalThreads_;
-        uint32_t maxNumLocalThreads_;
+        uint32_t maxNumGlobalThreads_ = 8;
+        uint32_t maxNumLocalThreads_ = 8;
         bool     enableMultiThreading_;
 
         // io related
@@ -270,12 +271,13 @@ namespace cache {
 
         // Used when replaying FIU trace, for each request, we would fill in the fingerprint value
         // specified in the trace rather than the computed one.
-        char fingerprintOfCurrentChunk_[20]{};
+        std::map<uint64_t, char*> lba2Fingerprints_;
+
 
         // Used when using NORMAL_DIST_COMPRESSION
-        char* dataOfCurrentChunk_;
-        int compressedLenOfCurrentChunk_{};
         bool enableCompactCachePolicy_ = true;
+
+        std::mutex mutex_;
     };
 
 }

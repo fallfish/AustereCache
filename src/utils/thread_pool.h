@@ -43,10 +43,15 @@ class AThreadPool
   void doJob (std::function <void (void)> func)
   {
     // Place a job on the queue and unblock a thread
-    std::unique_lock <std::mutex> l (lock_);
+    {
+      std::unique_lock <std::mutex> l (lock_);
 
-    jobs_.emplace (std::move (func));
-    condVar_.notify_one();
+      jobs_.emplace (std::move (func));
+      condVar_.notify_one();
+      while (jobs_.size() >= 2 * threads_.size()) {
+        condVarMaster_.wait(l);
+      }
+    }
   }
 
   protected:
@@ -60,8 +65,9 @@ class AThreadPool
       {
         std::unique_lock <std::mutex> l (lock_);
 
-        while (! shutdown_ && jobs_.empty())
+        while (! shutdown_ && jobs_.empty()) {
           condVar_.wait (l);
+        }
 
         if (jobs_.empty ())
         {
@@ -76,12 +82,15 @@ class AThreadPool
 
       // Do the job without holding any locks
       job ();
+      if (jobs_.size() < threads_.size()) {
+        condVarMaster_.notify_one();
+      }
     }
 
   }
 
   std::mutex lock_;
-  std::condition_variable condVar_;
+  std::condition_variable condVar_, condVarMaster_;
   bool shutdown_;
   std::queue <std::function <void (void)>> jobs_;
   std::vector <std::thread> threads_;

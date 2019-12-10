@@ -31,6 +31,9 @@ namespace cache {
       Stats::getInstance().dump();
       Stats::getInstance().release();
       Config::getInstance().release();
+      if (Config::getInstance().getCacheMode() == tWriteBack) {
+        DirtyList::getInstance().shutdown();
+      }
 #ifdef CDARC
       CDARCFPIndex::getInstance().clearObsolete();
 #endif
@@ -64,9 +67,7 @@ namespace cache {
       uint32_t tmp_len;
 
       while (chunker.next(tmp_addr, tmp_buf, tmp_len)) {
-        threadPool_->doJob( [this, tmp_addr, tmp_buf, tmp_len]() {
-            readSingleThread(tmp_addr, tmp_buf, tmp_len);
-        });
+        readSingleThread(tmp_addr, tmp_buf, tmp_len);
       }
     }
 
@@ -98,9 +99,9 @@ namespace cache {
       uint32_t tmp_len;
 
       while (chunker.next(tmp_addr, tmp_buf, tmp_len)) {
-        threadPool_->doJob( [this, tmp_addr, tmp_buf, tmp_len]() {
+        //threadPool_->doJob( [this, tmp_addr, tmp_buf, tmp_len]() {
             writeSingleThread(tmp_addr, tmp_buf, tmp_len);
-        });
+        //});
       }
     }
 

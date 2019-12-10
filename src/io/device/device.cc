@@ -99,7 +99,7 @@ namespace cache {
       if (n < 0) {
         std::cout << (long)buf << " " << addr << " " << len << std::endl;
         std::cout << "BlockDevice::read " << std::strerror(errno) << std::endl;
-        exit(-1);
+        assert(0);
       }
       n_read_bytes += n;
       if (n == len) {

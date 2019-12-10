@@ -6,6 +6,7 @@
 
 #include <map>
 #include <list>
+#include <condition_variable>
 
 namespace cache {
 
@@ -27,6 +28,8 @@ namespace cache {
       void addEvictedChunk(uint64_t cachedataLocation, uint32_t len);
       void flush();
 
+      void shutdown();
+
     private:
       // logical block address to cache data pointer and length
       std::map<uint64_t, std::pair<uint64_t, uint32_t>> latestUpdates_;
@@ -34,6 +37,10 @@ namespace cache {
       std::list<EvictedBlock> evictedBlocks_;
       std::shared_ptr<CompressionModule> compressionModule_;
       uint64_t size_;
+      std::mutex mutex_;
+      std::mutex listMutex_;
+      std::condition_variable condVar_;
+      bool shutdown_;
   };
 }
 

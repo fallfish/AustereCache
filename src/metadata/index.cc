@@ -188,10 +188,10 @@ namespace cache {
   }
 
   void FPIndex::reference(uint64_t fpHash) {
-    ReferenceCounter::reference(fpHash);
+    ReferenceCounter::getInstance().reference(fpHash);
   }
   void FPIndex::dereference(uint64_t fpHash) {
-    ReferenceCounter::dereference(fpHash);
+    ReferenceCounter::getInstance().dereference(fpHash);
   }
 
 }

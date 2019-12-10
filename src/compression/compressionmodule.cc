@@ -19,22 +19,18 @@ void CompressionModule::compress(Chunk &chunk)
 {
   BEGIN_TIMER();
 
-  if (Config::getInstance().isFakeIOEnabled()) {
-    if (Config::getInstance().isSynthenticCompressionEnabled()) {
-      chunk.compressedLen_ = Config::getInstance().getCurrentCompressedLen();
-    } else {
-      chunk.compressedLen_ = 0;
-    }
-  } else {
 #ifdef CDARC
-    chunk.compressedLen_ = LZ4_compress_default(
-        (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
-        chunk.len_, chunk.len_ - 1);
+  chunk.compressedLen_ = LZ4_compress_default(
+      (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
+      chunk.len_, chunk.len_ - 1);
 #else // ACDC
-    chunk.compressedLen_ = LZ4_compress_default(
+  chunk.compressedLen_ = LZ4_compress_default(
       (const char*)chunk.buf_, (char*)chunk.compressedBuf_,
       chunk.len_, chunk.len_ * 0.75);
 #endif
+
+  if (!Config::getInstance().isSynthenticCompressionEnabled()) {
+    chunk.compressedLen_ = 0;
   }
 
 #ifdef CDARC
@@ -72,9 +68,6 @@ void CompressionModule::decompress(Chunk &chunk)
   if (chunk.compressedLen_ != 0) {
 #endif
     if (!Config::getInstance().isFakeIOEnabled()) {
-      if (Config::getInstance().isSynthenticCompressionEnabled()) {
-        memcpy(chunk.compressedBuf_, Config::getInstance().getCurrentData(), chunk.compressedLen_);
-      }
       LZ4_decompress_safe((const char*)chunk.compressedBuf_, (char*)chunk.buf_,
                           chunk.compressedLen_, chunk.len_);
     }

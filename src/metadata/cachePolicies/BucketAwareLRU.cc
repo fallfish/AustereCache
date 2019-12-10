@@ -21,9 +21,9 @@ namespace cache {
       if (Config::getInstance().getCachePolicyForFPIndex() ==
           CachePolicyEnum::tRecencyAwareLeastReferenceCount) {
         if (prevSlotId < Config::getInstance().getLBASlotSeperator()) {
-          ReferenceCounter::reference(v);
+          ReferenceCounter::getInstance().reference(v);
           if (bucket_->isValid(Config::getInstance().getLBASlotSeperator())) {
-            ReferenceCounter::dereference(bucket_->getValue(Config::getInstance().getLBASlotSeperator()));
+            ReferenceCounter::getInstance().dereference(bucket_->getValue(Config::getInstance().getLBASlotSeperator()));
           }
         }
       }

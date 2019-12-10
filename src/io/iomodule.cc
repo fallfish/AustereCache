@@ -38,7 +38,6 @@ uint32_t IOModule::addCacheDevice(char *filename)
   uint64_t size = Config::getInstance().getCacheDeviceSize();
   cacheDevice_ = std::make_unique<BlockDevice>();
   cacheDevice_->_direct_io = Config::getInstance().isDirectIOEnabled();
-  std::cout << size << " " << Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize() << std::endl;
   cacheDevice_->open(filename, size + Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize());
   return 0;
 }

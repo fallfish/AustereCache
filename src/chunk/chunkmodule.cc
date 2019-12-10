@@ -19,20 +19,13 @@ namespace cache {
     assert(len_ == Config::getInstance().getChunkSize());
     assert(addr_ % Config::getInstance().getChunkSize() == 0);
 
-    if (Config::getInstance().isReplayFIUEnabled() && Config::getInstance().isFakeIOEnabled()) {
-      memcpy(fingerprint_, Config::getInstance().getCurrentFingerprint(), Config::getInstance().getFingerprintLength());
-    } else if (Config::getInstance().isReplayFIUEnabled() && !Config::getInstance().isFakeIOEnabled()) {
-      memset(buf_, 0, Config::getInstance().getChunkSize());
-      for (uint32_t offset = 0;
-           offset + Config::getInstance().getFingerprintLength() < Config::getInstance().getChunkSize();
-           offset += Config::getInstance().getFingerprintLength()) {
-        memcpy(buf_, Config::getInstance().getCurrentFingerprint(), Config::getInstance().getFingerprintLength());
-      }
+    if (Config::getInstance().isReplayFIUEnabled()) {
       if (Config::getInstance().getFingerprintAlg() == 0) {
         SHA1(buf_, len_, fingerprint_);
       } else if (Config::getInstance().getFingerprintAlg() == 1) {
         MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
       }
+      Config::getInstance().getFingerprint(addr_, (char*)fingerprint_);
     } else {
       if (Config::getInstance().getFingerprintAlg() == 0) {
         SHA1(buf_, len_, fingerprint_);

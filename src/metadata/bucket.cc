@@ -63,7 +63,7 @@ namespace cache {
           if (Config::getInstance().getCachePolicyForFPIndex() ==
               CachePolicyEnum::tRecencyAwareLeastReferenceCount &&
               slotId >= Config::getInstance().getLBASlotSeperator()) {
-            ReferenceCounter::dereference(getValue(slotId));
+            ReferenceCounter::getInstance().dereference(getValue(slotId));
           }
           setInvalid(slotId);
         }
@@ -82,7 +82,7 @@ namespace cache {
       if (Config::getInstance().getCachePolicyForFPIndex() ==
           CachePolicyEnum::tRecencyAwareLeastReferenceCount &&
           slotId >= Config::getInstance().getLBASlotSeperator()) {
-        ReferenceCounter::reference(fingerprintHash);
+        ReferenceCounter::getInstance().reference(fingerprintHash);
       }
       cachePolicyExecutor_->promote(slotId);
       return evictedSignature_;

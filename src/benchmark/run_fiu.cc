@@ -300,31 +300,23 @@ namespace cache {
         LL begin;
         int len;
         char sha1[43];
-        uint32_t chunkSize = Config::getInstance().getChunkSize();
-        char *rwdata = nullptr;
+        char *rwdata;
         posix_memalign(reinterpret_cast<void**>(&rwdata), 512, chunkSize_);
-
         begin = req.addr;
         len = req.len;
 
-        //Zero hit ratio test
-        //sprintf(reqs_[i].sha1, "0000_0000_0000_0000_0000_0000_00_%07d", i);
         std::string s = std::string(req.sha1);
         convertStr2Sha1(req.sha1, sha1);
-
-        if (Config::getInstance().isReplayFIUEnabled()) {
-          Config::getInstance().setCurrentFingerprint(sha1);
-        }
+        Config::getInstance().setFingerprint(req.addr, sha1);
 
         if (Config::getInstance().isSynthenticCompressionEnabled()) {
-          Config::getInstance().setCurrentData(compressedChunks_[req.compressed_len], req.compressed_len);
-          Config::getInstance().setCurrentCompressedLen(req.compressed_len);
-          if (!req.r) {
+          if (Config::getInstance().isFakeIOEnabled() || !req.r) {
             memcpy(rwdata, originalChunks_[req.compressed_len], len);
           }
         } else {
-          if (!req.r)
+          if (Config::getInstance().isFakeIOEnabled() || !req.r) {
             memcpy40Bto32K(rwdata, req.sha1);
+          }
         }
 
         if (req.r) {
@@ -360,17 +352,30 @@ namespace cache {
           nThreads = Config::getInstance().getMaxNumGlobalThreads();
         }
 
-        std::cout << reqs_.size() << std::endl;
-
         AThreadPool *threadPool = new AThreadPool(nThreads);
         char sha1[23];
         for (uint32_t i = 0; i < reqs_.size(); ++i) {
+          //if (i == 200000) break;
           threadPool->doJob([this, i]() {
-              if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
+              //{
+                //std::unique_lock<std::mutex> l(mutex_);
+                //while (accessSet_.find(reqs_[i].addr) != accessSet_.end()) {
+                  //condVar_.wait(l);
+                //}
+                //accessSet_.insert(reqs_[i].addr);
+              //}
+              if (i % 10000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
               sendRequest(reqs_[i]);
+              //{
+                //std::unique_lock<std::mutex> l(mutex_);
+                //accessSet_.erase(reqs_[i].addr);
+                //condVar_.notify_all();
+              //}
           });
           total_bytes += chunkSize;
         }
+        //condVar_.notify_all();
+        //std::cout << "??" << std::endl;
         delete threadPool;
         sync();
       }
@@ -415,7 +420,9 @@ namespace cache {
       char** originalChunks_;
       std::unique_ptr<SSDDup> ssddup_;
       std::vector<Request> reqs_;
-      char *rwdata;
+      std::set<uint64_t> accessSet_;
+      std::mutex mutex_;
+      std::condition_variable condVar_;
   };
 
 }
@@ -430,12 +437,6 @@ int main(int argc, char **argv)
     printf("defined: REPLAY_FIU\n");
   }
 
-  if (cache::Config::getInstance().getCacheMode() == cache::CacheModeEnum::tWriteBack) {
-    printf("Write Back\n");
-  } else {
-    printf("Write Through\n");
-  }
-
 #if defined(CACHE_DEDUP) && (defined(DLRU) || defined(DARC))
   printf("defined: CACHE_DEDUP\n");
 #if defined(DLRU)
@@ -445,7 +446,6 @@ int main(int argc, char **argv)
   printf(" -- DARC\n");
 #endif
 #endif
-
   srand(0);
   cache::RunSystem run_system;
 

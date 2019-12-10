@@ -44,7 +44,7 @@ namespace cache {
           uint64_t key = bucket_->getKey(slotId);
           uint64_t bucketId = bucket_->bucketId_;
           uint64_t fpHash = (bucketId << Config::getInstance().getnBitsPerFpSignature()) | key;
-          uint32_t refCount = ReferenceCounter::query(fpHash);
+          uint32_t refCount = ReferenceCounter::getInstance().query(fpHash);
           if (refCount <= threshold_) {
             slotsToReferenceCounts.emplace_back(slotId, refCount);
           }
