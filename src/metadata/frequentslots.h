@@ -4,67 +4,47 @@
 #include "common/common.h"
 #include <memory>
 #include <exception>
+#include <mutex>
 
 namespace cache {
 
 class FrequentSlots {
  public:
   FrequentSlots() = default;
+  void clear() {
+    fpHash2Lbas_.clear();
+  }
 
   void allocate(uint64_t fpHash)
   {
-    for (auto &reverseMapping : slots_) {
-      if (reverseMapping == nullptr) {
-        reverseMapping = std::make_unique<ReverseMapping>();
-        reverseMapping->fpHash_ = fpHash;
-        return ;
-      }
+    std::lock_guard<std::mutex> l(mutex_);
+    if (fpHash2Lbas_.find(fpHash) != fpHash2Lbas_.end()) {
+      fpHash2Lbas_[fpHash].clear();
     }
-    std::unique_ptr<ReverseMapping> reverseMapping =
-      std::make_unique<ReverseMapping>();
-    reverseMapping->fpHash_ = fpHash;
-    slots_.push_back(std::move(reverseMapping));
   }
 
   bool query(uint64_t fpHash, uint64_t lba)
   {
-    for (auto &reverseMapping : slots_) {
-      if (reverseMapping == nullptr) continue;
-      if (reverseMapping->fpHash_ == fpHash) {
-        for (auto l : reverseMapping->lbas_) {
-          if (l == lba)
-            return true;
-        }
-        return false;
-      }
+    std::lock_guard<std::mutex> l(mutex_);
+    if (fpHash2Lbas_.find(fpHash) != fpHash2Lbas_.end()) {
+      return fpHash2Lbas_[fpHash].find(lba) != fpHash2Lbas_[fpHash].end();
     }
-    return false;
   }
 
   void add(uint64_t fpHash, uint64_t lba) {
-    for (auto &reverseMapping : slots_) {
-      if (reverseMapping == nullptr) continue;
-      if (reverseMapping->fpHash_ == fpHash) {
-        reverseMapping->lbas_.push_back(lba);
-      }
-    }
+    std::lock_guard<std::mutex> l(mutex_);
+    fpHash2Lbas_[fpHash].insert(lba);
   }
 
   void remove(uint64_t fpHash) {
-    for (auto &reverseMapping : slots_) {
-      if (reverseMapping == nullptr) continue;
-      if (reverseMapping->fpHash_ == fpHash) {
-        reverseMapping.reset();
-      }
-    }
+    std::lock_guard<std::mutex> l(mutex_);
+    if (fpHash2Lbas_.find(fpHash) != fpHash2Lbas_.end())
+      fpHash2Lbas_.erase(fpHash);
   }
 
  private:
-  struct ReverseMapping {
-    uint64_t fpHash_{};
-    std::vector<uint64_t> lbas_;
-  };
-  std::vector<std::unique_ptr<ReverseMapping>> slots_;
+  std::map<uint64_t, std::set<uint64_t>> fpHash2Lbas_;
+  std::mutex mutex_;
 };
 
 }
