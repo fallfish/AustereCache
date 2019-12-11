@@ -25,14 +25,6 @@
 #include <csignal>
 
 namespace cache {
-    struct Fingerprint {
-        Fingerprint();
-        Fingerprint(uint8_t v[20]);
-        uint8_t v_[20]{};
-        bool operator<(const Fingerprint &fp) const;
-        bool operator==(const Fingerprint &fp) const;
-    };
-
     /*
      * SpaceAllocator allocates contiguous space until the capacity is reached.
      * After that, it allocates recycled space. Each allocation (after full)
