@@ -7,13 +7,16 @@
 
 #include "CachePolicy.h"
 #include <list>
+#include <map>
 namespace cache {
 
     class LRUExecutor : public CachePolicyExecutor {
     public:
-        explicit LRUExecutor(Bucket *bucket, std::list<uint32_t> *list);
+        explicit LRUExecutor(Bucket *bucket, std::list<uint32_t> *list,
+            std::map<uint32_t, std::list<uint32_t>::iterator> *slotId2listPosition);
 
         std::list<uint32_t> *list_;
+        std::map<uint32_t, std::list<uint32_t>::iterator> *slotId2listPosition_;
 
         uint32_t allocate(uint32_t nSlotsToOccupy);
         void clearObsolete(std::shared_ptr<FPIndex> fpIndex);
@@ -27,6 +30,7 @@ namespace cache {
         LRU(uint32_t nBuckets);
         CachePolicyExecutor* getExecutor(Bucket *bucket) override;
         std::unique_ptr<std::list<uint32_t> []> lists_;
+        std::unique_ptr<std::map<uint32_t, std::list<uint32_t>::iterator> []> slotId2listPosition_;
     };
 }
 

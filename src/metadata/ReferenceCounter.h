@@ -91,7 +91,9 @@ namespace cache {
       }
 
       void reference(uint64_t key) {
-        std::lock_guard<std::mutex> lock(rfMutex_);
+        if (Config::getInstance().isMultiThreadingEnabled()) {
+          std::lock_guard<std::mutex> lock(rfMutex_);
+        }
         if (Config::getInstance().isSketchRFEnabled()) {
           SketchReferenceCounter::getInstance().reference(key);
         } else {
@@ -100,7 +102,9 @@ namespace cache {
       }
 
       void dereference(uint64_t key) {
-        std::lock_guard<std::mutex> lock(rfMutex_);
+        if (Config::getInstance().isMultiThreadingEnabled()) {
+          std::lock_guard<std::mutex> lock(rfMutex_);
+        }
         if (Config::getInstance().isSketchRFEnabled()) {
           SketchReferenceCounter::getInstance().dereference(key);
         } else {

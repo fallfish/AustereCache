@@ -55,8 +55,8 @@ namespace cache {
         }
         std::sort(slotsToReferenceCounts.begin(),
                   slotsToReferenceCounts.end(),
-                  [this](auto &left, auto &right) {
-                      return getClock(left.first) < getClock(right.first);
+                  [&](auto &left, auto &right) {
+                      return this->getClock(left.first) < this->getClock(right.first);
                   });
       }
 

@@ -4,6 +4,7 @@
 
 #include "manage/DirtyList.h"
 #include "metadata/cacheDedup/CDARCFPIndex.h"
+#include "metadata/frequentslots.h"
 
 #include <unistd.h>
 
@@ -31,6 +32,7 @@ namespace cache {
       Stats::getInstance().dump();
       Stats::getInstance().release();
       Config::getInstance().release();
+      FrequentSlots::getInstance().clear();
       if (Config::getInstance().getCacheMode() == tWriteBack) {
         DirtyList::getInstance().shutdown();
       }

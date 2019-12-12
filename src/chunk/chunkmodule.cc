@@ -20,11 +20,11 @@ namespace cache {
     assert(addr_ % Config::getInstance().getChunkSize() == 0);
 
     if (Config::getInstance().isReplayFIUEnabled()) {
-      if (Config::getInstance().getFingerprintAlg() == 0) {
-        SHA1(buf_, len_, fingerprint_);
-      } else if (Config::getInstance().getFingerprintAlg() == 1) {
-        MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
-      }
+      //if (Config::getInstance().getFingerprintAlg() == 0) {
+        //SHA1(buf_, len_, fingerprint_);
+      //} else if (Config::getInstance().getFingerprintAlg() == 1) {
+        //MurmurHash3_x64_128(buf_, len_, 0, fingerprint_);
+      //}
       Config::getInstance().getFingerprint(addr_, (char*)fingerprint_);
     } else {
       if (Config::getInstance().getFingerprintAlg() == 0) {

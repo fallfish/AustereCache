@@ -2,14 +2,22 @@
 
 namespace cache {
 
-    LRUExecutor::LRUExecutor(Bucket *bucket, std::list<uint32_t> *list) :
+    LRUExecutor::LRUExecutor(
+        Bucket *bucket, std::list<uint32_t> *list,
+        std::map<uint32_t, std::list<uint32_t>::iterator> *slotId2listPosition) :
       CachePolicyExecutor(bucket) {
       list_ = list;
+      slotId2listPosition_ = slotId2listPosition;
     }
 
     void LRUExecutor::promote(uint32_t slotId, uint32_t nSlotsToOccupy) {
-      list_->remove(slotId);
+      if (slotId2listPosition_->find(slotId) != slotId2listPosition_->end()) {
+        list_->erase((*slotId2listPosition_)[slotId]);
+      }
       list_->push_front(slotId);
+      (*slotId2listPosition_)[slotId] = list_->begin();
+      if (list_->size() > 32)
+        std::cout << list_->size() << std::endl;
     }
 
     void LRUExecutor::clearObsolete(std::shared_ptr<FPIndex> fpIndex) {
@@ -51,5 +59,6 @@ namespace cache {
 
     LRU::LRU(uint32_t nBuckets) {
       lists_ = std::make_unique<std::list<uint32_t>[]>(nBuckets);
+      slotId2listPosition_ = std::make_unique< std::map<uint32_t, std::list<uint32_t>::iterator>[] >(nBuckets);
     }
 }
