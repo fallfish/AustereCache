@@ -300,8 +300,7 @@ namespace cache {
         LL begin;
         int len;
         char sha1[43];
-        char *rwdata;
-        posix_memalign(reinterpret_cast<void**>(&rwdata), 512, chunkSize_);
+        alignas(512) char rwdata[chunkSize_];
         begin = req.addr;
         len = req.len;
 
@@ -324,7 +323,6 @@ namespace cache {
         } else {
           ssddup_->write(begin, rwdata, len);
         }
-        free(rwdata);
       }
 
       /**
@@ -357,24 +355,24 @@ namespace cache {
         for (uint32_t i = 0; i < reqs_.size(); ++i) {
           //if (i == 200000) break;
           threadPool->doJob([this, i]() {
-              //{
-                //std::unique_lock<std::mutex> l(mutex_);
-                //while (accessSet_.find(reqs_[i].addr) != accessSet_.end()) {
-                  //condVar_.wait(l);
-                //}
-                //accessSet_.insert(reqs_[i].addr);
-              //}
-              if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
+              {
+                std::unique_lock<std::mutex> l(mutex_);
+                while (accessSet_.find(reqs_[i].addr) != accessSet_.end()) {
+                  condVar_.wait(l);
+                }
+                accessSet_.insert(reqs_[i].addr);
+              }
+              if (i % 10000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
               sendRequest(reqs_[i]);
-              //{
-                //std::unique_lock<std::mutex> l(mutex_);
-                //accessSet_.erase(reqs_[i].addr);
-                //condVar_.notify_all();
-              //}
+              {
+                std::unique_lock<std::mutex> l(mutex_);
+                accessSet_.erase(reqs_[i].addr);
+                condVar_.notify_all();
+              }
           });
           total_bytes += chunkSize;
         }
-        //condVar_.notify_all();
+        condVar_.notify_all();
         //std::cout << "??" << std::endl;
         delete threadPool;
         sync();

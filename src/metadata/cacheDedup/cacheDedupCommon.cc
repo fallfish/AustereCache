@@ -23,26 +23,6 @@ namespace cache {
       return allocatedLocation;
     }
 
-    bool Fingerprint::operator<(const Fingerprint &fp) const {
-      return memcmp(v_, fp.v_, 20) < 0;
-    }
-
-    bool Fingerprint::operator==(const Fingerprint &fp) const {
-      for (uint32_t i = 0; i < 20 / 4; ++i) {
-        if (((uint32_t*)v_)[i] != ((uint32_t*)fp.v_)[i])
-          return false;
-      }
-      return true;
-    }
-
-    Fingerprint::Fingerprint() {
-      memset(v_, 0, sizeof(v_));
-    }
-
-    Fingerprint::Fingerprint(uint8_t *v) {
-      memcpy(v_, v, 20);
-    }
-
     bool WEUAllocator::hasRecycled(uint32_t weuId) {
       return evictedWEUIds.find(weuId) != evictedWEUIds.end();
     }

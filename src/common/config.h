@@ -9,6 +9,25 @@
 #include <mutex>
 #include <cassert>
 namespace cache {
+    struct Fingerprint {
+      Fingerprint() {
+        memset(v_, 0, sizeof(v_));
+      }
+      Fingerprint(uint8_t *v) {
+        memcpy(v_, v, 20);
+      }
+      uint8_t v_[20]{};
+      bool operator<(const Fingerprint &fp) const {
+        return memcmp(v_, fp.v_, 20) < 0;
+      }
+      bool operator==(const Fingerprint &fp) const {
+        for (uint32_t i = 0; i < 20 / 4; ++i) {
+          if (((uint32_t*)v_)[i] != ((uint32_t*)fp.v_)[i])
+            return false;
+        }
+        return true;
+      }
+    };
 
     enum CachePolicyEnum {
         // For ACDC
@@ -30,9 +49,6 @@ namespace cache {
         }
 
         void release() {
-          for (auto pr : lba2Fingerprints_) {
-            free(pr.second);
-          }
           lba2Fingerprints_.clear();
         }
 
@@ -164,17 +180,14 @@ namespace cache {
 
         void setFingerprint(uint64_t lba, char *fingerprint) {
           std::lock_guard<std::mutex> lock(mutex_);
-          if (lba2Fingerprints_.find(lba) != lba2Fingerprints_.end()) {
-            free(lba2Fingerprints_[lba]);
-          }
-          lba2Fingerprints_[lba] = (char*)malloc(fingerprintLen_ * sizeof(char));
-          memcpy(lba2Fingerprints_[lba], fingerprint, fingerprintLen_ * sizeof(char));
+          Fingerprint fp((uint8_t*)fingerprint);
+          lba2Fingerprints_[lba] = fp;
         }
 
         void getFingerprint(uint64_t lba, char *fingerprint) {
           std::lock_guard<std::mutex> lock(mutex_);
           if (lba2Fingerprints_.find(lba) != lba2Fingerprints_.end()) {
-            memcpy(fingerprint, lba2Fingerprints_[lba], fingerprintLen_ * sizeof(char));
+            memcpy(fingerprint, lba2Fingerprints_[lba].v_, sizeof(char) * fingerprintLen_);
             lba2Fingerprints_.erase(lba);
           }
         }
@@ -206,7 +219,7 @@ namespace cache {
           lbaAmplifier_ = 1.0;
 
           enableMultiThreading_ = false;
-          maxNumGlobalThreads_ = 16;
+          maxNumGlobalThreads_ = 8;
           maxNumLocalThreads_ = 8;
 
           // io related
@@ -272,7 +285,7 @@ namespace cache {
 
         // Used when replaying FIU trace, for each request, we would fill in the fingerprint value
         // specified in the trace rather than the computed one.
-        std::map<uint64_t, char*> lba2Fingerprints_;
+        std::map<uint64_t, Fingerprint> lba2Fingerprints_;
 
 
         // Used when using NORMAL_DIST_COMPRESSION
