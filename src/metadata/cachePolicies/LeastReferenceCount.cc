@@ -83,8 +83,7 @@ namespace cache {
 
     LeastReferenceCount::LeastReferenceCount() = default;
 
-    std::shared_ptr<CachePolicyExecutor> LeastReferenceCount::getExecutor(Bucket *bucket) {
-      return std::make_shared<LeastReferenceCountExecutor>(bucket);
+    CachePolicyExecutor* LeastReferenceCount::getExecutor(Bucket *bucket) {
+      return new LeastReferenceCountExecutor(bucket);
     }
-
 }

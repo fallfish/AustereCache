@@ -25,7 +25,7 @@ namespace cache {
     public:
         BucketAwareLRU();
 
-        std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) override;
+        CachePolicyExecutor* getExecutor(Bucket *bucket) override;
     };
 }
 

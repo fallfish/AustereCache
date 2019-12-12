@@ -21,13 +21,17 @@ namespace cache {
       data_(data), valid_(valid), bucketId_(slotId)
     {
       if (cachePolicy != nullptr) {
-        cachePolicyExecutor_ = std::move(cachePolicy->getExecutor(this));
+        cachePolicyExecutor_ = cachePolicy->getExecutor(this);
       } else {
         cachePolicyExecutor_ = nullptr;
       }
     }
 
-    Bucket::~Bucket() = default;
+    Bucket::~Bucket() {
+      if (cachePolicyExecutor_ != nullptr) {
+        free(cachePolicyExecutor_);
+      }
+    }
 
     uint32_t LBABucket::lookup(uint32_t lbaSignature, uint64_t &fpHash) {
       for (uint32_t slotId = 0; slotId < nSlots_; slotId++) {

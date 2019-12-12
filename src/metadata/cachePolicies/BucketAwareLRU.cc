@@ -104,9 +104,9 @@ namespace cache {
     }
 
     BucketAwareLRU::BucketAwareLRU() = default;
-    std::shared_ptr<CachePolicyExecutor> BucketAwareLRU::getExecutor(Bucket *bucket)
+    CachePolicyExecutor* BucketAwareLRU::getExecutor(Bucket *bucket)
     {
-      return std::make_shared<BucketAwareLRUExecutor>(bucket);
+      return new BucketAwareLRUExecutor(bucket);
     }
 
 }

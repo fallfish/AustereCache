@@ -103,7 +103,7 @@ namespace cache {
 
       Bitmap::Manipulator data_;
       Bitmap::Manipulator valid_;
-      std::shared_ptr<CachePolicyExecutor> cachePolicyExecutor_;
+      CachePolicyExecutor* cachePolicyExecutor_;
       uint32_t nBitsPerSlot_, nSlots_,
                nBitsPerKey_, nBitsPerValue_;
       uint32_t bucketId_;

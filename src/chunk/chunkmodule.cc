@@ -36,13 +36,16 @@ namespace cache {
     hasFingerprint_ = true;
 
     // compute hash value of fingerprint
-    uint32_t signature, bucketId;
-    MurmurHash3_x86_32(fingerprint_, Config::getInstance().getFingerprintLength(), 2, &bucketId);
-    MurmurHash3_x86_32(fingerprint_, Config::getInstance().getFingerprintLength(), 101, &signature);
-    fingerprintHash_ = ((uint64_t)(bucketId % Config::getInstance().getnFpBuckets()) << Config::getInstance().getnBitsPerFpSignature())
-      | (uint64_t)((signature & ((1u << Config::getInstance().getnBitsPerFpSignature()) - 1u)));
-
+    fingerprintHash_ = computeFingerprintHash(fingerprint_);
     END_TIMER(fingerprinting);
+  }
+
+  uint64_t Chunk::computeFingerprintHash(uint8_t *fingerprint) {
+    uint32_t signature, bucketId;
+    MurmurHash3_x86_32(fingerprint, Config::getInstance().getFingerprintLength(), 2, &bucketId);
+    MurmurHash3_x86_32(fingerprint, Config::getInstance().getFingerprintLength(), 101, &signature);
+    return ((uint64_t)(bucketId % Config::getInstance().getnFpBuckets()) << Config::getInstance().getnBitsPerFpSignature())
+      | (uint64_t)((signature & ((1u << Config::getInstance().getnBitsPerFpSignature()) - 1u)));
   }
 
   void Chunk::computeStrongFingerprint() {

@@ -139,6 +139,7 @@ struct Chunk {
      *        Require: a write chunk, address is aligned
      */
     void computeFingerprint();
+    static uint64_t computeFingerprintHash(uint8_t *fingerprint);
     void computeStrongFingerprint();
     void computeLBAHash();
     inline bool aligned() {

@@ -61,14 +61,6 @@ namespace cache {
    */
   void DirtyList::addEvictedChunk(uint64_t cachedataLocation, uint32_t len)
   {
-    EvictedBlock evicted_block{};
-    evicted_block.cachedataLocation_ = cachedataLocation;
-    evicted_block.len_ = len;
-
-    evictedBlocks_.push_back(evicted_block);
-    std::unique_lock<std::mutex> l(mutex_);
-    if (evictedBlocks_.size() >= 0) {
-      flush();
-    }
+    flushOneBlock(cachedataLocation, len);
   }
 }

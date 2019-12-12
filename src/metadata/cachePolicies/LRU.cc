@@ -45,8 +45,8 @@ namespace cache {
       return slotId - nSlotsToOccupy;
     }
 
-    std::shared_ptr<CachePolicyExecutor> LRU::getExecutor(Bucket *bucket) {
-      return std::make_shared<LRUExecutor>(bucket, &lists_[bucket->getBucketId()]);
+    CachePolicyExecutor* LRU::getExecutor(Bucket *bucket) {
+      return new LRUExecutor(bucket, &lists_[bucket->getBucketId()]);
     }
 
     LRU::LRU(uint32_t nBuckets) {

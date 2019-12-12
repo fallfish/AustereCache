@@ -25,7 +25,7 @@ namespace cache {
     class LRU : public CachePolicy {
       public:
         LRU(uint32_t nBuckets);
-        std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) override;
+        CachePolicyExecutor* getExecutor(Bucket *bucket) override;
         std::unique_ptr<std::list<uint32_t> []> lists_;
     };
 }

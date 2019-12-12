@@ -15,6 +15,11 @@ class FrequentSlots {
     fpHash2Lbas_.clear();
   }
 
+  std::set<uint64_t>& getLbas(uint64_t fpHash) {
+    assert(fpHash2Lbas_.find(fpHash) != fpHash2Lbas_.end());
+    return fpHash2Lbas_[fpHash];
+  }
+
   void allocate(uint64_t fpHash)
   {
     std::lock_guard<std::mutex> l(mutex_);

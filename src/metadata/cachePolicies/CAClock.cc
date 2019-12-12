@@ -137,9 +137,9 @@ namespace cache {
     }
 
     // TODO: Check whether there is memory leak when destructing
-    std::shared_ptr<CachePolicyExecutor> CAClock::getExecutor(Bucket *bucket)
+    CachePolicyExecutor* CAClock::getExecutor(Bucket *bucket)
     {
-      return std::make_shared<CAClockExecutor>(
+      return new CAClockExecutor(
         bucket, std::move(getBucket(bucket->getBucketId())),
         &clockPtr_);
     }

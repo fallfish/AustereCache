@@ -22,7 +22,7 @@ namespace cache {
     public:
         LeastReferenceCount();
 
-        std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) override;
+        CachePolicyExecutor* getExecutor(Bucket *bucket) override;
     };
 }
 

@@ -103,11 +103,11 @@ namespace cache {
     }
 
 
-    std::shared_ptr<CachePolicyExecutor> ThresholdRCClock::getExecutor(cache::Bucket *bucket)
+    CachePolicyExecutor* ThresholdRCClock::getExecutor(cache::Bucket *bucket)
     {
-      return std::make_shared<ThresholdRCClockExecutor>(
-        bucket, std::move(getBucket(bucket->getBucketId())),
-        &clockPtr_, threshold_);
+      return new ThresholdRCClockExecutor(bucket,
+          std::move(getBucket(bucket->getBucketId())), 
+          &clockPtr_, threshold_);
     }
     ThresholdRCClock::ThresholdRCClock(uint32_t nSlotsPerBucket, uint32_t nBuckets, uint32_t threshold) :
       CAClock(nSlotsPerBucket, nBuckets),

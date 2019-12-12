@@ -21,7 +21,7 @@ namespace cache {
     };
     class CachePolicy {
     public:
-        virtual std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) = 0;
+        virtual CachePolicyExecutor* getExecutor(Bucket *bucket) = 0;
 
         CachePolicy();
     };

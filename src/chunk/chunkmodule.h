@@ -26,11 +26,11 @@ namespace cache {
    * A factory of class "Chunker"
    */
   class ChunkModule {
-  private:
+    private:
       ChunkModule();
-   public:
+    public:
       static ChunkModule& getInstance();
-     Chunker createChunker(uint64_t addr, void *buf, uint32_t len);
+      Chunker createChunker(uint64_t addr, void *buf, uint32_t len);
   };
 }
 

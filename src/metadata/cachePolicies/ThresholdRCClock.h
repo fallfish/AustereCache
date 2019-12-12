@@ -26,7 +26,7 @@ namespace cache {
           uint32_t nSlotsPerBucket,
           uint32_t nBuckets, uint32_t threshold);
 
-        std::shared_ptr<CachePolicyExecutor> getExecutor(Bucket *bucket) override;
+        CachePolicyExecutor* getExecutor(Bucket *bucket) override;
 
         uint32_t threshold_;
     };
