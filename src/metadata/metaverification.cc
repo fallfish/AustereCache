@@ -4,7 +4,6 @@
 namespace cache {
   MetaVerification::MetaVerification()
   {
-    frequentSlots_ = std::make_unique<FrequentSlots>();
   }
 
   VerificationResult MetaVerification::verify(Chunk &chunk)
@@ -28,7 +27,7 @@ namespace cache {
       }
     }
     if (!validLBA && metadata.numLBAs_ > MAX_NUM_LBAS_PER_CACHED_CHUNK) {
-      frequentSlots_->query(chunk.fingerprintHash_, lba);
+      FrequentSlots::getInstance().query(chunk.fingerprintHash_, lba);
     }
 
     // check fingerprint
@@ -106,8 +105,8 @@ namespace cache {
       if (metadata.numLBAs_ >= MAX_NUM_LBAS_PER_CACHED_CHUNK) {
         // On-disk chunk_metadata cannot accommodate the new LBA
         if (metadata.numLBAs_ == MAX_NUM_LBAS_PER_CACHED_CHUNK)
-          frequentSlots_->allocate(chunk.fingerprintHash_);
-        frequentSlots_->add(chunk.fingerprintHash_, chunk.addr_);
+          FrequentSlots::getInstance().allocate(chunk.fingerprintHash_);
+        FrequentSlots::getInstance().add(chunk.fingerprintHash_, chunk.addr_);
       } else {
         metadata.LBAs_[metadata.numLBAs_] = chunk.addr_;
       }
@@ -116,7 +115,7 @@ namespace cache {
     } else if (chunk.dedupResult_ == NOT_DUP) {
     // The data has not been cached before;
     // We need to create a new chunk metadata
-      frequentSlots_->remove(chunk.fingerprintHash_);
+      FrequentSlots::getInstance().remove(chunk.fingerprintHash_);
       memset(&metadata, 0, sizeof(metadata));
       memcpy(metadata.fingerprint_, chunk.fingerprint_, Config::getInstance().getFingerprintLength());
       metadata.LBAs_[0] = chunk.addr_;

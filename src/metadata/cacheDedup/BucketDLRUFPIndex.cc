@@ -47,9 +47,10 @@ namespace cache {
           }
         }
 
-        memcpy(keys_[slotId].v_, fp, Config::getInstance().getFingerprintLength());
+        keys_[slotId] = _fp;
         promote(slotId);
       }
+      valid_[slotId] = true;
 
       return slotId;
     }
@@ -77,7 +78,7 @@ namespace cache {
 
     bool BucketizedDLRUFPIndex::lookup(uint8_t *fp, uint64_t &cachedataLocation) {
       uint32_t bucketId = computeBucketId(fp);
-      uint32_t slotId = buckets_[bucketId]->update(fp);
+      uint32_t slotId = buckets_[bucketId]->lookup(fp);
       cachedataLocation = (bucketId * nSlotsPerBucket_ + slotId) * 1LL * Config::getInstance().getChunkSize();
       return slotId != ~0u;
     }

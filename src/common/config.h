@@ -175,6 +175,7 @@ namespace cache {
           std::lock_guard<std::mutex> lock(mutex_);
           if (lba2Fingerprints_.find(lba) != lba2Fingerprints_.end()) {
             memcpy(fingerprint, lba2Fingerprints_[lba], fingerprintLen_ * sizeof(char));
+            lba2Fingerprints_.erase(lba);
           }
         }
 

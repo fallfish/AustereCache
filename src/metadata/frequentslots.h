@@ -11,6 +11,10 @@ namespace cache {
 class FrequentSlots {
  public:
   FrequentSlots() = default;
+  static FrequentSlots& getInstance() {
+    static FrequentSlots instance;
+    return instance;
+  }
   void clear() {
     fpHash2Lbas_.clear();
   }
