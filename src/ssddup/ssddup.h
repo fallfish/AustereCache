@@ -69,6 +69,8 @@ class SSDDup {
  private:
   void internalRead(Chunk &chunk);
   void internalWrite(Chunk &chunk);
+  void readDirectly(uint64_t addr, void *buf, uint32_t len);
+  void writeDirectly(uint64_t addr, void *buf, uint32_t len);
 
   // Statistics
   Stats* stats_;

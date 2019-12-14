@@ -156,6 +156,7 @@ namespace cache {
         void enableReplayFIU(bool v) { enableReplayFIU_ = v; }
         void enableSketchRF(bool v) { enableSketchRF_ = v; }
         void enableCompactCachePolicy(bool v) { enableCompactCachePolicy_ = v; }
+        void disableCache(bool v) { disableCache_ = v; }
         void setCacheMode(CacheModeEnum v) { cacheMode_ = v; }
 
         bool isMultiThreadingEnabled() { return enableMultiThreading_; }
@@ -165,6 +166,7 @@ namespace cache {
         bool isSynthenticCompressionEnabled() { return enableSynthenticCompression_; }
         bool isSketchRFEnabled() { return enableSketchRF_; }
         bool isCompactCachePolicyEnabled() { return enableCompactCachePolicy_; }
+        bool isCacheDisabled() { return disableCache_; }
         CacheModeEnum getCacheMode() { return cacheMode_; }
 
         void setFingerprintAlgorithm(uint32_t v) {
@@ -274,6 +276,7 @@ namespace cache {
         bool enableFakeIO_ = true;
         bool enableSynthenticCompression_ = false;
         bool enableReplayFIU_ = true;
+        bool disableCache_ = false;
         CacheModeEnum cacheMode_ = tWriteThrough;
 
         // chunk algorithm

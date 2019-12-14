@@ -171,6 +171,8 @@ namespace cache {
             Config::getInstance().enableReplayFIU(valuell);
           } else if (strcmp(name, "fakeIO") == 0) {
             Config::getInstance().enableFakeIO(valuell);
+          } else if (strcmp(name, "disableCache") == 0) {
+            Config::getInstance().disableCache(valuell);
           }
         }
 
@@ -362,7 +364,7 @@ namespace cache {
                 }
                 accessSet_.insert(reqs_[i].addr);
               }
-              if (i % 10000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
+              if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
               sendRequest(reqs_[i]);
               {
                 std::unique_lock<std::mutex> l(mutex_);

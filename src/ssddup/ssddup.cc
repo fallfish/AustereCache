@@ -48,7 +48,9 @@ namespace cache {
 
     void SSDDup::read(uint64_t addr, void *buf, uint32_t len)
     {
-      if (Config::getInstance().isMultiThreadingEnabled()) {
+      if (Config::getInstance().isCacheDisabled()) {
+        readDirectly(addr, buf, len);
+      } else if (Config::getInstance().isMultiThreadingEnabled()) {
         readMultiThread(addr, buf, len);
       } else {
         readSingleThread(addr, buf, len);
@@ -123,10 +125,20 @@ namespace cache {
 
     void SSDDup::write(uint64_t addr, void *buf, uint32_t len)
     {
-      if (Config::getInstance().isMultiThreadingEnabled()) {
+      if (Config::getInstance().isCacheDisabled()) {
+        writeDirectly(addr, buf, len);
+      } else if (Config::getInstance().isMultiThreadingEnabled()) {
         writeMultiThread(addr, buf, len);
       } else {
         writeSingleThread(addr, buf, len);
       }
+    }
+
+    void SSDDup::readDirectly(uint64_t addr, void *buf, uint32_t len) {
+      IOModule::getInstance().read(PRIMARY_DEVICE, addr, buf, len);
+    }
+
+    void SSDDup::writeDirectly(uint64_t addr, void *buf, uint32_t len) {
+      IOModule::getInstance().write(PRIMARY_DEVICE, addr, buf, len);
     }
 }
