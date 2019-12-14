@@ -54,7 +54,7 @@ namespace cache {
     }
 
     CachePolicyExecutor* LRU::getExecutor(Bucket *bucket) {
-      return new LRUExecutor(bucket, &lists_[bucket->getBucketId()]);
+      return new LRUExecutor(bucket, &lists_[bucket->getBucketId()], &slotId2listPosition_[bucket->getBucketId()]);
     }
 
     LRU::LRU(uint32_t nBuckets) {

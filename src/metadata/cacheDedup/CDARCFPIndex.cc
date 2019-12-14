@@ -109,8 +109,7 @@ namespace cache {
         weuReferenceCount_.erase(weu_id);
 
         if (Config::getInstance().getCacheMode() == tWriteBack) {
-          DirtyList::getInstance().addEvictedChunk(ManageModule::getInstance().weuToCachedataLocation_[weu_id],
-                                                   Config::getInstance().getWriteBufferSize());
+          DirtyList::getInstance().addEvictedChunk(weu_id, Config::getInstance().getWriteBufferSize());
         }
         weuAllocator_.recycle(weu_id);
         evicted_weu_id = weu_id;

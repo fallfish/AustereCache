@@ -58,49 +58,16 @@ struct Stats {
                 << "    Fingerprint Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
                 << std::endl;
 
-//#if !defined(CACHE_DEDUP)
-      //uint32_t n_lba_bucket = 1 << Config::getInstance().getnBitsPerLbaBucketId();
-      //uint32_t n_fp_bucket = 1 << Config::getInstance().getnBitsPerFpBucketId();
-
-      //std::cerr << "LBA Index Lookups: " << std::endl;
-      //for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        //fprintf(stderr, "(%d,%d) ", i, _n_lookups_lba_buckets[i].load());
-      //}
-      //fprintf(stderr, "\n");
-      //std::cerr << "LBA Index Updates: " << std::endl;
-      //for (uint32_t i = 0; i < n_lba_bucket; ++i) {
-        //fprintf(stderr, "(%d,%d) ", i, _n_updates_lba_buckets[i].load());
-      //}
-      //fprintf(stderr, "\n");
-      //std::cerr << "Fingerprint Index Lookups: " << std::endl;
-      //for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        //fprintf(stderr, "(%d,%d) ", i, _n_lookups_fp_buckets[i].load());
-      //}
-      //fprintf(stderr, "\n");
-      //std::cerr << "Fingerprint Index Updates: " << std::endl;
-      //for (uint32_t i = 0; i < n_fp_bucket; ++i) {
-        //fprintf(stderr, "(%d,%d) ", i, _n_updates_fp_buckets[i].load());
-      //}
-      //fprintf(stderr, "\n");
-
-//#endif
-
       std::cout << "IO statistics: " << std::endl
                 << "    Num bytes metadata written to ssd: " <<          _n_metadata_bytes_written_to_ssd << std::endl
                 << "    Num bytes metadata read from ssd: " << _n_metadata_bytes_read_from_ssd << std::endl
                 << "    Num bytes data written to ssd: " << _n_data_bytes_written_to_ssd << std::endl
                 << "    Num bytes data read from ssd: " << _n_data_bytes_read_from_ssd << std::endl
-                << "    Num bytes data written to write buffer: " << _n_data_bytes_written_to_ssd << std::endl
-                << "    Num bytes data read from write buffer: " << _n_data_bytes_read_from_ssd << std::endl
+                << "    Num bytes data written to write buffer: " << _n_bytes_written_to_write_buffer << std::endl
+                << "    Num bytes data read from write buffer: " << _n_bytes_read_from_write_buffer << std::endl
                 << "    Num bytes written to hdd: " << _n_bytes_written_to_hdd << std::endl
                 << "    Num bytes read from hdd: " << _n_bytes_read_from_hdd << std::endl
                 << std::endl;
-
-      //std::cout << "Write buffer: " << std::endl
-        //<< _n_bytes_written_to_write_buffer << std::endl
-        //<< _n_bytes_written_to_cache_disk << std::endl
-        //<< _n_bytes_read_from_write_buffer << std::endl
-        //<< _n_bytes_read_from_cache_disk    << std::endl;
 
       std::cout << std::fixed << std::setprecision(0) << "Time Elapsed: " << std::endl
                 << "    Time elpased for compression: " << _time_elapsed_compression << std::endl
@@ -331,13 +298,6 @@ struct Stats {
       _n_lookups_fp_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
     }
 
-    // statistics for io module
-    std::atomic<uint64_t> _n_metadata_bytes_written_to_ssd;
-    std::atomic<uint64_t> _n_metadata_bytes_read_from_ssd;
-    std::atomic<uint64_t> _n_data_bytes_written_to_ssd;
-    std::atomic<uint64_t> _n_data_bytes_read_from_ssd;
-    std::atomic<uint64_t> _n_bytes_written_to_hdd;
-    std::atomic<uint64_t> _n_bytes_read_from_hdd;
     /* 
      * Description:
      *   We would statistic some numbers from io request.
@@ -396,17 +356,29 @@ struct Stats {
 
     // stats in write buffer
     std::atomic<uint64_t> _n_bytes_written_to_write_buffer;
-    std::atomic<uint64_t> _n_bytes_written_to_cache_disk;
-    std::atomic<uint64_t> _n_bytes_written_to_primary_disk;
     std::atomic<uint64_t> _n_bytes_read_from_write_buffer;
-    std::atomic<uint64_t> _n_bytes_read_from_cache_disk;
-    std::atomic<uint64_t> _n_bytes_read_from_primary_disk;
+
+    std::atomic<uint64_t> _n_data_bytes_written_to_ssd;
+    std::atomic<uint64_t> _n_data_bytes_read_from_ssd;
+
+    std::atomic<uint64_t> _n_metadata_bytes_written_to_ssd;
+    std::atomic<uint64_t> _n_metadata_bytes_read_from_ssd;
+
+    std::atomic<uint64_t> _n_bytes_written_to_hdd;
+    std::atomic<uint64_t> _n_bytes_read_from_hdd;
+
     inline void add_bytes_written_to_write_buffer(uint64_t v) { _n_bytes_written_to_write_buffer.fetch_add(v, std::memory_order_relaxed); }
-    inline void add_bytes_written_to_cache_disk(uint64_t v) {   _n_bytes_written_to_cache_disk  .fetch_add(v, std::memory_order_relaxed); }
-    inline void add_bytes_written_to_primary_disk(uint64_t v) { _n_bytes_written_to_primary_disk.fetch_add(v, std::memory_order_relaxed); }
     inline void add_bytes_read_from_write_buffer(uint64_t v) {  _n_bytes_read_from_write_buffer .fetch_add(v, std::memory_order_relaxed); }
-    inline void add_bytes_read_from_cache_disk(uint64_t v) {    _n_bytes_read_from_cache_disk   .fetch_add(v, std::memory_order_relaxed); }
-    inline void add_bytes_read_from_primary_disk(uint64_t v) {  _n_bytes_read_from_primary_disk .fetch_add(v, std::memory_order_relaxed); }
+
+    inline void add_bytes_written_to_ssd(uint64_t v) {   _n_data_bytes_written_to_ssd  .fetch_add(v, std::memory_order_relaxed); }
+    inline void add_bytes_read_from_ssd(uint64_t v) {    _n_data_bytes_read_from_ssd   .fetch_add(v, std::memory_order_relaxed); }
+
+    inline void add_metadata_bytes_written_to_ssd(uint64_t v) {   _n_metadata_bytes_written_to_ssd  .fetch_add(v, std::memory_order_relaxed); }
+    inline void add_metadata_bytes_read_from_ssd(uint64_t v) {    _n_metadata_bytes_read_from_ssd   .fetch_add(v, std::memory_order_relaxed); }
+
+
+    inline void add_bytes_written_to_hdd(uint64_t v) { _n_bytes_written_to_hdd.fetch_add(v, std::memory_order_relaxed); }
+    inline void add_bytes_read_from_hdd(uint64_t v) {  _n_bytes_read_from_hdd .fetch_add(v, std::memory_order_relaxed); }
 
     inline void add_compress_level(int compress_level) 
     {
@@ -414,14 +386,6 @@ struct Stats {
     }
 
     void reset() {
-      _n_bytes_written_to_write_buffer.store(0, std::memory_order_relaxed);
-      _n_bytes_written_to_cache_disk.store(0, std::memory_order_relaxed);
-      _n_bytes_written_to_primary_disk.store(0, std::memory_order_relaxed);
-      _n_bytes_read_from_write_buffer.store(0, std::memory_order_relaxed);
-      _n_bytes_read_from_cache_disk.store(0, std::memory_order_relaxed);
-      _n_bytes_read_from_primary_disk.store(0, std::memory_order_relaxed);
-
-
       _n_write.store(0, std::memory_order_relaxed);
       _n_write_dup_write.store(0, std::memory_order_relaxed);
       _n_write_dup_content.store(0, std::memory_order_relaxed);
@@ -449,6 +413,8 @@ struct Stats {
       _n_data_bytes_read_from_ssd.store(0, std::memory_order_relaxed);
       _n_bytes_written_to_hdd.store(0, std::memory_order_relaxed);
       _n_bytes_read_from_hdd.store(0, std::memory_order_relaxed);
+      _n_bytes_written_to_write_buffer.store(0, std::memory_order_relaxed);
+      _n_bytes_read_from_write_buffer.store(0, std::memory_order_relaxed);
 
 #define _(str) \
       _time_elapsed_##str = 0;

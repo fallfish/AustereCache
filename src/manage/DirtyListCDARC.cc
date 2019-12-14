@@ -1,6 +1,7 @@
 #if defined(CDARC)
 
 #include "DirtyList.h"
+#include "manage/managemodule.h"
 
 namespace cache {
 void DirtyList::flush() {
@@ -21,7 +22,7 @@ void DirtyList::flush() {
   }
 }
 
-void DirtyList::flushOneBlock(uint64_t cachedataLocation, uint32_t len) {
+void DirtyList::flushOneBlock(uint64_t weuId, uint32_t len) {
   alignas(512) uint8_t compressedData[Config::getInstance().getChunkSize()];
   alignas(512) uint8_t decompressedData[Config::getInstance().getChunkSize()];
 
@@ -31,9 +32,12 @@ void DirtyList::flushOneBlock(uint64_t cachedataLocation, uint32_t len) {
   locationsOfLbasToFlush.clear();
   for (auto pr : latestUpdates_) {
     // Due to that each time a WEU is evicted, all of the chunks reside in the WEU must be flushed
-    if (pr.second.first >= cachedataLocation && pr.second.first < Config::getInstance().getWriteBufferSize()) {
+    uint32_t _weuId = pr.second.first >> 32;
+    uint32_t offset = pr.second.first; // & 0xffffffff;
+    if (_weuId == weuId) {
       lbasToFlush.push_back(pr.first);
-      locationsOfLbasToFlush.push_back(pr.second);
+      locationsOfLbasToFlush.push_back(std::make_pair(ManageModule::getInstance().weuToCachedataLocation_[weuId]
+            + offset, pr.second.second));
     }
   }
   for (uint32_t i = 0; i < lbasToFlush.size(); ++i) {

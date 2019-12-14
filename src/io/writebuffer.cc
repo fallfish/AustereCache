@@ -59,7 +59,6 @@ namespace cache {
       }
       // current buffer is full, try to recycle previous overwritten entries
       {
-        //std::cout << "Before: " << index_.size() << std::endl;
         std::lock_guard<std::mutex> l(readMutex_);
         std::vector<std::vector<Entry>::reverse_iterator> overwritten_entries;
         for (auto iter1 = index_.begin(); iter1 != index_.end(); ) {
