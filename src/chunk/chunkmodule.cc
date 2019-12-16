@@ -136,7 +136,6 @@ namespace cache {
   }
 
   /**
-   * (Commeted by jhli)
    * 1. Return the address of the next chunk;
    * 2. Move _addr, _buf to the next chunk, and decrease _len
    */
@@ -161,7 +160,6 @@ namespace cache {
   }
 
   /**
-   * (Commented by jhli)
    * A factory of class "Chunker". Used to create a Chunker class
    */
   ChunkModule::ChunkModule() = default;

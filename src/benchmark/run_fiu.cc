@@ -191,8 +191,6 @@ namespace cache {
       }
 
       /**
-       * function created by jhli
-       * 
        * Duplicate 32 bytes to 4096 bytes
        */
       void memcpy32Bto4K(char* K4, char* B32) {
@@ -202,8 +200,6 @@ namespace cache {
       }
 
       /**
-       * function created by jhli
-       * 
        * Duplicate 32 bytes to 32768 bytes
        */
       void memcpy32Bto32K(char* K32, char* B32) {
@@ -213,8 +209,6 @@ namespace cache {
       }
 
       /**
-       * function created by jhli
-       * 
        * Duplicate 40 bytes to 32768 bytes
        */
       void memcpy40Bto32K(char* K32, char* B40) {
@@ -256,8 +250,6 @@ namespace cache {
       }
 
       /**
-       * function created by jhli
-       * 
        * Read the access pattern file in the FIU traces
        */
       void readFIUap(char* ap_file) {

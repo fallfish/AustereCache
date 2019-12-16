@@ -22,7 +22,6 @@ namespace cache {
   };
 
   /**
-   * (Commented by jhli)
    * A factory of class "Chunker"
    */
   class ChunkModule {

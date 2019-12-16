@@ -18,7 +18,7 @@ namespace cache {
     }
 
     /**
-     * (Comment by jhli) Check whether the address/index is stored in the cache
+     * Check whether the address/index is stored in the cache
      */
     uint32_t CacheDedupLBABucket::lookup(uint64_t lba, uint8_t *fp) {
       for (int i = 0; i < capacity_; ++i) {
@@ -31,7 +31,7 @@ namespace cache {
     }
 
     /**
-     * (Comment by jhli) move the accessed index to the front
+     * move the accessed index to the front
      */
     void CacheDedupLBABucket::promote(uint64_t lba) {
       list_.remove(lba);
@@ -39,7 +39,7 @@ namespace cache {
     }
 
     /**
-     * (Comment by jhli) move
+     * move
      */
     bool CacheDedupLBABucket::update(uint64_t lba, uint8_t *fp, uint8_t *oldFP) {
       bool evicted = false;

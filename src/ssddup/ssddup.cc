@@ -58,7 +58,6 @@ namespace cache {
     }
 
     /**
-     * (Commented by jhli)
      * Read using multi-thread
      */
     void SSDDup::readMultiThread(uint64_t addr, void *buf, uint32_t len)
@@ -77,7 +76,6 @@ namespace cache {
 
 
     /**
-     * (Commented by jhli)
      * Read using single-thread
      */
     void SSDDup::readSingleThread(uint64_t addr, void *buf, uint32_t len)

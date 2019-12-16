@@ -18,7 +18,7 @@ namespace cache {
     }
 
     /**
-     * (Comment by jhli) Check whether the address/index is stored in the cache
+     * Check whether the address/index is stored in the cache
      */
     bool DLRULBAIndex::lookup(uint64_t lba, uint8_t *fp) {
       auto it = mp_.find(lba);
@@ -30,7 +30,7 @@ namespace cache {
     }
 
     /**
-     * (Comment by jhli) move the accessed index to the front
+     * move the accessed index to the front
      */
     void DLRULBAIndex::promote(uint64_t lba) {
       auto it = mp_.find(lba)->second.it_;
@@ -41,7 +41,7 @@ namespace cache {
     }
 
     /**
-     * (Comment by jhli) move
+     * move
      */
     bool DLRULBAIndex::update(uint64_t lba, uint8_t *fp, uint8_t *oldFP) {
       bool evicted = false;
