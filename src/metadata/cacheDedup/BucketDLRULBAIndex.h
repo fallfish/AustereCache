@@ -1,6 +1,3 @@
-//
-// Created by 王秋平 on 12/3/19.
-//
 
 #ifndef SSDDUP_BUCKETDLRULBAINDEX_H
 #define SSDDUP_BUCKETDLRULBAINDEX_H

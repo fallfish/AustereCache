@@ -1,5 +1,4 @@
 //
-// Created by 王秋平 on 12/3/19.
 //
 
 #include <common/stats.h>

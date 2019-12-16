@@ -1,5 +1,4 @@
 //
-// Created by 王秋平 on 12/4/19.
 //
 
 #ifndef SSDDUP_LRU_H

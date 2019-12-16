@@ -1,6 +1,3 @@
-//
-// Created by 王秋平 on 12/3/19.
-//
 
 #include <manage/DirtyList.h>
 #include "DARCFPIndex.h"

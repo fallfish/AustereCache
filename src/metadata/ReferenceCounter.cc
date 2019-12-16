@@ -1,6 +1,3 @@
-//
-// Created by 王秋平 on 10/26/19.
-//
 
 #include "ReferenceCounter.h"
 #include "common/config.h"

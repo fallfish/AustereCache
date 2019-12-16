@@ -1,6 +1,3 @@
-//
-// Created by 王秋平 on 10/18/19.
-//
 
 #ifndef SSDDUP_WRITEBUFFER_H
 #define SSDDUP_WRITEBUFFER_H

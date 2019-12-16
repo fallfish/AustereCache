@@ -1,6 +1,4 @@
 //
-// Created by 王秋平 on 12/3/19.
-//
 
 #ifndef SSDDUP_CDARCFPINDEX_H
 #define SSDDUP_CDARCFPINDEX_H
