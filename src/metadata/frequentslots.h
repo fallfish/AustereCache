@@ -16,7 +16,7 @@ class FrequentSlots {
     return instance;
   }
   void clear() {
-    fpHash2Lbas_.clear();
+    std::cout << fpHash2Lbas_.size() << std::endl;
   }
 
   std::set<uint64_t>& getLbas(uint64_t fpHash) {
@@ -27,9 +27,7 @@ class FrequentSlots {
   void allocate(uint64_t fpHash)
   {
     std::lock_guard<std::mutex> l(mutex_);
-    if (fpHash2Lbas_.find(fpHash) != fpHash2Lbas_.end()) {
-      fpHash2Lbas_[fpHash].clear();
-    }
+    fpHash2Lbas_[fpHash].clear();
   }
 
   bool query(uint64_t fpHash, uint64_t lba)

@@ -2,6 +2,7 @@
 #include <common/stats.h>
 #include <manage/DirtyList.h>
 #include "LeastReferenceCount.h"
+#include "metadata/frequentslots.h"
 
 namespace cache {
     LeastReferenceCountExecutor::LeastReferenceCountExecutor(Bucket *bucket)
@@ -73,6 +74,9 @@ namespace cache {
             (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
           );
         }
+        FrequentSlots::getInstance().remove(
+            (bucket_->getBucketId() << bucket_->nBitsPerKey_) | key
+            );
 
         Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
         slotsToReferenceCounts.erase(slotsToReferenceCounts.begin());

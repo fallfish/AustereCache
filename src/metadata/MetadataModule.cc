@@ -122,7 +122,6 @@ namespace cache {
         lbaIndex_->promote(chunk.lbaHash_);
       } else {
         removedFingerprintHash = lbaIndex_->update(chunk.lbaHash_, chunk.fingerprintHash_);
-        FrequentSlots::getInstance().remove(removedFingerprintHash);
         fpIndex_->reference(chunk.fingerprintHash_);
         if (removedFingerprintHash != ~0ull && removedFingerprintHash != chunk.fingerprintHash_) {
           fpIndex_->dereference(removedFingerprintHash);
