@@ -16,7 +16,7 @@ namespace cache {
           for (auto pr : latestUpdates_) {
             uint64_t lba = pr.first;
             uint64_t cachedataLocation = pr.second.first;
-            uint64_t metadataLocation = (cachedataLocation - 32LL * 
+            uint64_t metadataLocation = (cachedataLocation - 1ull * Config::getInstance().getnFPSlotsPerBucket() * 
                 Config::getInstance().getMetadataSize() * Config::getInstance().getnFpBuckets()
                 ) / Config::getInstance().getSectorSize() * Config::getInstance().getMetadataSize();
             uint32_t len = pr.second.second;
@@ -71,7 +71,7 @@ namespace cache {
       std::vector<uint64_t> lbasToFlush;
       // Case 1: We have a newly evicted block.
       uint64_t metadataLocation =
-        (cachedataLocation - 32LL * 
+        (cachedataLocation - 1ull * Config::getInstance().getnFPSlotsPerBucket() * 
          Config::getInstance().getMetadataSize() * Config::getInstance().getnFpBuckets()
         ) / Config::getInstance().getSectorSize() * Config::getInstance().getMetadataSize();
 

@@ -109,7 +109,7 @@ namespace cache {
     // 8192 is chunk size, while 512 is the metadata size
     return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
              Config::getInstance().getSectorSize() + 
-             Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
+             1ull * Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)
@@ -150,6 +150,9 @@ namespace cache {
     uint32_t slotId = getFPBucket(bucketId)->update(signature, nSlotsToOccupy);
     cachedataLocation = computeCachedataLocation(bucketId, slotId);
     metadataLocation = computeMetadataLocation(bucketId, slotId);
+      if (signature == 2958 && bucketId == 62) {
+        std::cout << metadataLocation << " " << cachedataLocation << std::endl;
+      }
   }
 
   std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint64_t lbaHash)

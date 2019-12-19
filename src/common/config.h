@@ -99,6 +99,7 @@ namespace cache {
               (uint32_t)(getnLBASlotsPerBucket() - cacheDeviceSize_ /
                   (uint64_t)chunkSize_ / (uint64_t)getnLbaBuckets() * coreListSize_),
               1u);
+          // 25% core list
         }
 
         uint32_t getnLBASlotsPerBucket() { return nSlotsPerLbaBucket_; }

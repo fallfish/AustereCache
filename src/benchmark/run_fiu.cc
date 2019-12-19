@@ -357,7 +357,7 @@ namespace cache {
                 }
                 accessSet_.insert(reqs_[i].addr);
               }
-              if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
+              if (i % 10000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
               sendRequest(reqs_[i]);
               {
                 std::unique_lock<std::mutex> l(mutex_);

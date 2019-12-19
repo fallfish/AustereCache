@@ -1,0 +1,8 @@
+common/config.h:106:        uint32_t getnFPSlotsPerBucket() { return nSlotsPerFpBucket_; }
+tags:824:getnFPSlotsPerBucket	common/config.h	/^        uint32_t getnFPSlotsPerBucket() { return nSlotsPerFpBucket_; }$/;"	f	class:cache::Config
+metadata/index.cc:80:    nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
+metadata/index.cc:110:    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
+metadata/index.cc:112:             1ull * Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
+metadata/index.cc:117:    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull * Config::getInstance().getMetadataSize();
+metadata/cacheDedup/BucketDLRUFPIndex.cc:64:      nSlotsPerBucket_ = Config::getInstance().getnFPSlotsPerBucket();
+io/iomodule.cc:41:  cacheDevice_->open(filename, size + 1ull * Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize());

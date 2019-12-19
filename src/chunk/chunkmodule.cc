@@ -46,6 +46,7 @@ namespace cache {
     uint32_t signature, bucketId;
     MurmurHash3_x86_32(fingerprint, Config::getInstance().getFingerprintLength(), 2, &bucketId);
     MurmurHash3_x86_32(fingerprint, Config::getInstance().getFingerprintLength(), 101, &signature);
+    //std::cout << ((uint64_t)(bucketId % Config::getInstance().getnFpBuckets()) << Config::getInstance().getnBitsPerFpSignature())
     return ((uint64_t)(bucketId % Config::getInstance().getnFpBuckets()) << Config::getInstance().getnBitsPerFpSignature())
       | (uint64_t)((signature & ((1u << Config::getInstance().getnBitsPerFpSignature()) - 1u)));
   }
