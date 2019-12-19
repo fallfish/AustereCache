@@ -13,7 +13,9 @@ namespace cache {
       static MetadataModule instance;
       return instance;
     }
-    MetadataModule::~MetadataModule() = default;
+    MetadataModule::~MetadataModule() {
+      std::cout << "Dup ratio: " << DARCLBAIndex::getInstance().getDupRatio() << std::endl;
+    }
 
     MetadataModule::MetadataModule() {
       DARCLBAIndex::getInstance().init(0, 0);

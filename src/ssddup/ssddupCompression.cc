@@ -20,12 +20,13 @@ namespace cache {
       }
       // read from ssd or hdd according to the lookup result
       ManageModule::getInstance().read(chunk);
-      if (chunk.lookupResult_ == HIT && chunk.compressedLen_ != 0) {
+      if (chunk.lookupResult_ == HIT) {
         // hit the cache
         CompressionModule::decompress(chunk);
       }
 
       if (chunk.lookupResult_ == NOT_HIT) {
+        Stats::getInstance().add_total_bytes_written_to_ssd(chunk.len_);
         // dedup the data, the same procedure as in the write
         // process.
         chunk.computeFingerprint();
@@ -47,6 +48,7 @@ namespace cache {
       alignas(512) uint8_t tempBuf[Config::getInstance().getChunkSize()];
       chunk.compressedBuf_ = tempBuf;
 
+      Stats::getInstance().add_total_bytes_written_to_ssd(chunk.len_);
       {
         chunk.computeFingerprint();
         DeduplicationModule::dedup(chunk);

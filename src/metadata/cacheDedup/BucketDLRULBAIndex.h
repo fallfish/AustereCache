@@ -14,9 +14,9 @@ namespace cache {
         bool update(uint64_t lba, uint8_t *fp, uint8_t *oldFP);
         uint32_t capacity_{};
     private:
-        std::unique_ptr<uint64_t[]> keys_;
-        std::unique_ptr<Fingerprint[]> values_;
-        std::unique_ptr<bool[]> valid_;
+        std::vector<uint64_t> keys_;
+        std::vector<Fingerprint> values_;
+        std::vector<bool> valid_;
         std::list<uint64_t> list_;
     };
     class BucketizedDLRULBAIndex {

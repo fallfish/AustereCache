@@ -24,6 +24,14 @@ namespace cache {
         bool update(uint64_t lba, uint8_t *fp, uint8_t *oldFP);
         void check_no_reference_to_fp(uint8_t *fp);
         uint32_t capacity_;
+        double getDupRatio() {
+          std::set<std::string> tmp;
+          for (auto p : mp_) {
+            std::string s((char*)p.second.v_);
+            tmp.insert(s);
+          }
+          return 1.0 * mp_.size() / tmp.size();
+        }
     private:
         std::map <uint64_t, FP> mp_; // mapping from lba to ca and list iter
         std::list <uint64_t> list_;

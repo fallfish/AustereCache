@@ -86,37 +86,9 @@ target_link_libraries(cache OpenSSL::SSL lz4 pthread)
 ################################
 # Micro Benchmarks
 ################################
-add_executable(trace_gen src/benchmark/trace_gen.cc)
-set_target_properties(trace_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(trace_gen cache)
-
-add_executable(access_pattern_gen src/benchmark/access_pattern_gen.cc)
-set_target_properties(access_pattern_gen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(access_pattern_gen cache)
-
-add_executable(run_ssddup src/benchmark/run_ssddup.cc)
-set_target_properties(run_ssddup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(run_ssddup cache)
-
 add_executable(run_fiu src/benchmark/run_fiu.cc src/utils/cJSON.c)
 set_target_properties(run_fiu PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_fiu cache)
-
-add_executable(test_lz4 src/benchmark/test_lz4.cc)
-set_target_properties(test_lz4 PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(test_lz4 cache)
-
-add_executable(run_dedup src/benchmark/run_dedup.cc)
-set_target_properties(run_dedup PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(run_dedup cache pthread)
-
-add_executable(run_compression src/benchmark/run_compression.cc)
-set_target_properties(run_compression PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(run_compression cache)
-
-add_executable(run_chunk src/benchmark/run_chunk.cc)
-set_target_properties(run_chunk PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(run_chunk cache)
 
 ###############################################
 ## Buse Userspace Virtual Kernel Block Device

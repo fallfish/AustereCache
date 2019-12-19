@@ -61,6 +61,7 @@ struct Stats {
       std::cout << "IO statistics: " << std::endl
                 << "    Num bytes metadata written to ssd: " <<          _n_metadata_bytes_written_to_ssd << std::endl
                 << "    Num bytes metadata read from ssd: " << _n_metadata_bytes_read_from_ssd << std::endl
+                << "    Num total bytes data should written to ssd: " << _n_total_bytes_written_to_ssd << std::endl
                 << "    Num bytes data written to ssd: " << _n_data_bytes_written_to_ssd << std::endl
                 << "    Num bytes data read from ssd: " << _n_data_bytes_read_from_ssd << std::endl
                 << "    Num bytes data written to write buffer: " << _n_bytes_written_to_write_buffer << std::endl
@@ -358,6 +359,8 @@ struct Stats {
     std::atomic<uint64_t> _n_bytes_written_to_write_buffer;
     std::atomic<uint64_t> _n_bytes_read_from_write_buffer;
 
+    // describe the total number of bytes should be written without dedup and compression
+    std::atomic<uint64_t> _n_total_bytes_written_to_ssd; 
     std::atomic<uint64_t> _n_data_bytes_written_to_ssd;
     std::atomic<uint64_t> _n_data_bytes_read_from_ssd;
 
@@ -370,6 +373,7 @@ struct Stats {
     inline void add_bytes_written_to_write_buffer(uint64_t v) { _n_bytes_written_to_write_buffer.fetch_add(v, std::memory_order_relaxed); }
     inline void add_bytes_read_from_write_buffer(uint64_t v) {  _n_bytes_read_from_write_buffer .fetch_add(v, std::memory_order_relaxed); }
 
+    inline void add_total_bytes_written_to_ssd(uint64_t v) { _n_total_bytes_written_to_ssd.fetch_add(v, std::memory_order_relaxed); }
     inline void add_bytes_written_to_ssd(uint64_t v) {   _n_data_bytes_written_to_ssd  .fetch_add(v, std::memory_order_relaxed); }
     inline void add_bytes_read_from_ssd(uint64_t v) {    _n_data_bytes_read_from_ssd   .fetch_add(v, std::memory_order_relaxed); }
 
@@ -407,6 +411,7 @@ struct Stats {
 
       _n_ca_index_eviction_caused_by_collision.store(0, std::memory_order_relaxed);
       _n_ca_index_eviction_caused_by_capacity.store(0, std::memory_order_relaxed);
+      _n_total_bytes_written_to_ssd.store(0, std::memory_order_relaxed);
       _n_metadata_bytes_written_to_ssd.store(0, std::memory_order_relaxed);
       _n_metadata_bytes_read_from_ssd.store(0, std::memory_order_relaxed);
       _n_data_bytes_written_to_ssd.store(0, std::memory_order_relaxed);

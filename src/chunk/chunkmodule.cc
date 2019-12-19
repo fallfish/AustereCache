@@ -54,16 +54,16 @@ namespace cache {
     SHA1(buf_, len_, strongFingerprint_);
   }
 
-  void Chunk::computeLBAHash()
+  uint64_t Chunk::computeLBAHash(uint64_t addr)
   {
-    uint64_t tmp[2];
-    MurmurHash3_x64_128(&addr_, 8, 3, tmp);
-    lbaHash_ = tmp[0];
-    lbaHash_ >>= 64 - (Config::getInstance().getnBitsPerLbaSignature() + Config::getInstance().getnBitsPerLbaBucketId());
-    lbaHash_ =
-      ((uint64_t)((lbaHash_ >> Config::getInstance().getnBitsPerLbaSignature()) % Config::getInstance().getnLbaBuckets())
+    uint64_t tmp[2], lbaHash;
+    MurmurHash3_x64_128(&addr, 8, 3, tmp);
+    lbaHash = tmp[0];
+    lbaHash >>= 64 - (Config::getInstance().getnBitsPerLbaSignature() + Config::getInstance().getnBitsPerLbaBucketId());
+    return
+      ((uint64_t)((lbaHash >> Config::getInstance().getnBitsPerLbaSignature()) % Config::getInstance().getnLbaBuckets())
       << Config::getInstance().getnBitsPerLbaSignature()) |
-      (lbaHash_ & ((1u << Config::getInstance().getnBitsPerLbaSignature()) - 1u));
+      (lbaHash & ((1u << Config::getInstance().getnBitsPerLbaSignature()) - 1u));
   }
 
   void Chunk::preprocessUnalignedChunk(uint8_t *buf) {
@@ -76,7 +76,7 @@ namespace cache {
     buf_ = buf;
 
     memset(buf, 0, Config::getInstance().getChunkSize());
-    computeLBAHash();
+    lbaHash_ = Chunk::computeLBAHash(addr_);
   }
 
   // used for read-modify-write case
@@ -93,7 +93,7 @@ namespace cache {
     hasFingerprint_ = false;
     verficationResult_ = VERIFICATION_UNKNOWN;
     lookupResult_ = LOOKUP_UNKNOWN;
-    computeLBAHash();
+    lbaHash_ = Chunk::computeLBAHash(addr_);
   }
 
   void Chunk::handleReadPartialChunk() {
@@ -126,7 +126,7 @@ namespace cache {
     c.lookupResult_ = LOOKUP_UNKNOWN;
     c.verficationResult_ = VERIFICATION_UNKNOWN;
     c.compressedLevel_ = 0;
-    c.computeLBAHash();
+    c.lbaHash_ = Chunk::computeLBAHash(c.addr_);
 
     addr_ += c.len_;
     buf_ += c.len_;

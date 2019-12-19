@@ -23,8 +23,12 @@ namespace cache {
       DLRUFPIndex::getInstance().init();
       std::cout << "SourceIndex capacity: " << DLRULBAIndex::getInstance().capacity_ << std::endl;
       std::cout << "FingerprintIndex capacity: " << DLRUFPIndex::getInstance().capacity_ << std::endl;
+
+
     }
-    MetadataModule::~MetadataModule() = default;
+    MetadataModule::~MetadataModule() {
+      std::cout << "Dup ratio: " << DLRULBAIndex::getInstance().getDupRatio() << std::endl;
+    }
 
   void MetadataModule::dedup(Chunk &c)
   {

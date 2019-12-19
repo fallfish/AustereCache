@@ -23,9 +23,10 @@ struct Metadata {
   uint64_t LBAs_[MAX_NUM_LBAS_PER_CACHED_CHUNK]; // 4 * 32
   uint8_t  fingerprint_[20];
   uint8_t  strongFingerprint_[20];
-  uint8_t _[512 - 20 - 20 - 4 - 8 * MAX_NUM_LBAS_PER_CACHED_CHUNK - 4 - 4];
+  uint8_t _[512 - 20 - 20 - 8 * MAX_NUM_LBAS_PER_CACHED_CHUNK - 4 * 4];
   uint32_t referenceCount_;
   uint32_t numLBAs_;
+  uint32_t lastNumLBAs_;
   // If the data is compressed, the compressed_len is valid, otherwise, it is 0.
   uint32_t compressedLen_;
   // 512 bytes alignment for DMA access
@@ -70,7 +71,7 @@ enum DeviceType {
  *      Compress_level varies from [0, 1, 2, 3]
  *      which specifies 25%, 50%, 75%, 100% compression ratio, respectively.
  *
- *   7. (CacheDedup-DARC-specific) weu_id, weu_offset, and evicted_weu_id from the decision of the DARCFPIndex.
+ *   7. (CacheDedup-CDARC-specific) weu_id, weu_offset, and evicted_weu_id from the decision of the CDARCFPIndex.
  **/
 
 struct Chunk {
@@ -132,7 +133,7 @@ struct Chunk {
       verficationResult_ = VERIFICATION_UNKNOWN;
       lookupResult_ = LOOKUP_UNKNOWN;
 
-      computeLBAHash();
+      lbaHash_ = Chunk::computeLBAHash(addr_);
     }
     /**
      * @brief compute fingerprint of current chunk.
@@ -140,8 +141,8 @@ struct Chunk {
      */
     void computeFingerprint();
     static uint64_t computeFingerprintHash(uint8_t *fingerprint);
+    static uint64_t computeLBAHash(uint64_t lba);
     void computeStrongFingerprint();
-    void computeLBAHash();
     inline bool aligned() {
 #ifdef DIRECT_IO
       return len_ == Config::getInstance().getChunkSize()

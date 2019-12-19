@@ -62,6 +62,15 @@ namespace cache {
 
         void getFingerprints(std::set<Fingerprint> &v);
 
+        double getDupRatio() {
+          std::set<std::string> tmp;
+          for (auto p : mp_) {
+            std::string s((char*)p.second.v_);
+            tmp.insert(s);
+          }
+          return 1.0 * mp_.size() / tmp.size();
+        }
+
         std::map<uint64_t, FP> mp_;
         std::list<uint64_t> t1_, t2_, b1_, b2_, b3_;
         uint32_t p_, x_;

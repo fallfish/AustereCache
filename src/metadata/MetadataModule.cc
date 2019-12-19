@@ -16,10 +16,10 @@ namespace cache {
 
   MetadataModule::MetadataModule() {
     fpIndex_ = std::make_shared<FPIndex>();
-    lbaIndex_ = std::make_unique<LBAIndex>(fpIndex_);
+    lbaIndex_ = std::make_shared<LBAIndex>(fpIndex_);
     // metaVerification_ and metaJournal_ should
     // hold a shared_ptr to ioModule_
-    metaVerification_ = std::make_unique<MetaVerification>();
+    metaVerification_ = std::make_unique<MetaVerification>(lbaIndex_);
     metaJournal_ = std::make_unique<MetaJournal>();
     std::cout << "Number of LBA buckets: " << Config::getInstance().getnLbaBuckets() << std::endl;
     std::cout << "Number of Fingerprint buckets: " << Config::getInstance().getnFpBuckets() << std::endl;
@@ -42,6 +42,9 @@ namespace cache {
       }
     }
     printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
+
+    std::cout << "Dup ratio: " << 1.0 * Config::getInstance().getnLbaBuckets()
+      * Config::getInstance().getnLBASlotsPerBucket() / fpSetLbaIndex.size();
   }
 
   // Note:

@@ -15,8 +15,8 @@ namespace cache {
 
         uint32_t capacity_{};
     private:
-        std::unique_ptr<Fingerprint[]> keys_;
-        std::unique_ptr<bool[]> valid_;
+        std::vector<Fingerprint> keys_;
+        std::vector<bool> valid_;
         std::list<uint32_t> list_;
     };
 

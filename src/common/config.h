@@ -95,10 +95,10 @@ namespace cache {
         }
 
         uint32_t getLBASlotSeperator() {
-          return
-            (uint32_t)((32 - cacheDeviceSize_ / (uint64_t)chunkSize_ /
-                             (uint64_t)getnLbaBuckets()) / 4);
-          // 25% core list
+          return std::max(
+              (uint32_t)(getnLBASlotsPerBucket() - cacheDeviceSize_ /
+                  (uint64_t)chunkSize_ / (uint64_t)getnLbaBuckets() * coreListSize_),
+              1u);
         }
 
         uint32_t getnLBASlotsPerBucket() { return nSlotsPerLbaBucket_; }
@@ -132,6 +132,9 @@ namespace cache {
 
         void setLBAAmplifier(float v) {
           lbaAmplifier_ = v;
+        }
+        void setCoreListSize(double v) {
+          coreListSize_ = v;
         }
         void setCachePolicyForFPIndex(CachePolicyEnum v) {
           cachePolicyForFPIndex_ = v;
@@ -245,6 +248,7 @@ namespace cache {
         uint32_t nBitsPerLbaSignature_;
         uint32_t nSlotsPerLbaBucket_;
         float lbaAmplifier_;
+        double coreListSize_ = 0.25;
 
         uint32_t nBitsPerFpSignature_;
         uint32_t nSlotsPerFpBucket_;

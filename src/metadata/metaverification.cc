@@ -2,8 +2,9 @@
 #include <cstring>
 
 namespace cache {
-  MetaVerification::MetaVerification()
+  MetaVerification::MetaVerification(std::shared_ptr<LBAIndex> lbaIndex)
   {
+    lbaIndex_ = std::move(lbaIndex);
   }
 
   VerificationResult MetaVerification::verify(Chunk &chunk)
@@ -92,6 +93,46 @@ namespace cache {
       return BOTH_LBA_AND_FP_NOT_VALID;
   }
 
+  void MetaVerification::clean(Chunk &chunk) {
+    uint64_t &lba = chunk.addr_;
+    auto &ca = chunk.fingerprint_;
+    uint64_t &metadataLocation = chunk.metadataLocation_;
+    Metadata &metadata = chunk.metadata_;
+
+    std::vector<uint32_t> validLBAs;
+    for (uint32_t i = 0; i < std::min(metadata.numLBAs_, MAX_NUM_LBAS_PER_CACHED_CHUNK); ++i) {
+      uint64_t lbaHash = Chunk::computeLBAHash(metadata.LBAs_[i]);
+      uint64_t fpHash;
+      if (lbaIndex_->lookup(lbaHash, fpHash)
+          && fpHash == chunk.fingerprintHash_) {
+        validLBAs.emplace_back(metadata.LBAs_[i]);
+      }
+    } 
+    if (metadata.numLBAs_ > MAX_NUM_LBAS_PER_CACHED_CHUNK) {
+      std::set<uint64_t> lbas = FrequentSlots::getInstance().getLbas(chunk.fingerprintHash_);
+      for (auto lba : lbas) {
+        uint64_t lbaHash = Chunk::computeLBAHash(lba);
+        uint64_t fpHash;
+        if (lbaIndex_->lookup(lbaHash, fpHash)
+            && fpHash == chunk.fingerprintHash_) {
+          validLBAs.emplace_back(lba);
+        }
+      }
+      FrequentSlots::getInstance().remove(chunk.fingerprintHash_);
+    }
+
+    metadata.numLBAs_ = 0;
+    for (auto lba : validLBAs) {
+      if (metadata.numLBAs_ < MAX_NUM_LBAS_PER_CACHED_CHUNK) {
+        metadata.LBAs_[metadata.numLBAs_++] = lba;
+      } else {
+        FrequentSlots::getInstance().add(chunk.fingerprintHash_, lba);
+        metadata.numLBAs_++;
+      }
+    }
+    metadata.lastNumLBAs_ = metadata.numLBAs_;
+  }
+
   void MetaVerification::update(Chunk &chunk)
   {
     uint64_t &lba = chunk.addr_;
@@ -111,6 +152,11 @@ namespace cache {
         metadata.LBAs_[metadata.numLBAs_] = chunk.addr_;
       }
       metadata.numLBAs_++;
+
+      if (metadata.numLBAs_ > MAX_NUM_LBAS_PER_CACHED_CHUNK + metadata.lastNumLBAs_) {
+        clean(chunk);
+      }
+
       IOModule::getInstance().write(CACHE_DEVICE, metadataLocation, &chunk.metadata_, 512);
     } else if (chunk.dedupResult_ == NOT_DUP) {
     // The data has not been cached before;
@@ -120,6 +166,7 @@ namespace cache {
       memcpy(metadata.fingerprint_, chunk.fingerprint_, Config::getInstance().getFingerprintLength());
       metadata.LBAs_[0] = chunk.addr_;
       metadata.numLBAs_ = 1;
+      metadata.lastNumLBAs_ = 0;
       metadata.compressedLen_ = chunk.compressedLen_;
       if (Config::getInstance().getFingerprintMode() == 2) { // Weak hash + Strong hash
         chunk.computeStrongFingerprint();

@@ -4,9 +4,9 @@ namespace cache {
     CacheDedupLBABucket::CacheDedupLBABucket() = default;
     CacheDedupLBABucket::CacheDedupLBABucket(uint32_t capacity) {
       capacity_ = capacity;
-      keys_ = std::make_unique<uint64_t[]>(capacity_);
-      values_ = std::make_unique<Fingerprint[]>(capacity_);
-      valid_ = std::make_unique<bool[]>(capacity_);
+      keys_.resize(capacity);
+      values_.resize(capacity);
+      valid_.resize(capacity);
     }
 
     void CacheDedupLBABucket::init()

@@ -18,7 +18,7 @@ class MetadataModule {
   void update(Chunk &chunk);
   void dumpStats();
 
-  std::unique_ptr<LBAIndex> lbaIndex_;
+  std::shared_ptr<LBAIndex> lbaIndex_;
   std::shared_ptr<FPIndex> fpIndex_;
   std::unique_ptr<MetaVerification> metaVerification_;
   std::unique_ptr<MetaJournal> metaJournal_;

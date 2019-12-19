@@ -7,7 +7,6 @@
 #include "utils/gen_zipf.h"
 #include "utils/cJSON.h"
 #include "ssddup/ssddup.h"
-#include "workload_conf.h"
 
 // For compression tests
 #include "lz4.h"
@@ -128,6 +127,8 @@ namespace cache {
             Config::getInstance().setnBitsPerLbaSignature(valuell);
           } else if (strcmp(name, "lbaAmplifier") == 0) {
             Config::getInstance().setLBAAmplifier(valuell);
+          } else if (strcmp(name, "coreListSize") == 0) {
+            Config::getInstance().setCoreListSize(param->valuedouble);
           } else if (strcmp(name, "cachePolicyForFPIndex") == 0) {
 #if defined(DLRU)
             if (strcmp(valuestring, "Normal") == 0) {
@@ -367,7 +368,6 @@ namespace cache {
           total_bytes += chunkSize;
         }
         condVar_.notify_all();
-        //std::cout << "??" << std::endl;
         delete threadPool;
         sync();
       }

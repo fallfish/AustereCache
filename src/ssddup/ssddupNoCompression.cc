@@ -11,6 +11,7 @@ namespace cache {
     ManageModule::getInstance().read(chunk);
 
     if (chunk.lookupResult_ == NOT_HIT) {
+      Stats::getInstance().add_total_bytes_written_to_ssd(chunk.len_);
       chunk.computeFingerprint();
       DeduplicationModule::dedup(chunk);
       ManageModule::getInstance().updateMetadata(chunk);
@@ -26,6 +27,7 @@ namespace cache {
 
   void SSDDup::internalWrite(Chunk &chunk)
   {
+    Stats::getInstance().add_total_bytes_written_to_ssd(chunk.len_);
     chunk.computeFingerprint();
     DeduplicationModule::dedup(chunk);
     ManageModule::getInstance().updateMetadata(chunk);
