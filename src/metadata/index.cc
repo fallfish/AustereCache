@@ -150,9 +150,6 @@ namespace cache {
     uint32_t slotId = getFPBucket(bucketId)->update(signature, nSlotsToOccupy);
     cachedataLocation = computeCachedataLocation(bucketId, slotId);
     metadataLocation = computeMetadataLocation(bucketId, slotId);
-      if (signature == 2958 && bucketId == 62) {
-        std::cout << metadataLocation << " " << cachedataLocation << std::endl;
-      }
   }
 
   std::unique_ptr<std::lock_guard<std::mutex>> LBAIndex::lock(uint64_t lbaHash)

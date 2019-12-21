@@ -168,10 +168,6 @@ namespace cache {
         setValid(_slotId);
       }
 
-      if (fpSignature == 2958 && bucketId_ == 62) {
-        std::cout << "??? " << slotId << std::endl;
-      }
-
       // Assign more Clock to those highly compressible chunks
       if (Config::getInstance().getCachePolicyForFPIndex() == tGarbageAwareCAClock
           || Config::getInstance().getCachePolicyForFPIndex() == tCAClock) {

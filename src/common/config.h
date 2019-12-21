@@ -95,10 +95,15 @@ namespace cache {
         }
 
         uint32_t getLBASlotSeperator() {
-          return std::max(
-              (uint32_t)(getnLBASlotsPerBucket() - cacheDeviceSize_ /
+          if (coreListBaseLbaIndex_ == true) {
+            return std::max(
+                (uint32_t)(getnLBASlotsPerBucket() - getnLBASlotsPerBucket() * coreListSize_), 1u);
+          } else {
+            return std::max(
+                (uint32_t)(getnLBASlotsPerBucket() - cacheDeviceSize_ /
                   (uint64_t)chunkSize_ / (uint64_t)getnLbaBuckets() * coreListSize_),
-              1u);
+                1u);
+          }
           // 25% core list
         }
 
@@ -161,6 +166,7 @@ namespace cache {
         void enableSketchRF(bool v) { enableSketchRF_ = v; }
         void enableCompactCachePolicy(bool v) { enableCompactCachePolicy_ = v; }
         void disableCache(bool v) { disableCache_ = v; }
+        void enableCoreListBaseLbaIndex(bool v) { coreListBaseLbaIndex_ = v; }
         void setCacheMode(CacheModeEnum v) { cacheMode_ = v; }
 
         bool isMultiThreadingEnabled() { return enableMultiThreading_; }
@@ -249,7 +255,8 @@ namespace cache {
         uint32_t nBitsPerLbaSignature_;
         uint32_t nSlotsPerLbaBucket_;
         float lbaAmplifier_;
-        double coreListSize_ = 0.25;
+        bool coreListBaseLbaIndex_ = true;
+        double coreListSize_ = 0.75;
 
         uint32_t nBitsPerFpSignature_;
         uint32_t nSlotsPerFpBucket_;

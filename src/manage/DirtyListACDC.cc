@@ -94,8 +94,11 @@ namespace cache {
           if (latestUpdates_.find(lba) != latestUpdates_.end()) {
             if (latestUpdates_[lba].first == cachedataLocation) {
               if (latestUpdates_[lba].second != len) {
+                std::cout << "Not match!" << std::endl;
+                std::cout << lbas.size() << metadata.numLBAs_ << std::endl;
                 std::cout << lba << std::endl;
                 std::cout << latestUpdates_[lba].second << " " << len << std::endl;
+                assert(0);
               }
               lbasToFlush.push_back(lba);
             }
@@ -121,7 +124,9 @@ namespace cache {
         // Hold the lock to avoid race
         std::lock_guard<std::mutex> l(listMutex_);
         for (auto lba : lbasToFlush) {
-          latestUpdates_.erase(lba);
+          if (latestUpdates_[lba].first == cachedataLocation) {
+            latestUpdates_.erase(lba);
+          }
         }
       }
     }
