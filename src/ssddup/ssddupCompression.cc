@@ -56,18 +56,6 @@ namespace cache {
           CompressionModule::compress(chunk);
         }
         ManageModule::getInstance().updateMetadata(chunk);
-        if (Config::getInstance().getCacheMode() == tWriteBack) {
-#ifdef ACDC
-          DirtyList::getInstance().addLatestUpdate(chunk.addr_,
-                                                   chunk.cachedataLocation_,
-                                                   (chunk.compressedLevel_ + 1) *
-                                                   Config::getInstance().getSectorSize());
-#else
-          DirtyList::getInstance().addLatestUpdate(chunk.addr_,
-                                                   ((uint64_t)chunk.weuId_ << 32u) | chunk.weuOffset_,
-                                                   chunk.compressedLen_);
-#endif
-        }
         ManageModule::getInstance().write(chunk);
         Stats::getInstance().add_write_stat(chunk);
       }
