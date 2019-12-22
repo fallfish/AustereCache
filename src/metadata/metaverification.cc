@@ -28,7 +28,7 @@ namespace cache {
       }
     }
     if (!validLBA && metadata.numLBAs_ > MAX_NUM_LBAS_PER_CACHED_CHUNK) {
-      FrequentSlots::getInstance().query(chunk.fingerprintHash_, lba);
+      validLBA = FrequentSlots::getInstance().query(chunk.fingerprintHash_, lba);
     }
 
     // check fingerprint
@@ -99,7 +99,7 @@ namespace cache {
     uint64_t &metadataLocation = chunk.metadataLocation_;
     Metadata &metadata = chunk.metadata_;
 
-    std::vector<uint32_t> validLBAs;
+    std::vector<uint64_t> validLBAs;
     for (uint32_t i = 0; i < std::min(metadata.numLBAs_, MAX_NUM_LBAS_PER_CACHED_CHUNK); ++i) {
       uint64_t lbaHash = Chunk::computeLBAHash(metadata.LBAs_[i]);
       uint64_t fpHash;
