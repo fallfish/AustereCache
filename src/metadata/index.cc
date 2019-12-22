@@ -107,14 +107,36 @@ namespace cache {
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
   {
     // 8192 is chunk size, while 512 is the metadata size
-    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
-             Config::getInstance().getSectorSize() + 
-             1ull * Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
+    if (1) { // Config::getInstance().isFakeIOEnabled()) {
+      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
+        Config::getInstance().getSectorSize() + 
+        1ull * Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
+    } else {
+      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
+        (Config::getInstance().getSectorSize() + Config::getInstance().getMetadataSize()) + 
+        Config::getInstance().getMetadataSize();
+    }
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)
   {
-    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull * Config::getInstance().getMetadataSize();
+    if (1) { // Config::getInstance().isFakeIOEnabled()) {
+      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull * Config::getInstance().getMetadataSize();
+    } else {
+      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
+        (Config::getInstance().getSectorSize() + Config::getInstance().getMetadataSize());
+    }
+  }
+
+  uint64_t FPIndex::cachedataLocationToMetadataLocation(uint64_t cachedataLocation)
+  {
+    if (1) { // Config::getInstance().isFakeIOEnabled()) {
+      return (cachedataLocation - 1ull * Config::getInstance().getnFPSlotsPerBucket() * 
+          Config::getInstance().getMetadataSize() * Config::getInstance().getnFpBuckets()
+          ) / Config::getInstance().getSectorSize() * Config::getInstance().getMetadataSize();
+    } else {
+      return cachedataLocation - Config::getInstance().getMetadataSize();
+    }
   }
 
   bool FPIndex::lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)

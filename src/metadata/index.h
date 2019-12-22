@@ -88,6 +88,7 @@ namespace cache {
       }
       static uint64_t computeCachedataLocation(uint32_t bucketId, uint32_t slotId);
       static uint64_t computeMetadataLocation(uint32_t bucketId, uint32_t slotId);
+      static uint64_t cachedataLocationToMetadataLocation(uint64_t cachedataLocation);
 
       void reference(uint64_t fpHash);
       void dereference(uint64_t fpHash);

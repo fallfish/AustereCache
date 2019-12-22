@@ -16,9 +16,7 @@ namespace cache {
           for (auto pr : latestUpdates_) {
             uint64_t lba = pr.first;
             uint64_t cachedataLocation = pr.second.first;
-            uint64_t metadataLocation = (cachedataLocation - 1ull * Config::getInstance().getnFPSlotsPerBucket() * 
-                Config::getInstance().getMetadataSize() * Config::getInstance().getnFpBuckets()
-                ) / Config::getInstance().getSectorSize() * Config::getInstance().getMetadataSize();
+            uint64_t metadataLocation = FPIndex::cachedataLocationToMetadataLocation(cachedataLocation);
             uint32_t len = pr.second.second;
             toFlush.emplace_back(std::make_pair(lba, cachedataLocation), std::make_pair(metadataLocation, len));
           }
@@ -70,10 +68,7 @@ namespace cache {
 
       std::vector<uint64_t> lbasToFlush;
       // Case 1: We have a newly evicted block.
-      uint64_t metadataLocation =
-        (cachedataLocation - 1ull * Config::getInstance().getnFPSlotsPerBucket() * 
-         Config::getInstance().getMetadataSize() * Config::getInstance().getnFpBuckets()
-        ) / Config::getInstance().getSectorSize() * Config::getInstance().getMetadataSize();
+      uint64_t metadataLocation = FPIndex::cachedataLocationToMetadataLocation(cachedataLocation);
 
       lbasToFlush.clear();
 
@@ -84,7 +79,7 @@ namespace cache {
         uint64_t fpHash = Chunk::computeFingerprintHash(metadata.fingerprint_);
         lbas = FrequentSlots::getInstance().getLbas(fpHash);
       }
-      for (int i = 0; i < metadata.numLBAs_; ++i) {
+      for (int i = 0; i < std::min(MAX_NUM_LBAS_PER_CACHED_CHUNK, metadata.numLBAs_); ++i) {
         uint64_t lba = metadata.LBAs_[i];
         lbas.insert(lba);
       }
