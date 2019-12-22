@@ -46,9 +46,7 @@ namespace cache {
     std::lock_guard<std::mutex> l(listMutex_);
     latestUpdates_[lba] = std::make_pair(cachedataLocation, len);
     if (latestUpdates_.size() >= size_) {
-      if (latestUpdates_.size() >= size_) {
-        condVar_.notify_all();
-      }
+      condVar_.notify_all();
     }
   }
 
