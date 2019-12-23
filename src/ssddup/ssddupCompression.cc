@@ -56,6 +56,13 @@ namespace cache {
           CompressionModule::compress(chunk);
         }
         ManageModule::getInstance().updateMetadata(chunk);
+#ifdef CACHE_DEDUP
+        if (Config::getInstance().getCacheMode() == tWriteBack) {
+          DirtyList::getInstance().addLatestUpdate(chunk.addr_,
+              ((uint64_t)chunk.weuId_ << 32u) | chunk.weuOffset_,
+              chunk.compressedLen_);
+        }
+#endif
         ManageModule::getInstance().write(chunk);
         Stats::getInstance().add_write_stat(chunk);
       }

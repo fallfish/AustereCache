@@ -6,6 +6,7 @@
 #include "common/config.h"
 #include "common/stats.h"
 #include "utils/utils.h"
+#include "manage/DirtyList.h"
 #include <cassert>
 
 namespace cache {
@@ -113,12 +114,13 @@ namespace cache {
 
   void MetadataModule::update(Chunk &chunk)
   {
+    uint64_t removedFingerprintHash = ~0ull;
     BEGIN_TIMER();
+
     if (chunk.lookupResult_ == HIT) {
       fpIndex_->promote(chunk.fingerprintHash_);
       lbaIndex_->promote(chunk.lbaHash_);
     } else {
-      uint64_t removedFingerprintHash = ~0ull;
       // Note that for a cache-candidate chunk, hitLBAIndex indicates both hit in the LBA index and fpHash match
       // deduplication focus on the fingerprint part
       if (chunk.hitLBAIndex_) {
@@ -126,9 +128,6 @@ namespace cache {
       } else {
         removedFingerprintHash = lbaIndex_->update(chunk.lbaHash_, chunk.fingerprintHash_);
         fpIndex_->reference(chunk.fingerprintHash_);
-        if (removedFingerprintHash != ~0ull && removedFingerprintHash != chunk.fingerprintHash_) {
-          fpIndex_->dereference(removedFingerprintHash);
-        }
       }
       if (chunk.dedupResult_ == DUP_CONTENT || chunk.dedupResult_ == DUP_WRITE) {
         fpIndex_->promote(chunk.fingerprintHash_);
@@ -147,6 +146,18 @@ namespace cache {
     if ((chunk.dedupResult_ == DUP_CONTENT && chunk.verficationResult_ != BOTH_LBA_AND_FP_VALID) ||
         chunk.dedupResult_ == NOT_DUP) {
       metaVerification_->update(chunk);
+    }
+
+#ifdef ACDC
+    if (Config::getInstance().getCacheMode() == tWriteBack) {
+      DirtyList::getInstance().addLatestUpdate(chunk.addr_,
+          chunk.cachedataLocation_,
+          (chunk.compressedLevel_ + 1) *
+          Config::getInstance().getSectorSize());
+    }
+#endif
+    if (removedFingerprintHash != ~0ull && removedFingerprintHash != chunk.fingerprintHash_) {
+      fpIndex_->dereference(removedFingerprintHash);
     }
   }
 }
