@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <map>
 #include <cassert>
-#include "metadata/cacheDedup/cacheDedupCommon.h"
+#include "metadata/cachededup/common.h"
 namespace cache {
   /*
    * class Stats is used to statistic in the data path.

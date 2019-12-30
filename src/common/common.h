@@ -22,11 +22,8 @@ namespace cache {
 struct Metadata {
   uint64_t LBAs_[MAX_NUM_LBAS_PER_CACHED_CHUNK]; // 4 * 32
   uint8_t  fingerprint_[20];
-  uint8_t  strongFingerprint_[20];
-  uint8_t _[512 - 20 - 20 - 8 * MAX_NUM_LBAS_PER_CACHED_CHUNK - 4 * 4];
-  uint32_t referenceCount_;
+  uint32_t nextEvict_;
   uint32_t numLBAs_;
-  uint32_t lastNumLBAs_;
   // If the data is compressed, the compressed_len is valid, otherwise, it is 0.
   uint32_t compressedLen_;
   // 512 bytes alignment for DMA access

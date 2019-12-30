@@ -5,13 +5,11 @@
 #include "bitmap.h"
 #include "bucket.h"
 #include "index.h"
-#include "cachePolicies/CachePolicy.h"
-#include "ReferenceCounter.h"
+#include "cache_policies/cache_policy.h"
+#include "reference_counter.h"
 #include "common/stats.h"
-#include "manage/DirtyList.h"
+#include "manage/dirtylist.h"
 #include <csignal>
-
-#include "validators.h"
 
 namespace cache {
     Bucket::Bucket(uint32_t nBitsPerKey, uint32_t nBitsPerValue, uint32_t nSlots,

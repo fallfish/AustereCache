@@ -19,9 +19,9 @@
 #include <map>
 #include <list>
 #include "bucket.h"
-#include "cachePolicies/CachePolicy.h"
+#include "cache_policies/cache_policy.h"
 #include "common/config.h"
-#include "metadata/cacheDedup/cacheDedupCommon.h"
+#include "metadata/cachededup/common.h"
 namespace cache {
   class Index {
     public:

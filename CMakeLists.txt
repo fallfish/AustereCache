@@ -12,64 +12,58 @@ include_directories(src)
 list(APPEND CacheLibSources
         src/metadata/bucket.cc
         src/metadata/index.cc
-        src/metadata/metaverification.cc
+        src/metadata/meta_verification.cc
         src/metadata/metajournal.cc
-        src/metadata/CachePolicy.cc
-        src/metadata/cacheDedup/cacheDedupCommon.cc
+        src/metadata/cachededup/common.cc
 
-        src/chunk/chunkmodule.cc
+        src/chunking/chunk_module.cc
 
-        src/deduplication/deduplicationmodule.cc
+        src/deduplication/deduplication_module.cc
 
-        src/compression/compressionmodule.cc
+        src/compression/compression_module.cc
 
-        src/ssddup/ssddup.cc
+        src/austere_cache/austere_cache.cc
 
         src/io/device/device.cc
-        src/io/iomodule.cc
+        src/io/io_module.cc
+        src/io/writebuffer.cc
 
-        src/manage/managemodule.cc
-        src/manage/DirtyList.cc
+        src/manage/manage_module.cc
+        src/manage/dirtylist.cc
 
         src/utils/MurmurHash3.cpp
-        src/io/writebuffer.cc
-        src/metadata/ReferenceCounter.cc
-        src/metadata/ReferenceCounter.h
-        src/metadata/cacheDedup/DLRULBAIndex.cc
-        src/metadata/cacheDedup/DLRUFPIndex.cc
-        src/metadata/cacheDedup/DARCLBAIndex.cc
-        src/metadata/cacheDedup/DARCFPIndex.cc
-        src/metadata/cacheDedup/BucketDLRULBAIndex.cc
-        src/metadata/cacheDedup/BucketDLRUFPIndex.cc
-        src/metadata/cacheDedup/BucketDLRUFPIndex.h
-        src/metadata/cacheDedup/BucketDLRULBAIndex.h
-        src/metadata/cachePolicies/LRU.cc
-        src/metadata/cachePolicies/BucketAwareLRU.cc
-        src/metadata/cachePolicies/LeastReferenceCount.cc
-        src/metadata/cachePolicies/CAClock.cc 
-        src/metadata/cachePolicies/ThresholdRCClock.cc
-        src/metadata/cachePolicies/CachePolicy.cc
+        src/metadata/reference_counter.cc
+        src/metadata/cachededup/dlru_lbaindex.cc
+        src/metadata/cachededup/dlru_fpindex.cc
+        src/metadata/cachededup/darc_lbaindex.cc
+        src/metadata/cachededup/darc_fpindex.cc
+        src/metadata/cachededup/bucketdlru_lbaindex.cc
+        src/metadata/cachededup/bucketdlru_fpindex.cc
+        src/metadata/cache_policies/lru.cc
+        src/metadata/cache_policies/bucket_aware_lru.cc
+        src/metadata/cache_policies/least_reference_count.cc
+        src/metadata/cache_policies/cache_policy.cc
         )
 
 if (DLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DDLRU)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleDLRU.cc src/ssddup/ssddupNoCompression.cc src/manage/DirtyListCacheDedup.cc)
+  list(APPEND CacheLibSources src/metadata/metadata_module_dlru.cc src/austere_cache/austere_cache_no_compression.cc src/manage/dirtylist_cachededup.cc)
 elseif (DARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DDARC)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleDARC.cc src/ssddup/ssddupNoCompression.cc src/manage/DirtyListCacheDedup.cc)
+  list(APPEND CacheLibSources src/metadata/metadata_module_darc.cc src/austere_cache/austere_cache_no_compression.cc src/manage/dirtylist_cachededup.cc)
 elseif (CDARC)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DCDARC)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleCDARC.cc src/ssddup/ssddupCompression.cc src/metadata/cacheDedup/CDARCFPIndex.cc src/manage/DirtyListCDARC.cc)
+  list(APPEND CacheLibSources src/metadata/metadata_module_cdarc.cc src/austere_cache/austere_cache_compression.cc src/metadata/cachededup/cdarc_fpindex.cc src/manage/dirtylist_cdarc.cc)
 elseif (BUCKETDLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DBUCKETDLRU)
-  list(APPEND CacheLibSources src/metadata/MetadataModuleBucketDLRU.cc src/ssddup/ssddupNoCompression.cc src/manage/DirtyListCacheDedup.cc)
+  list(APPEND CacheLibSources src/metadata/metadata_module_dlru.cc src/austere_cache/austere_cache_no_compression.cc src/manage/dirtylist_cachededup.cc)
 else ()
   add_definitions(-DACDC)
-  list(APPEND CacheLibSources src/metadata/MetadataModule.cc src/ssddup/ssddupCompression.cc src/manage/DirtyListACDC.cc)
+  list(APPEND CacheLibSources src/metadata/metadata_module.cc src/austere_cache/austere_cache_compression.cc src/manage/dirtylist_austerecache.cc)
 endif()
 
 add_library(cache ${CacheLibSources})
@@ -89,33 +83,3 @@ target_link_libraries(cache OpenSSL::SSL lz4 pthread)
 add_executable(run_fiu src/benchmark/run_fiu.cc src/utils/cJSON.c)
 set_target_properties(run_fiu PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
 target_link_libraries(run_fiu cache)
-
-###############################################
-## Buse Userspace Virtual Kernel Block Device
-###############################################
-# link_directories(${CMAKE_SOURCE_DIR}/third_party/BUSE)
-# include_directories(third_party/BUSE)
-# add_executable(buse_ssddup third_party/BUSE/ssddup.cc)
-# target_link_libraries(buse_ssddup cache buse)
-
-#################################
-## GTest
-#################################
-#ADD_SUBDIRECTORY(third_party/gtest-1.9.0)
-##enable_testing()
-#include_directories(third_party/gtest-1.9.0/googletest/include)
-
-#################################
-## Unit Tests
-#################################
-## Add test cpp file
-#add_executable( runUnitTests src/test/main.cpp)
-## Link test executable against gtest & gtest_main
-#target_link_libraries(runUnitTests gtest gtest_main cache)
-##add_test( runUnitTests runUnitTests )
-
-#################################
-## GLog
-#################################
-#ADD_SUBDIRECTORY(third_party/glog-0.4.0)
-#include_directories(third_party/gtest-1.9.0/googletest/include)

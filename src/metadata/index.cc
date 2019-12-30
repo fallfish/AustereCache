@@ -3,12 +3,10 @@
 #include <utility>
 #include "common/config.h"
 #include "common/stats.h"
-#include "ReferenceCounter.h"
-#include "cachePolicies/LRU.h"
-#include "cachePolicies/BucketAwareLRU.h"
-#include "cachePolicies/ThresholdRCClock.h"
-#include "cachePolicies/CAClock.h"
-#include "cachePolicies/LeastReferenceCount.h"
+#include "reference_counter.h"
+#include "cache_policies/lru.h"
+#include "cache_policies/bucket_aware_lru.h"
+#include "cache_policies/least_reference_count.h"
 
 namespace cache {
 
@@ -90,9 +88,9 @@ namespace cache {
 
     if (Config::getInstance().isCompactCachePolicyEnabled()) {
       if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tCAClock) {
-        cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
+        //cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
       } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAwareCAClock) {
-        cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 0));
+        //cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 0));
       } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tLeastReferenceCount) {
         cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
       } else if (Config::getInstance().getCachePolicyForFPIndex() ==

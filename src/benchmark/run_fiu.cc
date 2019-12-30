@@ -6,7 +6,9 @@
 #include "utils/utils.h"
 #include "utils/gen_zipf.h"
 #include "utils/cJSON.h"
-#include "ssddup/ssddup.h"
+#include "austere_cache/austere_cache.h"
+#include "metadata/cachededup/cdarc_fpindex.h"
+#include "metadata/cachededup/darc_fpindex.h"
 
 // For compression tests
 #include "lz4.h"
@@ -127,6 +129,8 @@ namespace cache {
             Config::getInstance().setnBitsPerLbaSignature(valuell);
           } else if (strcmp(name, "lbaAmplifier") == 0) {
             Config::getInstance().setLBAAmplifier(valuell);
+          } else if (strcmp(name, "enableCoreListBaseLbaIndex") == 0 ) {
+            Config::getInstance().enableCoreListBaseLbaIndex(valuell);
           } else if (strcmp(name, "coreListSize") == 0) {
             Config::getInstance().setCoreListSize(param->valuedouble);
           } else if (strcmp(name, "cachePolicyForFPIndex") == 0) {
@@ -147,6 +151,9 @@ namespace cache {
               Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tRecencyAwareLeastReferenceCount);
             }
 #endif
+          } else if (strcmp(name, "compressionAwareness") == 0) {
+            std::cout << "CompressionAwareness" << " " << valuell << std::endl;
+            Config::getInstance().setCompressionAwareness(valuell);
           // Configurations for Techniques (Design)
           } else if (strcmp(name, "synthenticCompression") == 0) { // Compression
             Config::getInstance().enableSynthenticCompression(valuell);
@@ -177,14 +184,25 @@ namespace cache {
           }
         }
 
+        //FILE *f = fopen("1", "w");
         if (Config::getInstance().isSynthenticCompressionEnabled()) {
           generateCompression();
+          //for (int i = 0; i <= Config::getInstance().getChunkSize(); ++i) {
+            //if (compressedChunks_[i] != nullptr) {
+              //fwrite(compressedChunks_[i], Config::getInstance().getChunkSize(), 1, f);
+            //}
+            //if (originalChunks_[i] != nullptr) {
+              //fwrite(originalChunks_[i], Config::getInstance().getChunkSize(), 1, f);
+            //}
+          //}
         }
+        //fclose(f);
+        //exit(0);
 
         printf("cache device size: %" PRId64 " MiB\n", Config::getInstance().getCacheDeviceSize() / 1024 / 1024);
         printf("primary device size: %" PRId64 " GiB\n", Config::getInstance().getPrimaryDeviceSize() / 1024 / 1024 / 1024);
         printf("woring set size: %" PRId64 " MiB\n", Config::getInstance().getWorkingSetSize() / 1024 / 1024);
-        ssddup_ = std::make_unique<SSDDup>();
+        AustereCache_ = std::make_unique<AustereCache>();
         
 
         assert(readFIUaps(config->child->valuestring) == 0);
@@ -263,7 +281,7 @@ namespace cache {
         int chunk_id, length;
         assert(f != nullptr);
         Request req;
-        LL cnt = 0;
+        static LL cnt = 0;
 
         double compressibility;
 
@@ -282,9 +300,11 @@ namespace cache {
 
           req.r = (op[0] == 'r' || op[0] == 'R');
 
-          reqs_.emplace_back(req);
-          continue;
-          //sendRequest(req);
+          //reqs_.emplace_back(req);
+          //continue;
+          //if (cnt == 100000) exit(0);
+          if (cnt % 100000 == 0) printf("req %u\n", cnt); // , num of unique fingerprint = %d\n", i, sets.size());
+          sendRequest(req);
         }
         printf("%s: Go through %lld operations, selected %lu\n", ap_file, cnt, reqs_.size());
 
@@ -314,9 +334,9 @@ namespace cache {
         }
 
         if (req.r) {
-          ssddup_->read(begin, rwdata, len);
+          AustereCache_->read(begin, rwdata, len);
         } else {
-          ssddup_->write(begin, rwdata, len);
+          AustereCache_->write(begin, rwdata, len);
         }
       }
 
@@ -348,7 +368,6 @@ namespace cache {
         AThreadPool *threadPool = new AThreadPool(nThreads);
         char sha1[23];
         for (uint32_t i = 0; i < reqs_.size(); ++i) {
-          //if (i == 200000) break;
           threadPool->doJob([this, i]() {
               {
                 std::unique_lock<std::mutex> l(mutex_);
@@ -357,7 +376,7 @@ namespace cache {
                 }
                 accessSet_.insert(reqs_[i].addr);
               }
-              if (i % 10000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
+              if (i % 100000 == 0) printf("req %u\n", i); // , num of unique fingerprint = %d\n", i, sets.size());
               sendRequest(reqs_[i]);
               {
                 std::unique_lock<std::mutex> l(mutex_);
@@ -366,6 +385,7 @@ namespace cache {
               }
           });
           total_bytes += chunkSize;
+          if (i % 10000000 == 0) malloc_trim(0);
         }
         condVar_.notify_all();
         delete threadPool;
@@ -410,7 +430,7 @@ namespace cache {
       // for compression
       char** compressedChunks_;
       char** originalChunks_;
-      std::unique_ptr<SSDDup> ssddup_;
+      std::unique_ptr<AustereCache> AustereCache_;
       std::vector<Request> reqs_;
       std::set<uint64_t> accessSet_;
       std::mutex mutex_;
