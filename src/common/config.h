@@ -179,6 +179,10 @@ namespace cache {
         bool isCacheDisabled() { return disableCache_; }
         CacheModeEnum getCacheMode() { return cacheMode_; }
 
+
+        uint32_t getCompressionAwareness() { return compressionAwareness_; }
+        void setCompressionAwareness(uint32_t v) { compressionAwareness_ = v; }
+
         void setFingerprintAlgorithm(uint32_t v) {
           if (v == 0) setFingerprintLength(20);
           else setFingerprintLength(16);
@@ -260,6 +264,7 @@ namespace cache {
 
         uint32_t nBitsPerFpSignature_;
         uint32_t nSlotsPerFpBucket_;
+
         // bits for CLOCK policy
         uint32_t nBitsPerClock_;
         uint32_t clockStartValue_;
@@ -269,6 +274,9 @@ namespace cache {
         CachePolicyEnum cachePolicyForFPIndex_ = CachePolicyEnum::tRecencyAwareLeastReferenceCount;
 #endif
         bool enableSketchRF_ = true;
+
+        // compression awareness
+        uint32_t compressionAwareness_ = 0;
 
         // Multi threading related
         uint32_t maxNumGlobalThreads_ = 8;
@@ -282,6 +290,7 @@ namespace cache {
         uint64_t workingSetSize_;
         uint64_t cacheDeviceSize_;
         uint32_t writeBufferSize_ = 0;
+
 
         // Trace replay related
         bool enableDirectIO_ = false;

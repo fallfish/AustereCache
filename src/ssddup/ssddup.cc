@@ -50,8 +50,6 @@ namespace cache {
     {
       if (Config::getInstance().isCacheDisabled()) {
         readDirectly(addr, buf, len);
-      } else if (Config::getInstance().isMultiThreadingEnabled()) {
-        readMultiThread(addr, buf, len);
       } else {
         readSingleThread(addr, buf, len);
       }
@@ -125,8 +123,6 @@ namespace cache {
     {
       if (Config::getInstance().isCacheDisabled()) {
         writeDirectly(addr, buf, len);
-      } else if (Config::getInstance().isMultiThreadingEnabled()) {
-        writeMultiThread(addr, buf, len);
       } else {
         writeSingleThread(addr, buf, len);
       }

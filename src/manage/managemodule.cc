@@ -112,33 +112,33 @@ namespace cache {
         buf = chunk.compressedBuf_;
         len = (chunk.compressedLevel_ + 1) * Config::getInstance().getSectorSize();
 #else
-        #if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
-    addr = chunk.cachedataLocation_;
-    buf = chunk.buf_;
-    len = chunk.len_;
+#if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
+        addr = chunk.cachedataLocation_;
+        buf = chunk.buf_;
+        len = chunk.len_;
 #elif defined(CDARC)
-    uint64_t evictedCachedataLocation = -1;
-    if (currentWEUId_ != chunk.weuId_) {
-      if (chunk.evictedWEUId_ != currentWEUId_) {
-        if (chunk.evictedWEUId_ != ~0u) {
-          evictedCachedataLocation = weuToCachedataLocation_[chunk.evictedWEUId_];
-          weuToCachedataLocation_.erase(chunk.evictedWEUId_);
+        uint64_t evictedCachedataLocation = -1;
+        if (currentWEUId_ != chunk.weuId_) {
+          if (chunk.evictedWEUId_ != currentWEUId_) {
+            if (chunk.evictedWEUId_ != ~0u) {
+              evictedCachedataLocation = weuToCachedataLocation_[chunk.evictedWEUId_];
+              weuToCachedataLocation_.erase(chunk.evictedWEUId_);
 
-          IOModule::getInstance().flush(evictedCachedataLocation, 0, weuSize_);
-          weuToCachedataLocation_[currentWEUId_] = evictedCachedataLocation;
-        } else {
-          IOModule::getInstance().flush(currentCachedataLocation_, 0, weuSize_);
-          weuToCachedataLocation_[currentWEUId_] = currentCachedataLocation_;
-          currentCachedataLocation_ += weuSize_;
+              IOModule::getInstance().flush(evictedCachedataLocation, 0, weuSize_);
+              weuToCachedataLocation_[currentWEUId_] = evictedCachedataLocation;
+            } else {
+              IOModule::getInstance().flush(currentCachedataLocation_, 0, weuSize_);
+              weuToCachedataLocation_[currentWEUId_] = currentCachedataLocation_;
+              currentCachedataLocation_ += weuSize_;
+            }
+          }
+
+          currentWEUId_ = chunk.weuId_;
         }
-      }
-
-      currentWEUId_ = chunk.weuId_;
-    }
-    deviceType = IN_MEM_BUFFER;
-    addr = chunk.weuOffset_;
-    buf = chunk.compressedBuf_;
-    len = chunk.compressedLen_;
+        deviceType = IN_MEM_BUFFER;
+        addr = chunk.weuOffset_;
+        buf = chunk.compressedBuf_;
+        len = chunk.compressedLen_;
 #endif
 #endif
         return true;

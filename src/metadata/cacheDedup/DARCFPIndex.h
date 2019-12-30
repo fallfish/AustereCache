@@ -7,8 +7,7 @@ namespace cache {
     public:
         struct DP {
             uint64_t cachedataLocation_{};
-            uint32_t referenceCount_{};
-            std::list<Fingerprint>::iterator zeroReferenceListIt_;
+            uint32_t referenceCount_{}; std::list<Fingerprint>::iterator zeroReferenceListIt_;
             std::list<Fingerprint>::iterator it_;
         };
 
@@ -29,6 +28,7 @@ namespace cache {
         void update(uint64_t lba, uint8_t *fp, uint64_t &cachedataLocation);
 
         uint32_t capacity_{};
+        void dumpStats();
     private:
         std::map<Fingerprint, DP> mp_;
         std::list<Fingerprint> zeroReferenceList_;

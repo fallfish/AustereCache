@@ -105,6 +105,7 @@ namespace cache {
         }
         uint32_t weu_id = zeroReferenceList_.back();
         zeroReferenceList_.pop_back();
+        assert(weuReferenceCount_[weu_id] == 0);
         weuReferenceCount_.erase(weu_id);
 
         if (Config::getInstance().getCacheMode() == tWriteBack) {
@@ -139,7 +140,6 @@ namespace cache {
           nInvalidFingerprints += 1;
         }
       }
-      printf("Zero Referenced WEUs: %lu, Total WEUs: %lu\n", zeroReferenceList_.size(), weuReferenceCount_.size());
       printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
       fingerprints.clear();
     }

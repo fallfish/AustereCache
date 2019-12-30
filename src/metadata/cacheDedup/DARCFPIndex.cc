@@ -106,4 +106,22 @@ namespace cache {
       mp_[_fp] = _dp;
       cachedataLocation = _dp.cachedataLocation_;
     }
+
+    void DARCFPIndex::dumpStats()
+    {
+      std::set<Fingerprint> fingerprints;
+      DARCLBAIndex::getInstance().getFingerprints(fingerprints);
+      uint32_t nInvalidFingerprints = 0;
+      uint32_t nTotalFingerprints = 0;
+      Fingerprint arr;
+      for (auto pr : mp_) {
+        if (fingerprints.find(pr.first) == fingerprints.end()) {
+          nInvalidFingerprints += 1;
+        }
+        nTotalFingerprints += 1;
+      }
+      std::cout << "Zero ref list length: " << zeroReferenceList_.size() << std::endl;
+      printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
+      fingerprints.clear();
+    }
 }
