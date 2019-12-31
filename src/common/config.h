@@ -168,6 +168,7 @@ namespace cache {
         void disableCache(bool v) { disableCache_ = v; }
         void enableCoreListBaseLbaIndex(bool v) { coreListBaseLbaIndex_ = v; }
         void setCacheMode(CacheModeEnum v) { cacheMode_ = v; }
+        void enableJournal(bool v) { enableJournal_ = v; }
 
         bool isMultiThreadingEnabled() { return enableMultiThreading_; }
         bool isDirectIOEnabled() { return enableDirectIO_; }
@@ -177,6 +178,7 @@ namespace cache {
         bool isSketchRFEnabled() { return enableSketchRF_; }
         bool isCompactCachePolicyEnabled() { return enableCompactCachePolicy_; }
         bool isCacheDisabled() { return disableCache_; }
+        bool isJournalEnabled() { return enableJournal_; }
         CacheModeEnum getCacheMode() { return cacheMode_; }
 
 
@@ -298,6 +300,7 @@ namespace cache {
         bool enableSynthenticCompression_ = false;
         bool enableReplayFIU_ = true;
         bool disableCache_ = false;
+        bool enableJournal_ = false;
         CacheModeEnum cacheMode_ = tWriteThrough;
 
         // chunk algorithm

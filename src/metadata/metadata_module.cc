@@ -1,7 +1,7 @@
 #include "common/env.h"
 #include "metadata_module.h"
 #include "meta_verification.h"
-#include "metajournal.h"
+#include "meta_journal.h"
  
 #include "common/config.h"
 #include "common/stats.h"

@@ -50,6 +50,13 @@ private:
   } inMemBuffer_{};
 
   std::unique_ptr<WriteBuffer> writeBuffer_;
+  uint8_t journal_[512];
+  uint32_t journalId_ = 0;
+  uint32_t journalOffset_ = 0;
+  uint64_t journalDiskOffset_ = 0;
+  uint64_t journalDiskStart_ = 0;
+  uint64_t journalSize_ = 20 * 1024 * 1024u;
+  std::mutex mutex_;
 };
 
 }

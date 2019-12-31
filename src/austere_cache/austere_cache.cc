@@ -19,13 +19,8 @@
 namespace cache {
     AustereCache::AustereCache()
     {
-      double vm, rss;
-      dumpMemoryUsage(vm, rss);
-      std::cout << "VM: " << vm << "; RSS: " << rss << std::endl;
-      std::cout << sizeof(Metadata) << std::endl;
       IOModule::getInstance().addCacheDevice(Config::getInstance().getCacheDeviceName());
       IOModule::getInstance().addPrimaryDevice(Config::getInstance().getPrimaryDeviceName());
-      threadPool_ = std::make_unique<AThreadPool>(Config::getInstance().getMaxNumLocalThreads());
     }
 
     AustereCache::~AustereCache() {
@@ -98,9 +93,7 @@ namespace cache {
       uint32_t tmp_len;
 
       while (chunker.next(tmp_addr, tmp_buf, tmp_len)) {
-        //threadPool_->doJob( [this, tmp_addr, tmp_buf, tmp_len]() {
-            writeSingleThread(tmp_addr, tmp_buf, tmp_len);
-        //});
+        writeSingleThread(tmp_addr, tmp_buf, tmp_len);
       }
     }
 

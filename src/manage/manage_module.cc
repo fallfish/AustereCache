@@ -14,9 +14,8 @@ namespace cache {
     {
 #if defined(CDARC)
       weuSize_ = Config::getInstance().getWriteBufferSize();
-  currentCachedataLocation_ = 0;
-  currentWEUId_ = 0;
-#else
+      currentCachedataLocation_ = 0;
+      currentWEUId_ = 0;
 #endif
     }
 
@@ -34,25 +33,25 @@ namespace cache {
       if (chunk.lookupResult_ == HIT) {
 #if defined(CACHE_DEDUP)
 
-        #if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
-    deviceType = CACHE_DEVICE;
-    addr = chunk.cachedataLocation_;
-    buf = chunk.buf_;
-    len = chunk.len_;
+#if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
+        deviceType = CACHE_DEVICE;
+        addr = chunk.cachedataLocation_;
+        buf = chunk.buf_;
+        len = chunk.len_;
 #elif defined(CDARC)
-    if (currentWEUId_ == chunk.weuId_) {
-      deviceType = IN_MEM_BUFFER;
-      addr = chunk.weuOffset_;
-    } else {
-      deviceType = CACHE_DEVICE;
-      addr = weuToCachedataLocation_[chunk.weuId_] + chunk.weuOffset_;
-    }
-    if (chunk.compressedLen_ == chunk.len_) {
-      buf = chunk.buf_;
-    } else {
-      buf = chunk.compressedBuf_;
-    }
-    len = chunk.compressedLen_;
+        if (currentWEUId_ == chunk.weuId_) {
+          deviceType = IN_MEM_BUFFER;
+          addr = chunk.weuOffset_;
+        } else {
+          deviceType = CACHE_DEVICE;
+          addr = weuToCachedataLocation_[chunk.weuId_] + chunk.weuOffset_;
+        }
+        if (chunk.compressedLen_ == chunk.len_) {
+          buf = chunk.buf_;
+        } else {
+          buf = chunk.compressedBuf_;
+        }
+        len = chunk.compressedLen_;
 #endif
 
 #else // ACDC

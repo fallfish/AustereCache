@@ -62,30 +62,13 @@ uint32_t IOModule::read(DeviceType deviceType, uint64_t addr, void *buf, uint32_
     END_TIMER(io_hdd);
     Stats::getInstance().add_bytes_read_from_hdd(len);
   } else if (deviceType == CACHE_DEVICE) {
-    static int nReq = 0;
     if (len == 512) {
       Stats::getInstance().add_metadata_bytes_read_from_ssd(512);
     }
 
     BEGIN_TIMER();
-    uint32_t index, offset;
-    alignas(512) uint8_t _buf[32768];
-    memset(_buf, 0, 32768);
-    if (writeBuffer_ != nullptr && len == 512) {
-      auto indexAndOffset = writeBuffer_->prepareRead(addr, len);
-      index = indexAndOffset.first, offset = indexAndOffset.second;
-      if (index != ~0u) {
-        Stats::getInstance().add_bytes_read_from_write_buffer(len);
-        inMemBuffer_.read(offset, static_cast<uint8_t *>(buf), len);
-      } else {
-        Stats::getInstance().add_bytes_read_from_ssd(len);
-        ret = cacheDevice_->read(addr, static_cast<uint8_t *>(buf), len);
-      }
-      writeBuffer_->commitRead();
-    } else {
-      Stats::getInstance().add_bytes_read_from_ssd(len);
-      ret = cacheDevice_->read(addr, static_cast<uint8_t *>(buf), len);
-    }
+    Stats::getInstance().add_bytes_read_from_ssd(len);
+    ret = cacheDevice_->read(addr, static_cast<uint8_t *>(buf), len);
     END_TIMER(io_ssd);
   } else if (deviceType == IN_MEM_BUFFER) {
     inMemBuffer_.read(addr, static_cast<uint8_t *>(buf), len);
@@ -105,34 +88,24 @@ uint32_t IOModule::write(DeviceType deviceType, uint64_t addr, void *buf, uint32
       Stats::getInstance().add_metadata_bytes_written_to_ssd(512);
     }
     BEGIN_TIMER();
-    if (writeBuffer_ != nullptr && len == 512) {
-      std::pair<uint32_t, uint32_t> indexAndOffset;
-      uint32_t index, offset;
-      do {
-        indexAndOffset = writeBuffer_->prepareWrite(addr, len);
-        index = indexAndOffset.first;
-        offset = indexAndOffset.second;
-
-        if (index == ~0u) {
-          auto toFlush = writeBuffer_->flush();
-          for (WriteBuffer::Entry entry : toFlush) {
-            Stats::getInstance().add_bytes_written_to_ssd(entry.len_);
-            flush(entry.addr_, entry.off_, entry.len_);
-          }
-        } else {
-          Stats::getInstance().add_bytes_written_to_write_buffer(len);
-          inMemBuffer_.write(offset, (uint8_t*)buf, len);
-          break;
-        }
-      } while (true);
-      writeBuffer_->commitWrite(addr, offset, len, index);
-    } else {
-      Stats::getInstance().add_bytes_written_to_ssd(len);
-      cacheDevice_->write(addr, (uint8_t *) buf, len);
-    }
+    Stats::getInstance().add_bytes_written_to_ssd(len);
+    cacheDevice_->write(addr, (uint8_t *) buf, len);
     END_TIMER(io_ssd);
   } else if (deviceType == IN_MEM_BUFFER) {
     inMemBuffer_.write(addr, (uint8_t*)buf, len);
+  } else if (deviceType == JOURNAL) {
+    std::lock_guard<std::mutex> l(mutex_);
+    if (journalOffset_ + len >= 512) {
+      journalOffset_ = 8;
+      journal_[0] = journalId_++;
+      cacheDevice_->write(journalDiskOffset_ + journalDiskStart_, journal_, 512);
+      journalDiskOffset_ += 512;
+      if (journalDiskOffset_ >= journalSize_) {
+        journalDiskOffset_ = 0;
+      }
+    }
+    memcpy(journal_ + journalOffset_, buf, len);
+    journalOffset_ += len;
   }
   return 0;
 }

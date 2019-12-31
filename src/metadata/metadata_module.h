@@ -4,7 +4,7 @@
 #include "chunking/chunk_module.h"
 #include "index.h"
 #include "meta_verification.h"
-#include "metajournal.h"
+#include "meta_journal.h"
 
 namespace cache {
 

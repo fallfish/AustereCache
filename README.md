@@ -1,10 +1,5 @@
-## SSDDup
-SSDDup is a cache system enhanced by compression and deduplication technology.
-Compression and deduplication together achieve storage savings on workload in the cache device.
-
-### Characteristics
-1. Hashing-based memory efficient indexing structure for deduplication.
-2. Multi-threading and lightweight locking mechanism supported by the indexing.
+## Austere Cache
+Austere Cache is a cache system enhanced by compression and deduplication technology.
 
 ### Build
 #### Import third_party libraries
@@ -16,42 +11,53 @@ mkdir third_party && cd third_party
 wget https://github.com/lz4/lz4/archive/v1.9.1.zip
 unzip v1.9.1.zip
 cd lz4-1.9.1
-make -j4
+make
 cd ..
 ```
-##### OpenSSL
+##### ISA-L Crypto
 ```
-git clone https://github.com/openssl/openssl.git
-cd openssl
-./config && make -j4
-cd ../..
+git clone https://github.com/intel/isa-l_crypto.git
+cd isa-l_crypto
+./autogen.sh
+./configure --prefix=$(pwd)
+make && make install
+cd ..
 ```
 
-#### Build SSDDup
+#### Build the systems
+##### Austere Cache
 ```
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j4
+make
+cd ..
+```
+##### CacheDedup DLRU
+```
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DDLRU=1
+make
+cd ..
+```
+##### CacheDedup DARC
+```
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DDARC=1
+make
+cd ..
+```
+##### CacheDedup CDARC
+```
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCDARC=1
+make
 cd ..
 ```
 
-### Test
+### Trace Generation
 #### Generate traces
 ```
-cd build
-cp ../scripts/generate_trace.sh ./
-bash generate_trace.sh
 ```
 
-#### Run Microbenchmarks
-```
-cd build
-./microbenchmarks/run_ssddup --help
-```
-
-An example:
-```
-./microbenchmarks/run_ssddup --trace ../trace/compressibility_3/dup-1 --ca-bits 11 --multi-thread 0 --num-workers 1
-```
-Default primary device is `./primary_device`, cache device is `./cache_device`
-For details, please refer to `src/benchmarks/run_ssddup.cc` and other micro benchmarks.
+### Run Demo
+#### Expected Results

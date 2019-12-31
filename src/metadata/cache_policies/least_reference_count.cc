@@ -39,47 +39,14 @@ namespace cache {
 
         slotsToReferenceCounts.emplace_back(slotId_, std::make_pair(refCount, nSlotsOccupied));
       }
-      // Method 0: refCount only
-      if (Config::getInstance().getCompressionAwareness() == 0) {
-        std::sort(slotsToReferenceCounts.begin(),
-                  slotsToReferenceCounts.end(),
-                  [](auto &left, auto &right) {
-                    uint32_t refCount1 = left.second.first, refCount2 = right.second.first;
-                    uint32_t nOccupied1 = left.second.second, nOccupied2 = right.second.second;
-                    return refCount1 < refCount2;
-                  });
-      }
 
-      // Method 1: refCount + nSlotsOccupied
-      if (Config::getInstance().getCompressionAwareness() == 1) {
-        std::sort(slotsToReferenceCounts.begin(),
-                  slotsToReferenceCounts.end(),
-                  [](auto &left, auto &right) {
-                    uint32_t refCount1 = left.second.first, refCount2 = right.second.first;
-                    uint32_t nOccupied1 = left.second.second, nOccupied2 = right.second.second;
-                    if (refCount1 == 0 || refCount2 == 0) {
-                      return refCount1 < refCount2;
-                    } else {
-                      return refCount1 + Config::getInstance().getCompressionLevels() - nOccupied1 <
-                          refCount2 + Config::getInstance().getCompressionLevels() - nOccupied2;
-                    }
-                  });
-      }
-
-      // Method 2: refCount first, nSlotsOccupied second
-      if (Config::getInstance().getCompressionAwareness() == 2) {
-        std::sort(slotsToReferenceCounts.begin(),
-            slotsToReferenceCounts.end(),
-            [](auto &left, auto &right) {
-              uint32_t refCount1 = left.second.first, refCount2 = right.second.first;
-              uint32_t nOccupied1 = left.second.second, nOccupied2 = right.second.second;
-              if (refCount1 != refCount2) {
-                return refCount1 < refCount2;
-              } else {
-                return nOccupied1 > nOccupied2;
-              }
-            });
-      }
+      std::sort(slotsToReferenceCounts.begin(),
+          slotsToReferenceCounts.end(),
+          [](auto &left, auto &right) {
+          uint32_t refCount1 = left.second.first, refCount2 = right.second.first;
+          uint32_t nOccupied1 = left.second.second, nOccupied2 = right.second.second;
+          return refCount1 < refCount2;
+          });
 
       while (true) {
         // check whether there is a contiguous space
@@ -106,6 +73,7 @@ namespace cache {
           bucket_->setInvalid(slotId);
           ++slotId;
         }
+
         if (Config::getInstance().getCacheMode() == tWriteBack) {
           DirtyList::getInstance().addEvictedChunk(
             /* Compute ssd location of the evicted data */

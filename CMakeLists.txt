@@ -13,7 +13,7 @@ list(APPEND CacheLibSources
         src/metadata/bucket.cc
         src/metadata/index.cc
         src/metadata/meta_verification.cc
-        src/metadata/metajournal.cc
+        src/metadata/meta_journal.cc
         src/metadata/cachededup/common.cc
 
         src/chunking/chunk_module.cc

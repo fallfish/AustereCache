@@ -4,7 +4,7 @@
 #include <metadata/cachededup/DARCLBAIndex.h>
 #include "common/env.h"
 #include "metadata_module.h"
-#include "metajournal.h"
+#include "meta_journal.h"
  
 #include "utils/utils.h"
 

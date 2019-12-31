@@ -42,7 +42,7 @@ enum VerificationResult {
 };
 
 enum DeviceType {
-  PRIMARY_DEVICE, CACHE_DEVICE, IN_MEM_BUFFER
+  PRIMARY_DEVICE, CACHE_DEVICE, IN_MEM_BUFFER, JOURNAL
 };
 
 /*
