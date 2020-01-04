@@ -3,7 +3,6 @@
 
 #include "common/common.h"
 #include "manage_module.h"
-#include "io/writebuffer.h"
 #include "io/io_module.h"
 #include "chunking/chunk_module.h"
 #include "compression/compression_module.h"
@@ -25,7 +24,8 @@ class ManageModule {
   bool generatePrimaryWriteRequest(
     Chunk &chunk, DeviceType &deviceType,
     uint64_t &addr, uint8_t *&buf, uint32_t &len);
-  void generateReadRequest(Chunk &chunk, DeviceType &deviceType, uint64_t &addr, uint8_t *&buf, uint32_t &len);
+  void generateReadRequest(Chunk &chunk, DeviceType &deviceType,
+    uint64_t &addr, uint8_t *&buf, uint32_t &len);
 
 
 #if defined(CDARC)

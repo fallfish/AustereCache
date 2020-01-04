@@ -20,7 +20,7 @@
 #include <vector>
 #include <set>
 #include <cassert>
-#include <utils/MurmurHash3.h>
+#include "utils/xxhash.h"
 #include "common/config.h"
 #include <csignal>
 

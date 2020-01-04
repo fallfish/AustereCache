@@ -11,11 +11,9 @@ namespace cache {
     DeduplicationModule();
    public:
     // check whether chunk c is duplicate or not
-    // return deduplication flag: duplicate_write, duplicate_content, or not duplicate
+    // return deduplication flag: duplicate_content, or not duplicate
     static void dedup(Chunk &chunk);
     static void lookup(Chunk &chunk);
-
-   private:
   };
 }
 

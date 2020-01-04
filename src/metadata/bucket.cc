@@ -9,7 +9,6 @@
 #include "reference_counter.h"
 #include "common/stats.h"
 #include "manage/dirtylist.h"
-#include <csignal>
 
 namespace cache {
     Bucket::Bucket(uint32_t nBitsPerKey, uint32_t nBitsPerValue, uint32_t nSlots,
@@ -46,11 +45,12 @@ namespace cache {
     void LBABucket::promote(uint32_t lbaSignature) {
       uint64_t fingerprintHash = 0;
       uint32_t slotId = lookup(lbaSignature, fingerprintHash);
-      //assert(slotId != ~((uint32_t)0));
       cachePolicyExecutor_->promote(slotId);
     }
 
-    // If the request modified an existing chunk, return the previous fingerprintHash
+    // If the request modified an existing chunk,
+    // return the previous fingerprintHash for
+    // decreasing its reference count
     uint64_t LBABucket::update(uint32_t lbaSignature, uint64_t fingerprintHash, std::shared_ptr<FPIndex> fingerprintIndex) {
       uint64_t _fingerprintHash = 0;
       uint32_t slotId = lookup(lbaSignature, _fingerprintHash);
@@ -59,7 +59,6 @@ namespace cache {
           promote(lbaSignature);
           return evictedSignature_;
         } else {
-          Stats::getInstance().add_lba_index_eviction_caused_by_collision();
           setEvictedSignature(getValue(slotId));
           Config::getInstance().currentEvictionIsRewrite = true;
           if (Config::getInstance().getCachePolicyForFPIndex() ==
@@ -70,13 +69,7 @@ namespace cache {
           setInvalid(slotId);
         }
       }
-      // If is full, clear all obsoletes first
-      // Warning: Number of slots is 32, so a uint32_t comparison is efficient.
-      //          Any other design with larger number of slots should change this
-      //          one.
-      //if (getValid32bits(0) == ~(uint32_t) 0) {
-      //cachePolicyExecutor_->clearObsolete(std::move(fingerprintIndex));
-      //}
+
       slotId = cachePolicyExecutor_->allocate();
       setKey(slotId, lbaSignature);
       setValue(slotId, fingerprintHash);
@@ -125,12 +118,10 @@ namespace cache {
       return ~((uint32_t)0);
     }
 
-
     void FPBucket::promote(uint64_t fpSignature)
     {
       uint32_t slot_id = 0, compressibility_level = 0, n_slots_occupied;
       slot_id = lookup(fpSignature, n_slots_occupied);
-      //assert(slot_id != ~((uint32_t)0));
 
       cachePolicyExecutor_->promote(slot_id, n_slots_occupied);
     }
@@ -140,8 +131,6 @@ namespace cache {
       uint32_t nSlotsOccupied = 0;
       uint32_t slotId = lookup(fpSignature, nSlotsOccupied);
       if (slotId != ~((uint32_t)0)) {
-        // TODO: Add it into the evicted data of dirty list
-        Stats::getInstance().add_fp_index_eviction_caused_by_collision();
         if (Config::getInstance().getCacheMode() == tWriteBack) {
           DirtyList::getInstance().addEvictedChunk(
             /* Compute ssd location of the evicted data */
@@ -165,20 +154,47 @@ namespace cache {
         setKey(_slotId, fpSignature);
         setValid(_slotId);
       }
-
-      // Assign more Clock to those highly compressible chunks
-      if (Config::getInstance().getCachePolicyForFPIndex() == tGarbageAwareCAClock
-          || Config::getInstance().getCachePolicyForFPIndex() == tCAClock) {
-        if (nSlotsToOccupy <= Config::getInstance().getCompressionLevels() / 2) {
-          cachePolicyExecutor_->promote(slotId, nSlotsToOccupy);
-        }
-      }
+      cachePolicyExecutor_->promote(slotId, nSlotsToOccupy);
 
       return slotId;
     }
 
+    void FPBucket::recover(uint64_t fpSignature, uint32_t slotId, uint32_t nSlotsOccupied)
+    {
+      // clear stale overlapped slots
+      uint32_t begin = slotId;
+      uint32_t end = slotId + nSlotsOccupied;
+      uint32_t key = getKey(begin);
+
+      // find the earliest valid and overlap one
+      while (begin >= 0) {
+        if (isValid(begin) && getKey(begin) == key) {
+          --begin;
+        } else {
+          break;
+        }
+      }
+      while (begin < end) {
+        if (isValid(begin)) {
+          uint32_t key = getKey(begin);
+          while (begin < nSlots_ && key == getKey(begin)) {
+            setInvalid(begin); 
+            ++begin;
+          }
+        } else {
+          ++begin;
+        }
+      }
+
+      for (uint32_t _slotId = slotId;
+          _slotId < slotId + nSlotsOccupied;
+          ++_slotId) {
+        setKey(_slotId, fpSignature);
+        setValid(_slotId);
+      }
+    }
+
     void FPBucket::evict(uint64_t fpSignature) {
-      //std::cout << "Evict " << fpSignature << std::endl;
       for (uint32_t index = 0; index < nSlots_; index++) {
         if (getKey(index) == fpSignature) {
           setInvalid(index);

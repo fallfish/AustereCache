@@ -48,7 +48,6 @@ namespace cache {
   {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
-    Stats::getInstance().add_lba_index_bucket_hit(bucketId);
     return getLBABucket(bucketId)->lookup(signature, fpHash) != ~((uint32_t)0);
   }
 
@@ -65,8 +64,6 @@ namespace cache {
     uint32_t bucketId = lbaHash >> nBitsPerKey_;
     uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
     uint64_t evictedFPHash = getLBABucket(bucketId)->update(signature, fpHash, fpIndex_);
-
-    Stats::getInstance().add_lba_bucket_update(bucketId);
 
     return evictedFPHash;
   }
@@ -87,16 +84,7 @@ namespace cache {
     }
 
     if (Config::getInstance().isCompactCachePolicyEnabled()) {
-      if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tCAClock) {
-        //cachePolicy_ = std::move(std::make_unique<CAClock>(nSlotsPerBucket_, nBuckets_));
-      } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAwareCAClock) {
-        //cachePolicy_ = std::move(std::make_unique<ThresholdRCClock>(nSlotsPerBucket_, nBuckets_, 0));
-      } else if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tLeastReferenceCount) {
-        cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
-      } else if (Config::getInstance().getCachePolicyForFPIndex() ==
-                 CachePolicyEnum::tRecencyAwareLeastReferenceCount) {
-        cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
-      }
+      cachePolicy_ = std::move(std::make_unique<LeastReferenceCount>());
     } else {
       cachePolicy_ = std::move(std::make_unique<LRU>(nBuckets_));
     }
@@ -104,37 +92,27 @@ namespace cache {
 
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
   {
-    // 8192 is chunk size, while 512 is the metadata size
-    if (1) { // Config::getInstance().isFakeIOEnabled()) {
-      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
-        Config::getInstance().getSectorSize() + 
-        1ull * Config::getInstance().getnFpBuckets() * Config::getInstance().getnFPSlotsPerBucket() * Config::getInstance().getMetadataSize();
-    } else {
-      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
-        (Config::getInstance().getSectorSize() + Config::getInstance().getMetadataSize()) + 
-        Config::getInstance().getMetadataSize();
-    }
+    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) *
+      1ull * Config::getInstance().getSectorSize() + 1ull *
+      Config::getInstance().getnFpBuckets() *
+      Config::getInstance().getnFPSlotsPerBucket() *
+      Config::getInstance().getMetadataSize();
   }
 
   uint64_t FPIndex::computeMetadataLocation(uint32_t bucketId, uint32_t slotId)
   {
-    if (1) { // Config::getInstance().isFakeIOEnabled()) {
-      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull * Config::getInstance().getMetadataSize();
-    } else {
-      return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) * 1ull *
-        (Config::getInstance().getSectorSize() + Config::getInstance().getMetadataSize());
-    }
+    return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId)
+      * 1ull * Config::getInstance().getMetadataSize();
   }
 
   uint64_t FPIndex::cachedataLocationToMetadataLocation(uint64_t cachedataLocation)
   {
-    if (1) { // Config::getInstance().isFakeIOEnabled()) {
-      return (cachedataLocation - 1ull * Config::getInstance().getnFPSlotsPerBucket() * 
-          Config::getInstance().getMetadataSize() * Config::getInstance().getnFpBuckets()
-          ) / Config::getInstance().getSectorSize() * Config::getInstance().getMetadataSize();
-    } else {
-      return cachedataLocation - Config::getInstance().getMetadataSize();
-    }
+    return (cachedataLocation - 1ull *
+        Config::getInstance().getnFPSlotsPerBucket() *
+        Config::getInstance().getMetadataSize() *
+        Config::getInstance().getnFpBuckets()) /
+      Config::getInstance().getSectorSize() *
+      Config::getInstance().getMetadataSize();
   }
 
   bool FPIndex::lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)
@@ -149,7 +127,6 @@ namespace cache {
     cachedataLocation = computeCachedataLocation(bucketId, index);
     metadataLocation = computeMetadataLocation(bucketId, index);
 
-    Stats::getInstance().addFPBucketLookup(bucketId);
     return true;
   }
 
@@ -166,7 +143,6 @@ namespace cache {
              signature = fpHash & ((1u << nBitsPerKey_) - 1),
              nSlotsToOccupy = compressedLevel + 1;
 
-    Stats::getInstance().add_fp_bucket_update(bucketId);
     uint32_t slotId = getFPBucket(bucketId)->update(signature, nSlotsToOccupy);
     cachedataLocation = computeCachedataLocation(bucketId, slotId);
     metadataLocation = computeMetadataLocation(bucketId, slotId);
@@ -189,13 +165,13 @@ namespace cache {
       getLBABucket(i)->getFingerprints(fpSet);
     }
   }
-    void FPIndex::getFingerprints(std::set<uint64_t> &fpSet) {
-      for (uint32_t i = 0; i < nBuckets_; ++i) {
-        getFPBucket(i)->getFingerprints(fpSet);
-      }
+  void FPIndex::getFingerprints(std::set<uint64_t> &fpSet) {
+    for (uint32_t i = 0; i < nBuckets_; ++i) {
+      getFPBucket(i)->getFingerprints(fpSet);
     }
+  }
 
-    std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fpHash)
+  std::unique_ptr<std::lock_guard<std::mutex>> FPIndex::lock(uint64_t fpHash)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_;
     if (Config::getInstance().isMultiThreadingEnabled()) {
@@ -205,6 +181,16 @@ namespace cache {
     } else {
       return nullptr;
     }
+  }
+
+  void FPIndex::recover(uint64_t fpHash, uint64_t cachedataLocation, uint32_t nSlotsOccupied) {
+    uint32_t bucketId = fpHash >> nBitsPerKey_,
+             signature = fpHash & ((1u << nBitsPerKey_) - 1);
+    uint32_t slotId = cachedataLocationToMetadataLocation(cachedataLocation) %
+      (Config::getInstance().getMetadataSize() *
+       Config::getInstance().getnFPSlotsPerBucket()) /
+      Config::getInstance().getMetadataSize();
+    getFPBucket(bucketId)->recover(signature, slotId, nSlotsOccupied);
   }
 
   void FPIndex::reference(uint64_t fpHash) {

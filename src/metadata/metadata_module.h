@@ -12,11 +12,13 @@ class MetadataModule {
  public:
   static MetadataModule& getInstance();
   ~MetadataModule();
-  // initialize all submodules and start the journalling thread
   void dedup(Chunk &chunk);
   void lookup(Chunk &chunk);
   void update(Chunk &chunk);
   void dumpStats();
+  void recoverLbaIndex(uint64_t lbaHash, uint64_t fpHash);
+  void recoverFpIndex(uint64_t fpHash, uint64_t cachedataLocation, uint32_t nSlotsOccupied);
+  void recover();
 
   std::shared_ptr<LBAIndex> lbaIndex_;
   std::shared_ptr<FPIndex> fpIndex_;

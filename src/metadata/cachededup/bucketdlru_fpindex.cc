@@ -33,7 +33,6 @@ namespace cache {
         // Not support write back currently
         if (list_.size() == capacity_) {
           slotId = list_.back();
-          Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
         } else {
           for (int i = 0; i < capacity_; ++i) {
             if (!valid_[i]) {
@@ -85,6 +84,7 @@ namespace cache {
     void BucketizedDLRUFPIndex::update(uint8_t *fp, uint64_t &cachedataLocation) {
       uint32_t bucketId = computeBucketId(fp);
       uint32_t slotId = buckets_[bucketId]->update(fp);
+      if (bucketId == 0) std::cout << slotId << std::endl;
       cachedataLocation = (bucketId * nSlotsPerBucket_ + slotId) * 1LL * Config::getInstance().getChunkSize();
     }
 
@@ -95,9 +95,10 @@ namespace cache {
     }
 
     uint32_t BucketizedDLRUFPIndex::computeBucketId(uint8_t *fp) {
-      uint32_t hash;
-      MurmurHash3_x86_32(fp, Config::getInstance().getFingerprintLength(), 2, &hash);
-      return hash % nBuckets_;
+      uint64_t hash = Chunk::computeFingerprintHash(fp);
+      return (hash >> Config::getInstance().getnBitsPerFpSignature());
+      //uint32_t hash = XXH32(fp, Config::getInstance().getFingerprintLength(), 2);
+      //return hash % nBuckets_;
     }
 }
 

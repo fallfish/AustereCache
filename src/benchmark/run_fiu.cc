@@ -133,27 +133,6 @@ namespace cache {
             Config::getInstance().enableCoreListBaseLbaIndex(valuell);
           } else if (strcmp(name, "coreListSize") == 0) {
             Config::getInstance().setCoreListSize(param->valuedouble);
-          } else if (strcmp(name, "cachePolicyForFPIndex") == 0) {
-#if defined(DLRU)
-            if (strcmp(valuestring, "Normal") == 0) {
-              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tNormal);
-            } else if (strcmp(valuestring, "GarbageAware") == 0) {
-              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAware);
-            }
-#else
-            if (strcmp(valuestring, "CAClock") == 0) {
-              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tCAClock);
-            } else if (strcmp(valuestring, "GarbageAwareCAClock") == 0) {
-              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tGarbageAwareCAClock);
-            } else if (strcmp(valuestring, "LeastReferenceCount") == 0) {
-              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tLeastReferenceCount);
-            } else if (strcmp(valuestring, "RecencyAwareLeastReferenceCount") == 0) {
-              Config::getInstance().setCachePolicyForFPIndex(CachePolicyEnum::tRecencyAwareLeastReferenceCount);
-            }
-#endif
-          } else if (strcmp(name, "compressionAwareness") == 0) {
-            std::cout << "CompressionAwareness" << " " << valuell << std::endl;
-            Config::getInstance().setCompressionAwareness(valuell);
           // Configurations for Techniques (Design)
           } else if (strcmp(name, "synthenticCompression") == 0) { // Compression
             Config::getInstance().enableSynthenticCompression(valuell);
@@ -176,11 +155,9 @@ namespace cache {
           } else if (strcmp(name, "directIO") == 0) {
             Config::getInstance().enableDirectIO(valuell);
           } else if (strcmp(name, "replayFIU") == 0) {
-            Config::getInstance().enableReplayFIU(valuell);
+            Config::getInstance().enableTraceReplay(valuell);
           } else if (strcmp(name, "fakeIO") == 0) {
             Config::getInstance().enableFakeIO(valuell);
-          } else if (strcmp(name, "disableCache") == 0) {
-            Config::getInstance().disableCache(valuell);
           }
         }
 
@@ -234,18 +211,10 @@ namespace cache {
         int offset = 40;
         int size = 40;
         memcpy(K32, B40, 40);
-        for ( ; size < 20480; size <<= 1) {
+        for ( ; offset + size < chunkSize_; size <<= 1, offset <<= 1) {
           memcpy(K32 + offset, K32, size);
-          offset <<= 1;
         } 
-        memcpy(K32 + 20480, K32, 12288);
-        /*
-           for (int i = 0; i < 819; i++) {
-           memcpy(K32 + offset, B40, 40);
-           offset += 40;
-           }
-           memcpy(K32 + offset, B40, 8);
-           */
+        memcpy(K32 + offset, K32, chunkSize_ - offset);
       }
 
       int readFIUaps(char* str) {
@@ -302,8 +271,11 @@ namespace cache {
 
           //reqs_.emplace_back(req);
           //continue;
-          //if (cnt == 100000) exit(0);
+          //if (cnt < 19000) continue;
+          //if (cnt == 19000) MetadataModule::getInstance().recover();
+          //if (cnt == 19000) exit(0);
           if (cnt % 100000 == 0) printf("req %u\n", cnt); // , num of unique fingerprint = %d\n", i, sets.size());
+          //if (cnt == 20000) break;
           sendRequest(req);
         }
         printf("%s: Go through %lld operations, selected %lu\n", ap_file, cnt, reqs_.size());
@@ -319,10 +291,10 @@ namespace cache {
         begin = req.addr;
         len = req.len;
 
+
         std::string s = std::string(req.sha1);
         convertStr2Sha1(req.sha1, sha1);
         Config::getInstance().setFingerprint(req.addr, sha1);
-
         if (Config::getInstance().isSynthenticCompressionEnabled()) {
           if (Config::getInstance().isFakeIOEnabled() || !req.r) {
             memcpy(rwdata, originalChunks_[req.compressed_len], len);
@@ -445,7 +417,7 @@ int main(int argc, char **argv)
   setbuf(stdout, NULL);
   setbuf(stderr, NULL);
 
-  if (cache::Config::getInstance().isReplayFIUEnabled()) {
+  if (cache::Config::getInstance().isTraceReplayEnabled()) {
     printf("defined: REPLAY_FIU\n");
   }
 

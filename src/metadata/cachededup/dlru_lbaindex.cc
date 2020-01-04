@@ -63,7 +63,7 @@ namespace cache {
           evicted = true;
 
           mp_.erase(lba_);
-          Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
+ 
         }
         list_.push_front(lba);
         _fp.it_ = list_.begin();

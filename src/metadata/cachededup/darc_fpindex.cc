@@ -67,7 +67,7 @@ namespace cache {
         //DARCLBAIndex::getInstance().check_zero_reference(_fp.v_);
       }
       // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
-      Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
+ 
     }
 
     void DARCFPIndex::update(uint64_t lba, uint8_t *fp, uint64_t &cachedataLocation)
@@ -96,7 +96,7 @@ namespace cache {
         mp_.erase(_fp);
 
         memcpy(_fp.v_, fp, Config::getInstance().getFingerprintLength());
-        Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
+ 
       }
 
       _dp.cachedataLocation_ = spaceAllocator_.allocate();

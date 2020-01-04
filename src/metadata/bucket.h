@@ -6,6 +6,9 @@
  *      and valid bits, and contains a cache policy implementations.
  *   2. LBABucket and FPBucket expose bucket-level lookup, promote, and lookup
  *      to the caller.
+ *   3. In the current implementation, buckets **do not hold memory**.
+ *      The ownership of the memory of all slots belongs to Index, which instantiate
+ *      a bucket manipulator with the corresponding memory.
  */
 #ifndef __BUCKET_H__
 #define __BUCKET_H__
@@ -17,7 +20,6 @@
 #include "bitmap.h"
 namespace cache {
   // Bucket is an abstraction of multiple key-value pairs (mapping)
-  // bit level bucket
   class FPIndex;
   class CachePolicy;
   class CachePolicyExecutor;
@@ -112,14 +114,14 @@ namespace cache {
 
   /**
    *  @brief: LBABucket: store multiple entries
-   *                     (lba signature -> ca hash) pair
+   *                     (lba signature -> fp hash) pair
    *
    *          layout:
-   *          the key-value table (Bucket : Bitmap) (12 + 12 + x)  * 32 bits 
-   *            key: 12 bit lba hash prefix (signature)
-   *            value: (12 + x) bit ca hash
+   *          the key-value table (Bucket : Bitmap) (16 + 16 + x)  * 128 bits
+   *            key: 16 bit lba hash prefix (signature)
+   *            value: (16 + x) bit fp hash (2^x = the number of Fp buckets)
    *            -------------------------------------------
-   *            | 12 bit signature | (12 + x) bit ca hash |
+   *            | 16 bit signature | (16 + x) bit fp hash |
    *            -------------------------------------------
    */
   class LBABucket : public Bucket {
@@ -160,13 +162,13 @@ namespace cache {
    *                to save memory usage and meantime nicely align with cache device blocks
    *        
    *        layout:
-   *        1. the key-value table (Bucket : Bitmap) 12 * 32 = 384 bits (regardless of alignment)
-   *          key: 12 bit ca hash value prefix
+   *        1. the key-value table (Bucket : Bitmap) 16 * 128 (bits) = 256 bytes
+   *          key: 16 bit fp hash value prefix
    *          value: 0 bit
    *          --------------------
-   *          | 12 bit signature |
+   *          | 16 bit signature |
    *          --------------------
-   *        2. valid bits - _valid (Bitmap) 32 bits
+   *        2. valid bits - _valid (Bitmap) 128 bits = 16 bytes
    */
   class FPBucket : public Bucket {
     public:
@@ -197,6 +199,8 @@ namespace cache {
       // Delete an entry for a certain ca signature
       // This is required for hit but verification-failed chunk.
       void evict(uint64_t fpSignature);
+
+      void recover(uint64_t fpSignature, uint32_t slotId, uint32_t nSlotsOccupied);
 
       void getFingerprints(std::set<uint64_t> &fpSet);
   };

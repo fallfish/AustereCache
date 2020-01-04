@@ -2,33 +2,29 @@
 
 #include "common/env.h"
 #include "metadata_module.h"
-#include "meta_verification.h"
 #include "meta_journal.h"
  
 #include "common/config.h"
 #include "common/stats.h"
 #include "utils/utils.h"
 #include <cassert>
-#include <metadata/cachededup/DLRULBAIndex.h>
-#include <metadata/cachededup/DLRUFPIndex.h>
+#include "metadata/cachededup/dlru_lbaindex.h"
+#include "metadata/cachededup/dlru_fpindex.h"
 
 namespace cache {
-    MetadataModule& MetadataModule::getInstance() {
-      static MetadataModule instance;
-      return instance;
-    }
+  MetadataModule& MetadataModule::getInstance() {
+    static MetadataModule instance;
+    return instance;
+  }
 
-    MetadataModule::MetadataModule() {
-      DLRULBAIndex::getInstance().init();
-      DLRUFPIndex::getInstance().init();
-      std::cout << "SourceIndex capacity: " << DLRULBAIndex::getInstance().capacity_ << std::endl;
-      std::cout << "FingerprintIndex capacity: " << DLRUFPIndex::getInstance().capacity_ << std::endl;
+  MetadataModule::MetadataModule() {
+    DLRULBAIndex::getInstance().init();
+    DLRUFPIndex::getInstance().init();
+    std::cout << "SourceIndex capacity: " << DLRULBAIndex::getInstance().capacity_ << std::endl;
+    std::cout << "FingerprintIndex capacity: " << DLRUFPIndex::getInstance().capacity_ << std::endl;
+  }
 
-
-    }
-    MetadataModule::~MetadataModule() {
-      std::cout << "Dup ratio: " << DLRULBAIndex::getInstance().getDupRatio() << std::endl;
-    }
+  MetadataModule::~MetadataModule() = default;
 
   void MetadataModule::dedup(Chunk &c)
   {
@@ -52,15 +48,7 @@ namespace cache {
   void MetadataModule::update(Chunk &c)
   {
     uint8_t oldFP[20];
-    bool evicted = DLRULBAIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
-    if (evicted) {
-      if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
-        DLRUFPIndex::getInstance().dereference(oldFP);
-      }
-    }
-    if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
-      DLRUFPIndex::getInstance().reference(c.fingerprint_);
-    }
+    DLRULBAIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
     DLRUFPIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 

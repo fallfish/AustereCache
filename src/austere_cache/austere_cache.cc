@@ -42,36 +42,6 @@ namespace cache {
 
     void AustereCache::read(uint64_t addr, void *buf, uint32_t len)
     {
-      if (Config::getInstance().isCacheDisabled()) {
-        readDirectly(addr, buf, len);
-      } else {
-        readSingleThread(addr, buf, len);
-      }
-    }
-
-    /**
-     * Read using multi-thread
-     */
-    void AustereCache::readMultiThread(uint64_t addr, void *buf, uint32_t len)
-    {
-      Chunker chunker = ChunkModule::getInstance().createChunker(addr, buf, len);
-
-      std::vector<int> threads;
-      uint64_t tmp_addr;
-      uint8_t *tmp_buf;
-      uint32_t tmp_len;
-
-      while (chunker.next(tmp_addr, tmp_buf, tmp_len)) {
-        readSingleThread(tmp_addr, tmp_buf, tmp_len);
-      }
-    }
-
-
-    /**
-     * Read using single-thread
-     */
-    void AustereCache::readSingleThread(uint64_t addr, void *buf, uint32_t len)
-    {
       Stats::getInstance().setCurrentRequestType(0);
       Chunker chunker = ChunkModule::getInstance().createChunker(addr, buf, len);
 
@@ -83,22 +53,7 @@ namespace cache {
       }
     }
 
-    void AustereCache::writeMultiThread(uint64_t addr, void *buf, uint32_t len)
-    {
-      Chunker chunker = ChunkModule::getInstance().createChunker(addr, buf, len);
-
-      std::vector<int> threads;
-      uint64_t tmp_addr;
-      uint8_t *tmp_buf;
-      uint32_t tmp_len;
-
-      while (chunker.next(tmp_addr, tmp_buf, tmp_len)) {
-        writeSingleThread(tmp_addr, tmp_buf, tmp_len);
-      }
-    }
-
-
-    void AustereCache::writeSingleThread(uint64_t addr, void *buf, uint32_t len)
+    void AustereCache::write(uint64_t addr, void *buf, uint32_t len)
     {
       Stats::getInstance().setCurrentRequestType(1);
       Chunker chunker = ChunkModule::getInstance().createChunker(addr, buf, len);
@@ -109,22 +64,5 @@ namespace cache {
         c.fpBucketLock_.reset();
         c.lbaBucketLock_.reset();
       }
-    }
-
-    void AustereCache::write(uint64_t addr, void *buf, uint32_t len)
-    {
-      if (Config::getInstance().isCacheDisabled()) {
-        writeDirectly(addr, buf, len);
-      } else {
-        writeSingleThread(addr, buf, len);
-      }
-    }
-
-    void AustereCache::readDirectly(uint64_t addr, void *buf, uint32_t len) {
-      IOModule::getInstance().read(PRIMARY_DEVICE, addr, buf, len);
-    }
-
-    void AustereCache::writeDirectly(uint64_t addr, void *buf, uint32_t len) {
-      IOModule::getInstance().write(PRIMARY_DEVICE, addr, buf, len);
     }
 }

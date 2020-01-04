@@ -86,7 +86,7 @@ namespace cache {
 //#endif
         spaceAllocator_.recycle(mp_[_fp].cachedataLocation_);
         mp_.erase(_fp);
-        Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
+ 
       }
       _dp.cachedataLocation_ = spaceAllocator_.allocate();
 

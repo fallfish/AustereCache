@@ -7,7 +7,6 @@ namespace cache {
   {
     DeduplicationModule::lookup(chunk);
     Stats::getInstance().addReadLookupStatistics(chunk);
-    // printf("TEST: %s, manageModule_ read\n", __func__);
     ManageModule::getInstance().read(chunk);
 
     if (chunk.lookupResult_ == NOT_HIT) {

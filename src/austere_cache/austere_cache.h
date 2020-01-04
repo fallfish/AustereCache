@@ -23,10 +23,6 @@ class AustereCache {
   ~AustereCache();
   void read(uint64_t addr, void *buf, uint32_t len);
   void write(uint64_t addr, void *buf, uint32_t len);
-  void readMultiThread(uint64_t addr, void *buf, uint32_t len);
-  void readSingleThread(uint64_t addr, void *buf, uint32_t len);
-  void writeSingleThread(uint64_t addr, void *buf, uint32_t len);
-  void writeMultiThread(uint64_t addr, void *buf, uint32_t len);
   inline void resetStatistics() { stats_->reset(); }
   inline void dumpStatistics() { stats_->dump(); }
   void dumpMemoryUsage(double& vm_usage, double& resident_set)
@@ -69,14 +65,9 @@ class AustereCache {
  private:
   void internalRead(Chunk &chunk);
   void internalWrite(Chunk &chunk);
-  void readDirectly(uint64_t addr, void *buf, uint32_t len);
-  void writeDirectly(uint64_t addr, void *buf, uint32_t len);
 
   // Statistics
   Stats* stats_;
-
-  std::unique_ptr<AThreadPool> threadPool_;
-
 };
 }
 

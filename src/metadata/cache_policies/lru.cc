@@ -33,6 +33,7 @@ namespace cache {
 
       if (nSlotsAvailable < nSlotsToOccupy) {
         slotId = list_->back();
+
         uint32_t key = bucket_->getKey(slotId);
         while (nSlotsAvailable < nSlotsToOccupy && slotId < nSlots) {
           if (bucket_->isValid(slotId)

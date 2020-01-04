@@ -25,38 +25,6 @@ namespace cache {
     }
   };
 
-  class FullReferenceCounter {
-    struct Key {
-      uint8_t value_[20]{};
-      Key() { memset(value_, 0, 20); }
-      Key(uint8_t *value) { 
-        memset(value_, 0, 20);
-        memcpy(value_, value, Config::getInstance().getFingerprintLength());
-      }
-      bool operator<(const Key &key) const {
-        return memcmp(value_, key.value_, 20) < 0;
-      }
-      bool operator==(const Key &key) const {
-        return memcmp(value_, key.value_, 20) == 0;
-      }
-      bool operator=(uint8_t *value) {
-        memcpy(value_, value, Config::getInstance().getFingerprintLength());
-      }
-    };
-    std::map<Key, uint32_t> counters_;
-
-    public:
-    bool clear();
-    bool query(uint8_t * key);
-    bool reference(uint8_t * key);
-    bool dereference(uint8_t * key);
-
-    static FullReferenceCounter& getInstance() {
-      static FullReferenceCounter instance;
-      return instance;
-    }
-  };
-
   class SketchReferenceCounter {
     uint8_t *sketch_;
     uint32_t width_, height_;

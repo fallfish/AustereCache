@@ -9,12 +9,10 @@
 namespace cache {
   class MetaVerification {
    public:
-    MetaVerification(std::shared_ptr<LBAIndex> lbaIndex);
+    MetaVerification();
     VerificationResult verify(Chunk &chunk);
     void clean(Chunk &chunk);
     void update(Chunk &chunk);
-   private:
-    std::shared_ptr<LBAIndex> lbaIndex_;
   };
 }
 #endif

@@ -42,7 +42,6 @@ namespace cache {
 
   void DirtyList::addLatestUpdate(uint64_t lba, uint64_t cachedataLocation, uint32_t len)
   {
-    // TODO: persist the dirty list
     std::lock_guard<std::mutex> l(listMutex_);
     latestUpdates_[lba] = std::make_pair(cachedataLocation, len);
     if (latestUpdates_.size() >= size_) {
@@ -53,9 +52,6 @@ namespace cache {
   /*
    * Description:
    *   Add a newly evicted block into the dirty list
-   *   TODO: To avoid rewrite the same space (the ssd space been allocated to new request)
-   *         We could persist to a special area in SSD and sync to HDD asynchronously.
-   *          
    */
   void DirtyList::addEvictedChunk(uint64_t cachedataLocation, uint32_t len)
   {

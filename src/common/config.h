@@ -31,9 +31,9 @@ namespace cache {
 
     enum CachePolicyEnum {
         // For ACDC
-          tCAClock, tGarbageAwareCAClock, tLeastReferenceCount, tRecencyAwareLeastReferenceCount, tLRU,
+          tRecencyAwareLeastReferenceCount, tLeastReferenceCount, tLRU,
         // For DLRU
-          tNormal, tGarbageAware,
+          tNormal,
     };
 
     enum CacheModeEnum {
@@ -57,7 +57,6 @@ namespace cache {
         uint32_t getSectorSize() { return sectorSize_; }
         uint32_t getMetadataSize() { return metadataSize_; }
         uint32_t getFingerprintLength() { return fingerprintLen_; }
-        uint32_t getStrongFingerprintLength() { return strongFingerprintLen_; }
         uint64_t getPrimaryDeviceSize() { return primaryDeviceSize_; }
         uint64_t getCacheDeviceSize() { return cacheDeviceSize_; }
         uint64_t getWorkingSetSize() { return workingSetSize_; }
@@ -65,9 +64,12 @@ namespace cache {
         uint32_t getnBitsPerLbaSignature() { return nBitsPerLbaSignature_; }
         uint32_t getnBitsPerFpSignature() { return nBitsPerFpSignature_; }
 
-        uint32_t getnBitsPerLbaBucketId() {
-          return 32 - __builtin_clz(getnLbaBuckets());
-        }
+        uint32_t getnLBASlotsPerBucket() { return nSlotsPerLbaBucket_; }
+        uint32_t getnFPSlotsPerBucket() { return nSlotsPerFpBucket_; }
+
+        uint32_t getnBitsPerLbaBucketId() { return 32 - __builtin_clz(getnLbaBuckets()); }
+        uint32_t getnBitsPerFpBucketId() { return 32 - __builtin_clz(getnFpBuckets()); }
+
         uint32_t getnLbaBuckets() {
           if (lbaAmplifier_ == 0) {
             return workingSetSize_ / (chunkSize_ * nSlotsPerLbaBucket_);
@@ -76,6 +78,11 @@ namespace cache {
                             (uint64_t)(cacheDeviceSize_ / (chunkSize_ * nSlotsPerLbaBucket_) * lbaAmplifier_));
           }
         }
+        uint32_t getnFpBuckets() {
+          return cacheDeviceSize_ / (sectorSize_ * nSlotsPerFpBucket_);
+        }
+
+        // For CacheDedup
         uint32_t getnSourceIndexEntries() {
           if (lbaAmplifier_ == 0) {
             return workingSetSize_ / chunkSize_;
@@ -83,17 +90,11 @@ namespace cache {
             return std::min(workingSetSize_ / chunkSize_, (uint64_t)(cacheDeviceSize_ / chunkSize_ * lbaAmplifier_));
           }
         }
-        uint32_t getnBitsPerFpBucketId() {
-          return 32 - __builtin_clz(getnFpBuckets());
-        }
-        uint32_t getnFpBuckets() {
-          return cacheDeviceSize_ / (sectorSize_ * nSlotsPerFpBucket_);
-        }
-
         float getLBAAmplifier() {
           return lbaAmplifier_;
         }
 
+        // For RecencyAware - the boundary of core slots and shadow slots
         uint32_t getLBASlotSeperator() {
           if (coreListBaseLbaIndex_ == true) {
             return std::max(
@@ -104,13 +105,7 @@ namespace cache {
                   (uint64_t)chunkSize_ / (uint64_t)getnLbaBuckets() * coreListSize_),
                 1u);
           }
-          // 25% core list
         }
-
-        uint32_t getnLBASlotsPerBucket() { return nSlotsPerLbaBucket_; }
-        uint32_t getnFPSlotsPerBucket() { return nSlotsPerFpBucket_; }
-        uint32_t getnBitsPerClock() { return nBitsPerClock_; }
-        uint32_t getClockStartValue() { return clockStartValue_; }
         uint32_t getCompressionLevels() { return chunkSize_ / sectorSize_; }
 
         // CachePolicy:
@@ -120,13 +115,9 @@ namespace cache {
         }
 
         uint32_t getMaxNumGlobalThreads() { return maxNumGlobalThreads_; }
-        uint32_t getMaxNumLocalThreads() { return maxNumLocalThreads_; }
 
         char *getCacheDeviceName() { return cacheDeviceName_; }
         char *getPrimaryDeviceName() { return primaryDeviceName_; }
-
-        uint32_t getFingerprintAlg() { return fingerprintAlgorithm_; }
-        uint32_t getFingerprintMode() { return fingerprintMode_; }
 
         uint32_t getWriteBufferSize() { return writeBufferSize_; }
 
@@ -158,43 +149,27 @@ namespace cache {
 
         void setWriteBufferSize(uint32_t v) { writeBufferSize_ = v; }
 
+        // Functionality enabler
         void enableMultiThreading(bool v) { enableMultiThreading_ = v; }
         void enableDirectIO(bool v) { enableDirectIO_ = v; }
         void enableFakeIO(bool v) { enableFakeIO_ = v; }
         void enableSynthenticCompression(bool v) { enableSynthenticCompression_ = v; }
-        void enableReplayFIU(bool v) { enableReplayFIU_ = v; }
+        void enableTraceReplay(bool v) { enableTraceReplay_ = v; }
         void enableSketchRF(bool v) { enableSketchRF_ = v; }
         void enableCompactCachePolicy(bool v) { enableCompactCachePolicy_ = v; }
-        void disableCache(bool v) { disableCache_ = v; }
         void enableCoreListBaseLbaIndex(bool v) { coreListBaseLbaIndex_ = v; }
-        void setCacheMode(CacheModeEnum v) { cacheMode_ = v; }
         void enableJournal(bool v) { enableJournal_ = v; }
+        void setCacheMode(CacheModeEnum v) { cacheMode_ = v; }
 
         bool isMultiThreadingEnabled() { return enableMultiThreading_; }
         bool isDirectIOEnabled() { return enableDirectIO_; }
         bool isFakeIOEnabled() { return enableFakeIO_; }
-        bool isReplayFIUEnabled() { return enableReplayFIU_; }
+        bool isTraceReplayEnabled() { return enableTraceReplay_; }
         bool isSynthenticCompressionEnabled() { return enableSynthenticCompression_; }
         bool isSketchRFEnabled() { return enableSketchRF_; }
         bool isCompactCachePolicyEnabled() { return enableCompactCachePolicy_; }
-        bool isCacheDisabled() { return disableCache_; }
         bool isJournalEnabled() { return enableJournal_; }
         CacheModeEnum getCacheMode() { return cacheMode_; }
-
-
-        uint32_t getCompressionAwareness() { return compressionAwareness_; }
-        void setCompressionAwareness(uint32_t v) { compressionAwareness_ = v; }
-
-        void setFingerprintAlgorithm(uint32_t v) {
-          if (v == 0) setFingerprintLength(20);
-          else setFingerprintLength(16);
-          fingerprintAlgorithm_ = v;
-        }
-        void setFingerprintMode(uint32_t v) {
-          if (v == 0) setFingerprintAlgorithm(0);
-          else setFingerprintAlgorithm(1);
-          fingerprintMode_ = v;
-        }
 
         void setFingerprint(uint64_t lba, char *fingerprint) {
           std::lock_guard<std::mutex> lock(mutex_);
@@ -214,12 +189,10 @@ namespace cache {
     private:
         Config() {
           // Initialize default configuration
-          // Conf format from caller to be imported
           chunkSize_ = 8192 * 4;
           sectorSize_ = 8192;
           metadataSize_ = 512;
-          fingerprintLen_ = 16;
-          strongFingerprintLen_ = 20;
+          fingerprintLen_ = 20;
           primaryDeviceSize_ = 1024 * 1024 * 1024LL * 20;
           cacheDeviceSize_ = 1024 * 1024 * 1024LL * 20;
           workingSetSize_ = 1024 * 1024 * 1024LL * 4;
@@ -228,31 +201,24 @@ namespace cache {
           // Each slot represents one chunk 32K.
           // To store all lbas without eviction
           // nBuckets_ = primary_storage_size / 32K / 32 = 512
-          nBitsPerLbaSignature_ = 12;
-          nSlotsPerLbaBucket_ = 32;
-          nBitsPerFpSignature_ = 12;
-          nSlotsPerFpBucket_ = 32;
-          nBitsPerClock_ = 2;
-          clockStartValue_ = 1;
-          lbaAmplifier_ = 1.0;
+          nBitsPerLbaSignature_ = 16;
+          nSlotsPerLbaBucket_ = 128;
+          nBitsPerFpSignature_ = 16;
+          nSlotsPerFpBucket_ = 128;
+          lbaAmplifier_ = 4.0;
 
           enableMultiThreading_ = false;
           maxNumGlobalThreads_ = 8;
-          maxNumLocalThreads_ = 8;
 
           // io related
           cacheDeviceName_ = "./ramdisk/cache_device";
           primaryDeviceName_ = "./primary_device";
-
-          setFingerprintMode(0);
-          setFingerprintAlgorithm(1);
         }
 
         uint32_t chunkSize_; // 8k size chunk
         uint32_t sectorSize_; // 8k size sector
         uint32_t metadataSize_; // 512 byte size chunk
         uint32_t fingerprintLen_; // fingerprint length, 20 bytes if using SHA1
-        uint32_t strongFingerprintLen_; // content address (fingerprint) length, 20 bytes if using SHA1
 
         // Each bucket has 32 slots. Each index has nBuckets_ buckets,
         // Each slot represents one chunk 32K.
@@ -262,27 +228,21 @@ namespace cache {
         uint32_t nSlotsPerLbaBucket_;
         float lbaAmplifier_;
         bool coreListBaseLbaIndex_ = true;
-        double coreListSize_ = 0.75;
+        double coreListSize_ = 0.5;
 
         uint32_t nBitsPerFpSignature_;
         uint32_t nSlotsPerFpBucket_;
 
-        // bits for CLOCK policy
-        uint32_t nBitsPerClock_;
-        uint32_t clockStartValue_;
 #if defined(DLRU)
         CachePolicyEnum cachePolicyForFPIndex_ = CachePolicyEnum::tNormal;
 #else
         CachePolicyEnum cachePolicyForFPIndex_ = CachePolicyEnum::tRecencyAwareLeastReferenceCount;
 #endif
-        bool enableSketchRF_ = true;
 
-        // compression awareness
-        uint32_t compressionAwareness_ = 0;
+        bool enableSketchRF_ = true;
 
         // Multi threading related
         uint32_t maxNumGlobalThreads_ = 8;
-        uint32_t maxNumLocalThreads_ = 8;
         bool     enableMultiThreading_;
 
         // io related
@@ -298,26 +258,16 @@ namespace cache {
         bool enableDirectIO_ = false;
         bool enableFakeIO_ = true;
         bool enableSynthenticCompression_ = false;
-        bool enableReplayFIU_ = true;
-        bool disableCache_ = false;
+        bool enableTraceReplay_ = true;
         bool enableJournal_ = false;
         CacheModeEnum cacheMode_ = tWriteThrough;
 
-        // chunk algorithm
-        // 0 - Strong hash (SHA1), 1 - Weak hash (MurmurHash3)
-        uint32_t fingerprintAlgorithm_{};
-        // 0 - Strong hash, 1 - Weak hash + memcmp, 2 - Weak hash + Strong hash
-        // If mode is set to 1 or 2, the fingerprintAlgorithm_ field must be 1
-        uint32_t fingerprintMode_{};
 
-        // Used when replaying FIU trace, for each request, we would fill in the fingerprint value
-        // specified in the trace rather than the computed one.
-        std::map<uint64_t, Fingerprint> lba2Fingerprints_;
-
-
-        // Used when using NORMAL_DIST_COMPRESSION
         bool enableCompactCachePolicy_ = true;
 
+        // Used when replaying trace, for each request, we would fill in the fingerprint value
+        // specified in the trace rather than the computed one.
+        std::map<uint64_t, Fingerprint> lba2Fingerprints_;
         std::mutex mutex_;
     };
 

@@ -2,12 +2,13 @@
 #include "metadata_module.h"
 #include "meta_verification.h"
 #include "meta_journal.h"
- 
+
 #include "common/config.h"
 #include "common/stats.h"
 #include "utils/utils.h"
 #include "manage/dirtylist.h"
 #include <cassert>
+#include <csignal>
 
 namespace cache {
   MetadataModule& MetadataModule::getInstance() {
@@ -18,9 +19,7 @@ namespace cache {
   MetadataModule::MetadataModule() {
     fpIndex_ = std::make_shared<FPIndex>();
     lbaIndex_ = std::make_shared<LBAIndex>(fpIndex_);
-    // metaVerification_ and metaJournal_ should
-    // hold a shared_ptr to ioModule_
-    metaVerification_ = std::make_unique<MetaVerification>(lbaIndex_);
+    metaVerification_ = std::make_unique<MetaVerification>();
     metaJournal_ = std::make_unique<MetaJournal>();
     std::cout << "Number of LBA buckets: " << Config::getInstance().getnLbaBuckets() << std::endl;
     std::cout << "Number of Fingerprint buckets: " << Config::getInstance().getnFpBuckets() << std::endl;
@@ -43,9 +42,6 @@ namespace cache {
       }
     }
     printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
-
-    std::cout << "Dup ratio: " << 1.0 * Config::getInstance().getnLbaBuckets()
-      * Config::getInstance().getnLBASlotsPerBucket() / fpSetLbaIndex.size();
   }
 
   // Note:
@@ -53,9 +49,7 @@ namespace cache {
   // lock in the lookup procedure. If the chunk didn't hit a
   // cached data (NOT HIT), it goes into the dedup to check the
   // deduplication of the fetched data where lba need not be
-  // checked (The content must not be DUP_WRITE). We can use
-  // the lock status (the chunk has not obtained a ca lock)
-  // to only do the ca verification.
+  // checked.
 
   void MetadataModule::dedup(Chunk &chunk)
   {
@@ -74,13 +68,9 @@ namespace cache {
       chunk.verficationResult_ = metaVerification_->verify(chunk);
     }
 
-    if (chunk.hitFPIndex_ && chunk.hitLBAIndex_
-        && chunk.verficationResult_ == BOTH_LBA_AND_FP_VALID) {
-      // duplicate write
-      chunk.dedupResult_ = DUP_WRITE;
-    } else if (chunk.hitFPIndex_ &&
-               (chunk.verficationResult_ == ONLY_FP_VALID ||
-                chunk.verficationResult_ == BOTH_LBA_AND_FP_VALID)){
+    if (chunk.hitFPIndex_ &&
+        (chunk.verficationResult_ == ONLY_FP_VALID ||
+         chunk.verficationResult_ == BOTH_LBA_AND_FP_VALID)){
       // duplicate content
       chunk.dedupResult_ = DUP_CONTENT;
     } else {
@@ -106,6 +96,7 @@ namespace cache {
       chunk.compressedLen_ = chunk.metadata_.compressedLen_;
       chunk.lookupResult_ = HIT;
     } else {
+      //std::cout << chunk.addr_ << std::endl;
       chunk.fpBucketLock_.reset();
       assert(chunk.fpBucketLock_.get() == nullptr);
       chunk.lookupResult_ = NOT_HIT;
@@ -129,7 +120,7 @@ namespace cache {
         removedFingerprintHash = lbaIndex_->update(chunk.lbaHash_, chunk.fingerprintHash_);
         fpIndex_->reference(chunk.fingerprintHash_);
       }
-      if (chunk.dedupResult_ == DUP_CONTENT || chunk.dedupResult_ == DUP_WRITE) {
+      if (chunk.dedupResult_ == DUP_CONTENT) {
         fpIndex_->promote(chunk.fingerprintHash_);
       } else {
         fpIndex_->update(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
@@ -159,5 +150,20 @@ namespace cache {
     if (removedFingerprintHash != ~0ull && removedFingerprintHash != chunk.fingerprintHash_) {
       fpIndex_->dereference(removedFingerprintHash);
     }
+  }
+
+  void MetadataModule::recoverLbaIndex(uint64_t lbaHash, uint64_t fpHash)
+  {
+    lbaIndex_->update(lbaHash, fpHash);
+    fpIndex_->reference(fpHash);
+  }
+
+  void MetadataModule::recoverFpIndex(uint64_t fpHash, uint64_t cachedataLocation, uint32_t nSlotsOccupied)
+  {
+    fpIndex_->recover(fpHash, cachedataLocation, nSlotsOccupied);
+  }
+
+  void MetadataModule::recover() {
+    metaJournal_->recover();
   }
 }

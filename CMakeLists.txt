@@ -26,12 +26,11 @@ list(APPEND CacheLibSources
 
         src/io/device/device.cc
         src/io/io_module.cc
-        src/io/writebuffer.cc
 
         src/manage/manage_module.cc
         src/manage/dirtylist.cc
 
-        src/utils/MurmurHash3.cpp
+        src/utils/xxhash.c
         src/metadata/reference_counter.cc
         src/metadata/cachededup/dlru_lbaindex.cc
         src/metadata/cachededup/dlru_fpindex.cc
@@ -60,7 +59,7 @@ elseif (CDARC)
 elseif (BUCKETDLRU)
   add_definitions(-DCACHE_DEDUP)
   add_definitions(-DBUCKETDLRU)
-  list(APPEND CacheLibSources src/metadata/metadata_module_dlru.cc src/austere_cache/austere_cache_no_compression.cc src/manage/dirtylist_cachededup.cc)
+  list(APPEND CacheLibSources src/metadata/metadata_module_bucket_dlru.cc src/austere_cache/austere_cache_no_compression.cc src/manage/dirtylist_cachededup.cc)
 else ()
   add_definitions(-DACDC)
   list(APPEND CacheLibSources src/metadata/metadata_module.cc src/austere_cache/austere_cache_compression.cc src/manage/dirtylist_austerecache.cc)
@@ -68,14 +67,12 @@ endif()
 
 add_library(cache ${CacheLibSources})
 
-include_directories(${CMAKE_SOURCE_DIR}/third_party/openssl/include)
-set (OPENSSL_ROOT_DIR ${CMAKE_SOURCE_DIR}/third_party/openssl)
-set (OPENSSL_USE_STATIC_LIBS TRUE)
-find_package(OpenSSL REQUIRED)
-
 include_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
 link_directories(${CMAKE_SOURCE_DIR}/third_party/lz4-1.9.1/lib)
-target_link_libraries(cache OpenSSL::SSL lz4 pthread)
+include_directories(${CMAKE_SOURCE_DIR}/third_party/isa-l_crypto/include)
+link_directories(${CMAKE_SOURCE_DIR}/third_party/isa-l_crypto/lib)
+
+target_link_libraries(cache lz4 pthread isal_crypto)
 
 ################################
 # Micro Benchmarks

@@ -12,7 +12,6 @@
 #include "common/config.h"
 #include "utils/utils.h"
 #include "device.h"
-#include "utils/MurmurHash3.h"
 
 namespace cache {
   Device::~Device() {
@@ -218,5 +217,4 @@ namespace cache {
     }
   }
 
-//  MemoryBlockDevice::MemoryBlockDevice() {}
 }

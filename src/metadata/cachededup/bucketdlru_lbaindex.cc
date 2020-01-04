@@ -55,7 +55,7 @@ namespace cache {
           valid_[evictedSlotId] = false;
 
           slotId = evictedSlotId;
-          Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
+ 
         } else {
           for (int i = 0; i < capacity_; ++i) {
             if (!valid_[i]) {
@@ -96,8 +96,9 @@ namespace cache {
     }
 
     uint32_t BucketizedDLRULBAIndex::computeBucketId(uint64_t lba) {
-      uint32_t hash;
-      MurmurHash3_x86_32(reinterpret_cast<const void *>(&lba), 8, 1, &hash);
-      return hash % nBuckets_;
+      uint64_t hash = Chunk::computeLBAHash(lba);
+      return (hash >> Config::getInstance().getnBitsPerLbaSignature()) % nBuckets_;
+      //uint32_t hash = XXH32(reinterpret_cast<const void *>(&lba), 8, 1);
+      //return hash % nBuckets_;
     }
 }

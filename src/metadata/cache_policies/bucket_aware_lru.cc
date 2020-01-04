@@ -90,7 +90,7 @@ namespace cache {
           bucket_->setEvictedSignature(bucket_->getValue(slotId));
           while (slotId < nSlots
                  && bucket_->getKey(slotId) == key) {
-            Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
+ 
             bucket_->setInvalid(slotId);
             bucket_->setKey(slotId, 0);
             bucket_->setValue(slotId, 0);

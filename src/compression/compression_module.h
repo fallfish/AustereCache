@@ -12,6 +12,7 @@ class CompressionModule {
   static CompressionModule& getInstance();
   static void compress(Chunk &chunk);
   static void decompress(Chunk &chunk);
+  // Used in dirty list where the fetched dirty chunk needs decompressed.
   static void decompress(uint8_t *compressedBuf, uint8_t *buf, uint32_t compressedLen, uint32_t originalLen);
 };
 }

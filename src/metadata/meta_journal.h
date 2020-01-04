@@ -10,6 +10,8 @@ class MetaJournal {
  public:
   MetaJournal();
   void addUpdate(const Chunk &c);
+  void recover();
+  FILE *journal_;
 };
 }
 

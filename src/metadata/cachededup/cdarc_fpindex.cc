@@ -3,7 +3,7 @@
 
 #include <common/stats.h>
 #include "darc_lbaindex.h"
-#include "Cdarc_fpindex.h"
+#include "cdarc_fpindex.h"
 #include "manage/dirtylist.h"
 #include "manage/manage_module.h"
 
@@ -82,7 +82,7 @@ namespace cache {
         zeroReferenceList_.push_front(weuId);
       }
       // Deference a fingerprint index meaning a LBA index entry has been removed from T1 or T2
-      Stats::getInstance().add_lba_index_eviction_caused_by_capacity();
+ 
     }
 
     uint32_t CDARCFPIndex::update(
@@ -113,7 +113,7 @@ namespace cache {
         }
         weuAllocator_.recycle(weu_id);
         evicted_weu_id = weu_id;
-        Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
+ 
       }
       _dp.len_ = len;
       weuAllocator_.allocate(_dp.weuId_, _dp.offset_, _dp.len_);

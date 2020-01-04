@@ -1,7 +1,7 @@
 #ifdef DARC
 
-#include <metadata/cachededup/DARCFPIndex.h>
-#include <metadata/cachededup/DARCLBAIndex.h>
+#include <metadata/cachededup/darc_lbaindex.h>
+#include <metadata/cachededup/darc_fpindex.h>
 #include "common/env.h"
 #include "metadata_module.h"
 #include "meta_journal.h"
@@ -13,9 +13,7 @@ namespace cache {
       static MetadataModule instance;
       return instance;
     }
-    MetadataModule::~MetadataModule() {
-      std::cout << "Dup ratio: " << DARCLBAIndex::getInstance().getDupRatio() << std::endl;
-    }
+    MetadataModule::~MetadataModule() = default;
 
     MetadataModule::MetadataModule() {
       DARCLBAIndex::getInstance().init(0, 0);

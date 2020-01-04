@@ -25,12 +25,12 @@ struct Metadata {
   uint32_t nextEvict_;
   uint32_t numLBAs_;
   // If the data is compressed, the compressed_len is valid, otherwise, it is 0.
+  // For CDARC - it is 32768 if it is not compressed
   uint32_t compressedLen_;
-  // 512 bytes alignment for DMA access
 };
 
 enum DedupResult {
-  DUP_WRITE, DUP_CONTENT, NOT_DUP, DEDUP_UNKNOWN
+  DUP_CONTENT, NOT_DUP, DEDUP_UNKNOWN
 };
 
 enum LookupResult {
@@ -46,29 +46,24 @@ enum DeviceType {
 };
 
 /*
- * The basic read/write unit.
+ * The basic read/write/evict unit.
  * An object of class Chunk is passed along the data path of a single request.
  * Members:
  *   1. address, buffer, length of data to be read/write
- *   2. (original) address, buffer, length of the requested data
  *     Here the buffer refers to the one passed in the corresponding request.
  *     Note: The write data or read buffer of the original request is managed
  *           by the caller. It would be efficient if we can manage to pass
- *           the original buffer to the underlying I/O request. However,
- *           in cases where the request is not well aligned, we need to firstly
- *           do the aligned I/O request and read or write data with a newly
- *           created temporary buffer.
- *   3. content address and its hash, logical block address hash
- *      ssd location (data pointer)
+ *           the original buffer to the underlying I/O request.
+ *   2. LBA-hash, FP-hash, and CA
  *      These members are Deduplication and index related
- *   4. lookup_result (write dup, read hit, etc.), verification_result (lba valid, ca valid, etc.)
- *   5. lba_hit, ca_hit, for performance statistics
- *   6. compressed_buf, compressed_len, compress_level
+ *   3. lookup_result (write dup, read hit, etc.), verification_result (lba valid, ca valid, etc.)
+ *   4. lba_hit, ca_hit, for performance statistics
+ *   5. compressed_buf, compressed_len, compress_level
  *      Compression related.
  *      Compress_level varies from [0, 1, 2, 3]
  *      which specifies 25%, 50%, 75%, 100% compression ratio, respectively.
  *
- *   7. (CacheDedup-CDARC-specific) weu_id, weu_offset, and evicted_weu_id from the decision of the CDARCFPIndex.
+ *   6. (CacheDedup-CDARC-specific) weu_id, weu_offset, and evicted_weu_id from the decision of the CDARCFPIndex.
  **/
 
 struct Chunk {
@@ -82,15 +77,7 @@ struct Chunk {
     uint32_t compressedLen_;
     uint32_t compressedLevel_; // compression level: 0, 1, 2, 3 representing 1, 2, 3, 4 * 8 KiB
 
-    // For unaligned read/write request
-    // We store the original request here
-    // and merge the aligned data
-    uint64_t originalAddr_;
-    uint32_t originalLen_;
-    uint8_t *originalBuf_;
-
     uint8_t  fingerprint_[20];
-    uint8_t  strongFingerprint_[20];
     uint64_t lbaHash_;
     uint64_t fingerprintHash_;
     // hasFingerprint_ is used to tell between chunks whose fingerprints have been computed with those not
@@ -103,6 +90,7 @@ struct Chunk {
 
     bool hitLBAIndex_;
     bool hitFPIndex_;
+
     DedupResult dedupResult_;
     LookupResult lookupResult_;
     VerificationResult verficationResult_;
@@ -118,7 +106,7 @@ struct Chunk {
     uint32_t evictedWEUId_;
 #endif
 
-    Chunk() {}
+    Chunk() = default;
     Chunk(const Chunk &c) {
       addr_ = c.addr_;
       len_ = c.len_;
@@ -134,12 +122,10 @@ struct Chunk {
     }
     /**
      * @brief compute fingerprint of current chunk.
-     *        Require: a write chunk, address is aligned
      */
     void computeFingerprint();
     static uint64_t computeFingerprintHash(uint8_t *fingerprint);
     static uint64_t computeLBAHash(uint64_t lba);
-    void computeStrongFingerprint();
     inline bool aligned() {
 #ifdef DIRECT_IO
       return len_ == Config::getInstance().getChunkSize()
@@ -148,32 +134,6 @@ struct Chunk {
       return len_ == Config::getInstance().get_chunk_size();
 #endif
     }
-    
-    /**
-     * @brief If the chunk is unaligned, we must pre-read the corresponding
-     *        aligned area.
-     *        Buf is provided here as the Buf_, while the previous Buf_, Addr_, Len_
-     *        given from the caller is moved to OriginalBuf_
-     *        A well-aligned chunk for read is created after preprocessUnalignedChunk.
-     *
-     * @param buf
-     */
-    void preprocessUnalignedChunk(uint8_t *buf);
-
-    /**
-     * @brief In the write path, if the original chunk is not aligned, after read
-     *        the corresponding aligned area, we need to merge the content with
-     *        the requested content, and continue the write process.
-     *
-     */
-    void handleReadModifyWrite();
-
-    /**
-     * @brief In the read path, if the original chunk is not aligned, after read
-     *        the corresponding aligned area, we need to copy the needed content
-     *        for the temporary buffer to the buffer of the caller.
-     */
-    void handleReadPartialChunk();
 };
 
 }

@@ -10,16 +10,11 @@ namespace cache {
 IOModule::IOModule()
 {
   if (Config::getInstance().getWriteBufferSize() != 0) {
-    std::cout << "Write Buffer init" << std::endl;
+    std::cout << "WEU init" << std::endl;
     posix_memalign(reinterpret_cast<void **>(&inMemBuffer_.buf_), 512, Config::getInstance().getWriteBufferSize());
     inMemBuffer_.len_ = Config::getInstance().getWriteBufferSize();
   } else {
     inMemBuffer_.len_ = 0;
-  }
-
-  if (Config::getInstance().getWriteBufferSize() != 0) {
-    writeBuffer_ = std::make_unique<WriteBuffer>(
-      Config::getInstance().getWriteBufferSize());
   }
 }
 

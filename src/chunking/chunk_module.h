@@ -9,7 +9,6 @@ namespace cache {
   class Chunker {
    public:
     // initialize a chunking iterator
-    // read is possibly triggered to deal with unaligned situation
     Chunker(uint64_t addr, void *buf, uint32_t len);
     // obtain next chunk, addr, len, and buf
     bool next(Chunk &c);

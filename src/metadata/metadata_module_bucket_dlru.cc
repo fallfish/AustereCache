@@ -2,24 +2,22 @@
 
 #include "common/env.h"
 #include "metadata_module.h"
-#include "meta_verification.h"
 #include "meta_journal.h"
- 
+
 #include "common/config.h"
 #include "common/stats.h"
 #include "utils/utils.h"
-#include "cachededup/BucketDLRULBAIndex.h"
-#include "cachededup/BucketDLRUFPIndex.h"
-#include <cassert>
+#include "cachededup/bucketdlru_lbaindex.h"
+#include "cachededup/bucketdlru_fpindex.h"
 
 namespace cache {
-    MetadataModule& MetadataModule::getInstance() {
-      static MetadataModule instance;
-      return instance;
-    }
+  MetadataModule& MetadataModule::getInstance() {
+    static MetadataModule instance;
+    return instance;
+  }
 
-    MetadataModule::MetadataModule() = default;
-    MetadataModule::~MetadataModule() = default;
+  MetadataModule::MetadataModule() = default;
+  MetadataModule::~MetadataModule() = default;
 
   void MetadataModule::dedup(Chunk &c)
   {
@@ -37,21 +35,14 @@ namespace cache {
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
-    else
+    else {
       c.lookupResult_ = NOT_HIT;
+    }
   }
   void MetadataModule::update(Chunk &c)
   {
     uint8_t oldFP[20];
-    bool evicted = BucketizedDLRULBAIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
-    if (evicted) {
-      if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
-        BucketizedDLRUFPIndex::getInstance().dereference(oldFP);
-      }
-    }
-    if (Config::getInstance().getCachePolicyForFPIndex() == CachePolicyEnum::tGarbageAware) {
-      BucketizedDLRUFPIndex::getInstance().reference(c.fingerprint_);
-    }
+    BucketizedDLRULBAIndex::getInstance().update(c.addr_, c.fingerprint_, oldFP);
     BucketizedDLRUFPIndex::getInstance().update(c.fingerprint_, c.cachedataLocation_);
   }
 }

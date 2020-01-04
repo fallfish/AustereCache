@@ -3,10 +3,7 @@
 #include <cstring>
 
 namespace cache {
-  MetaVerification::MetaVerification(std::shared_ptr<LBAIndex> lbaIndex)
-  {
-    lbaIndex_ = std::move(lbaIndex);
-  }
+  MetaVerification::MetaVerification() {}
 
   VerificationResult MetaVerification::verify(Chunk &chunk)
   {
@@ -32,7 +29,6 @@ namespace cache {
     // fingerprint is valid only fingerprint is valid and also
     // the content is the same by memcmp
     bool validFingerprint = false;
-    // Compute SHA1 and Compare Full fingerprint
     if (chunk.hasFingerprint_ && memcmp(
         metadata.fingerprint_, chunk.fingerprint_,
         Config::getInstance().getFingerprintLength()) == 0)
@@ -55,9 +51,9 @@ namespace cache {
     uint64_t &metadataLocation = chunk.metadataLocation_;
     Metadata &metadata = chunk.metadata_;
 
-    // The data has been cached (duplicate);
-    // We update the chunk metadata
     if (chunk.dedupResult_ == DUP_CONTENT) {
+      // The chunk is duplicate
+      // We update the chunk metadata
       if (metadata.numLBAs_ == MAX_NUM_LBAS_PER_CACHED_CHUNK) {
         if (Config::getInstance().getCacheMode() == tWriteBack) {
           DirtyList::getInstance().flushOneLba(metadata.LBAs_[metadata.nextEvict_], 
@@ -74,8 +70,8 @@ namespace cache {
 
       IOModule::getInstance().write(CACHE_DEVICE, metadataLocation, &chunk.metadata_, 512);
     } else if (chunk.dedupResult_ == NOT_DUP) {
-    // The data has not been cached before;
-    // We need to create a new chunk metadata
+      // The data is not duplicate
+      // We need to create a new chunk metadata
       memset(&metadata, 0, sizeof(metadata));
       memcpy(metadata.fingerprint_, chunk.fingerprint_, Config::getInstance().getFingerprintLength());
       metadata.LBAs_[0] = chunk.addr_;

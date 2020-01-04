@@ -19,19 +19,12 @@ struct Stats {
       return instance;
     }
 
-    void release() {
-#if !defined(CACHE_DEDUP)
-        _n_updates_lba_buckets.reset();
-        _n_updates_fp_buckets.reset();
-        _n_lookups_lba_buckets.reset();
-        _n_lookups_fp_buckets.reset();
-#endif
-    }
+    void release() {}
+
     void dump()
     {
       std::cout << "Write: " << std::endl;
-      std::cout << "    Num total write: " << _n_write_dup_write + _n_write_dup_content + _n_write_not_dup << std::endl
-                << "    Num write dup write: " << _n_write_dup_write << std::endl
+      std::cout << "    Num total write: " << _n_write_dup_content + _n_write_not_dup << std::endl
                 << "    Num write dup content: " << _n_write_dup_content << std::endl
                 << "    Num write not dup: " << _n_write_not_dup << std::endl
                 << "        Num write not dup caused by ca not hit: " << _n_write_not_dup_ca_not_hit << std::endl
@@ -49,13 +42,6 @@ struct Stats {
                 << "            Num read not hit not dup: " << _n_read_not_hit_not_dup << std::endl
                 << "                Num read not hit not dup caused by ca not hit: " << _n_read_not_hit_not_dup_ca_not_hit << std::endl
                 << "                Num read not hit not dup caused by ca not match: " << _n_read_not_hit_not_dup_ca_not_match << std::endl
-                << std::endl;
-
-      std::cout << "Index statistics: " << std::endl
-                << "    LBA Index eviction caused by hash collision: " << _n_lba_index_eviction_caused_by_collision << std::endl
-                << "    LBA Index eviction caused by full capacity: " << _n_lba_index_eviction_caused_by_capacity << std::endl
-                << "    Fingerprint Index eviction caused by hash collision: " << _n_ca_index_eviction_caused_by_collision << std::endl
-                << "    Fingerprint Index eviction caused by full capacity: " << _n_ca_index_eviction_caused_by_capacity << std::endl
                 << std::endl;
 
       std::cout << "IO statistics: " << std::endl
@@ -82,12 +68,10 @@ struct Stats {
                 << "    Time elpased for debug: " << _time_elapsed_debug << std::endl
                 << std::endl;
 
-
       std::cout << std::setprecision(2) << "Overall Stats: " << std::endl
                 << "    Hit ratio: " << _n_read_hit * 1.0 / (_n_read_hit + _n_read_not_hit) * 100.0 << "%" << std::endl
-                << "    Dup ratio: " << 1.0 * (_n_write_dup_write + _n_write_dup_content + _n_read_not_hit_dup_content) / (_n_write + _n_read_not_hit) * 100.0 << "%" << std::endl
-                << "    Dup ratio (not include read): " << 1.0 * (_n_write_dup_write + _n_write_dup_content) / _n_write  * 100.0 << "%" << std::endl
-                << "    Dup write to the total write ratio: " << 1.0 * _n_write_dup_write / _n_write * 100.0 << "%" << std::endl;
+                << "    Dup ratio: " << 1.0 * (_n_write_dup_content + _n_read_not_hit_dup_content) / (_n_write + _n_read_not_hit) * 100.0 << "%" << std::endl
+                << "    Dup ratio (not include read): " << 1.0 * _n_write_dup_content / _n_write  * 100.0 << "%" << std::endl;
 
       std::cout << std::defaultfloat;
 
@@ -141,9 +125,7 @@ struct Stats {
 
     inline void add_write_stat(Chunk &c) {
       _n_write.fetch_add(1, std::memory_order_relaxed);
-      if (c.dedupResult_ == DUP_WRITE) {
-        _n_write_dup_write.fetch_add(1, std::memory_order_relaxed);
-      } else if (c.dedupResult_ == DUP_CONTENT) {
+      if (c.dedupResult_ == DUP_CONTENT) {
         _n_write_dup_content.fetch_add(1, std::memory_order_relaxed);
       } else if (c.dedupResult_ == NOT_DUP) {
         _n_write_not_dup.fetch_add(1, std::memory_order_relaxed);
@@ -174,7 +156,6 @@ struct Stats {
      *                                        - ca hit but not match
      */
     std::atomic<uint64_t> _n_write;
-    std::atomic<uint64_t> _n_write_dup_write;
     std::atomic<uint64_t> _n_write_dup_content;
     std::atomic<uint64_t> _n_write_not_dup;
 
@@ -216,120 +197,6 @@ struct Stats {
     // Note: ca not match causes a invalidation of the corresponding entry
     std::atomic<uint64_t> _n_read_not_hit_not_dup_ca_not_hit;
     std::atomic<uint64_t> _n_read_not_hit_not_dup_ca_not_match;
-
-    /*
-     * statistics for evictions
-     * 1. Number of evictions (caused by collision and full capacity)
-     * 2. The distribution of hit and update for each bucket
-     */
-    std::atomic<uint64_t> _n_lba_index_eviction_caused_by_collision;
-    std::atomic<uint64_t> _n_lba_index_eviction_caused_by_capacity;
-
-    std::atomic<uint64_t> _n_ca_index_eviction_caused_by_collision;
-    std::atomic<uint64_t> _n_ca_index_eviction_caused_by_capacity;
-
-    std::unique_ptr<std::atomic<uint32_t> []> _n_updates_lba_buckets;
-    std::unique_ptr<std::atomic<uint32_t> []> _n_updates_fp_buckets;
-    std::unique_ptr<std::atomic<uint32_t> []> _n_lookups_lba_buckets;
-    std::unique_ptr<std::atomic<uint32_t> []> _n_lookups_fp_buckets;
-
-
-    /*
-     * Description:
-     *   LBA signature collision caused eviction could be detected
-     *   in the metadata/bucket.cc:LBABucket::update procedure, 
-     *   where stored Fingerprint signature is checked against
-     *   the "real" (either fetched from a read hit or computed from a write/read not hit)
-     *   Fingerprint signature, if not match, a collision is bound to happen.
-     */
-    inline void add_lba_index_eviction_caused_by_collision() {
-      if (_current_request_type == 0)
-        _n_lba_index_eviction_caused_by_collision.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    /* 
-     * Description:
-     *   LBA eviction caused by capacity is triggered each time
-     *   the space is full and we need to accommodate new entry.
-     *   1. cache_policy.cc:BucketAwareLRUExecutor::allocate
-     *   2. cachededup.cc:(XX)AddressIndex::allocate
-     */
-    inline void add_lba_index_eviction_caused_by_capacity() {
-      // If current request is write, and the corresponding mapping is modified,
-      // possibly the previous mapping is the same lba but with modified content.
-      _n_lba_index_eviction_caused_by_capacity.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    /* 
-     * Description:
-     *   Fingerprint signature collision caused eviction could only happen in
-     *   1. Write not dup - caused by Fingerprint hit but Fingerprint not valid
-     *   2. Read not hit not dup - caused by Fingerprint hit but Fingerprint not valid
-     */
-    inline void add_fp_index_eviction_caused_by_collision() {
-      _n_ca_index_eviction_caused_by_collision.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    /* 
-     * Description:
-     *   Fingerprint eviction caused by capacity is triggered each time
-     *   the space is full and we need to accommodate new entry.
-     *   1. cache_policy.cc:CAClockExecutor::allocate
-     *   2. cachededup.cc:(XX)FingerprintIndex::allocate
-     */
-    inline void add_fp_index_eviction_caused_by_capacity() {
-      _n_ca_index_eviction_caused_by_capacity.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    /*
-     * Description:
-     *
-     *
-     */
-    inline void add_lba_bucket_update(uint32_t bucket_id) {
-      _n_updates_lba_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
-    }
-    inline void add_fp_bucket_update(uint32_t bucket_id) {
-      _n_updates_fp_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
-    }
-    inline void add_lba_index_bucket_hit(uint32_t bucket_id) {
-      _n_lookups_lba_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
-    }
-    inline void addFPBucketLookup(uint32_t bucket_id) {
-      _n_lookups_fp_buckets[bucket_id].fetch_add(1, std::memory_order_relaxed);
-    }
-
-    /* 
-     * Description:
-     *   We would statistic some numbers from io request.
-     *   Called from io/iomodule.cc:IOModule::write/read
-     *   type: 0 means HDD, 1 means SSD, the same as IOModule
-     *   When length = 512 bytes, the data is bound to be a metadata,
-     *   so I will count it into metadata write into SSD.
-     */
-    inline void add_io_request(DeviceType deviceType, uint32_t type, uint64_t v) {
-      if (deviceType == PRIMARY_DEVICE) {
-        if (type == 0) {
-          _n_bytes_written_to_hdd.fetch_add(v, std::memory_order_relaxed);
-        } else {
-          _n_bytes_read_from_hdd.fetch_add(v, std::memory_order_relaxed);
-        }
-      } else {
-        if (v == 512) {
-          if (type == 0) {
-            _n_metadata_bytes_written_to_ssd.fetch_add(v, std::memory_order_relaxed);
-          } else {
-            _n_metadata_bytes_read_from_ssd.fetch_add(v, std::memory_order_relaxed);
-          }
-        } else {
-          if (type == 0) {
-            _n_data_bytes_written_to_ssd.fetch_add(v, std::memory_order_relaxed);
-          } else {
-            _n_data_bytes_read_from_ssd.fetch_add(v, std::memory_order_relaxed);
-          }
-        }
-      }
-    }
 
     /*
      * Time Elapsed. Time consumed by each part of the system
@@ -380,7 +247,6 @@ struct Stats {
     inline void add_metadata_bytes_written_to_ssd(uint64_t v) {   _n_metadata_bytes_written_to_ssd  .fetch_add(v, std::memory_order_relaxed); }
     inline void add_metadata_bytes_read_from_ssd(uint64_t v) {    _n_metadata_bytes_read_from_ssd   .fetch_add(v, std::memory_order_relaxed); }
 
-
     inline void add_bytes_written_to_hdd(uint64_t v) { _n_bytes_written_to_hdd.fetch_add(v, std::memory_order_relaxed); }
     inline void add_bytes_read_from_hdd(uint64_t v) {  _n_bytes_read_from_hdd .fetch_add(v, std::memory_order_relaxed); }
 
@@ -391,7 +257,6 @@ struct Stats {
 
     void reset() {
       _n_write.store(0, std::memory_order_relaxed);
-      _n_write_dup_write.store(0, std::memory_order_relaxed);
       _n_write_dup_content.store(0, std::memory_order_relaxed);
       _n_write_not_dup.store(0, std::memory_order_relaxed);
       _n_write_not_dup_ca_not_hit.store(0, std::memory_order_relaxed);
@@ -405,12 +270,7 @@ struct Stats {
       _n_read_not_hit_lba_not_match.store(0, std::memory_order_relaxed);
       _n_read_not_hit_not_dup_ca_not_hit.store(0, std::memory_order_relaxed);
       _n_read_not_hit_not_dup_ca_not_match.store(0, std::memory_order_relaxed);
-      _n_lba_index_eviction_caused_by_collision.store(0, std::memory_order_relaxed);
-      _n_lba_index_eviction_caused_by_capacity.store(0, std::memory_order_relaxed);
 
-
-      _n_ca_index_eviction_caused_by_collision.store(0, std::memory_order_relaxed);
-      _n_ca_index_eviction_caused_by_capacity.store(0, std::memory_order_relaxed);
       _n_total_bytes_written_to_ssd.store(0, std::memory_order_relaxed);
       _n_metadata_bytes_written_to_ssd.store(0, std::memory_order_relaxed);
       _n_metadata_bytes_read_from_ssd.store(0, std::memory_order_relaxed);
@@ -436,12 +296,6 @@ struct Stats {
     }
   private:
       Stats() {
-#if !defined(CACHE_DEDUP)
-        _n_updates_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLbaBucketId());
-        _n_updates_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFpBucketId());
-        _n_lookups_lba_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerLbaBucketId());
-        _n_lookups_fp_buckets = std::make_unique<std::atomic<uint32_t> []>(1 << Config::getInstance().getnBitsPerFpBucketId());
-#endif
         reset();
       }
   };

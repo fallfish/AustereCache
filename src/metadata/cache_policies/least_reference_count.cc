@@ -83,7 +83,7 @@ namespace cache {
           );
         }
 
-        Stats::getInstance().add_fp_index_eviction_caused_by_capacity();
+ 
         slotsToReferenceCounts.erase(slotsToReferenceCounts.begin());
       }
 
