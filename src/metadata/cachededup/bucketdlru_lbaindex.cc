@@ -96,9 +96,7 @@ namespace cache {
     }
 
     uint32_t BucketizedDLRULBAIndex::computeBucketId(uint64_t lba) {
-      uint64_t hash = Chunk::computeLBAHash(lba);
-      return (hash >> Config::getInstance().getnBitsPerLbaSignature()) % nBuckets_;
-      //uint32_t hash = XXH32(reinterpret_cast<const void *>(&lba), 8, 1);
-      //return hash % nBuckets_;
+      uint32_t hash = XXH32(reinterpret_cast<const void *>(&lba), 8, 1);
+      return hash % nBuckets_;
     }
 }

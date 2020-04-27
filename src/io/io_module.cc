@@ -9,10 +9,14 @@ namespace cache {
 
 IOModule::IOModule()
 {
-  if (Config::getInstance().getWriteBufferSize() != 0) {
+  if (Config::getInstance().getWeuSize() != 0) {
     std::cout << "WEU init" << std::endl;
-    posix_memalign(reinterpret_cast<void **>(&inMemBuffer_.buf_), 512, Config::getInstance().getWriteBufferSize());
-    inMemBuffer_.len_ = Config::getInstance().getWriteBufferSize();
+    int tmp = posix_memalign(reinterpret_cast<void **>(&inMemBuffer_.buf_), 512, Config::getInstance().getWeuSize());
+    if (tmp < 0) { 
+      std::cout << "Cannot allocate memory!" << std::endl;
+      exit(-1);
+    }
+    inMemBuffer_.len_ = Config::getInstance().getWeuSize();
   } else {
     inMemBuffer_.len_ = 0;
   }

@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.14)
-project (SSDDup)
+project (AustereCache)
  
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
@@ -77,6 +77,5 @@ target_link_libraries(cache lz4 pthread isal_crypto)
 ################################
 # Micro Benchmarks
 ################################
-add_executable(run_fiu src/benchmark/run_fiu.cc src/utils/cJSON.c)
-set_target_properties(run_fiu PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/microbenchmarks")
-target_link_libraries(run_fiu cache)
+add_executable(run src/benchmark/run.cc src/utils/cJSON.c)
+target_link_libraries(run cache)

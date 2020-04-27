@@ -37,8 +37,8 @@ namespace cache {
 
   uint64_t Chunk::computeFingerprintHash(uint8_t *fingerprint) {
     uint32_t signature, bucketId;
-    bucketId = XXH64(fingerprint, Config::getInstance().getFingerprintLength(), 2);
-    signature = XXH64(fingerprint, Config::getInstance().getFingerprintLength(), 101);
+    bucketId = XXH32(fingerprint, Config::getInstance().getFingerprintLength(), 2);
+    signature = XXH32(fingerprint, Config::getInstance().getFingerprintLength(), 101);
     return ((uint64_t)(bucketId % Config::getInstance().getnFpBuckets()) << Config::getInstance().getnBitsPerFpSignature())
       | (uint64_t)((signature & ((1u << Config::getInstance().getnBitsPerFpSignature()) - 1u)));
   }
@@ -78,7 +78,7 @@ namespace cache {
     c.dedupResult_ = DEDUP_UNKNOWN;
     c.lookupResult_ = LOOKUP_UNKNOWN;
     c.verficationResult_ = VERIFICATION_UNKNOWN;
-    c.compressedLevel_ = 0;
+    c.nSubchunks_ = 0;
     c.lbaHash_ = Chunk::computeLBAHash(c.addr_);
 
     addr_ += c.len_;

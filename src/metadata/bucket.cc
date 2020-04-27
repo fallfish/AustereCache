@@ -60,7 +60,6 @@ namespace cache {
           return evictedSignature_;
         } else {
           setEvictedSignature(getValue(slotId));
-          Config::getInstance().currentEvictionIsRewrite = true;
           if (Config::getInstance().getCachePolicyForFPIndex() ==
               CachePolicyEnum::tRecencyAwareLeastReferenceCount &&
               slotId >= Config::getInstance().getLBASlotSeperator()) {
@@ -136,7 +135,7 @@ namespace cache {
             /* Compute ssd location of the evicted data */
             /* Actually, full Fingerprint and address is sufficient. */
             FPIndex::computeCachedataLocation(bucketId_, slotId),
-            nSlotsOccupied * Config::getInstance().getSectorSize()
+            nSlotsOccupied * Config::getInstance().getSubchunkSize()
           );
         }
 
@@ -154,44 +153,8 @@ namespace cache {
         setKey(_slotId, fpSignature);
         setValid(_slotId);
       }
-      cachePolicyExecutor_->promote(slotId, nSlotsToOccupy);
 
       return slotId;
-    }
-
-    void FPBucket::recover(uint64_t fpSignature, uint32_t slotId, uint32_t nSlotsOccupied)
-    {
-      // clear stale overlapped slots
-      uint32_t begin = slotId;
-      uint32_t end = slotId + nSlotsOccupied;
-      uint32_t key = getKey(begin);
-
-      // find the earliest valid and overlap one
-      while (begin >= 0) {
-        if (isValid(begin) && getKey(begin) == key) {
-          --begin;
-        } else {
-          break;
-        }
-      }
-      while (begin < end) {
-        if (isValid(begin)) {
-          uint32_t key = getKey(begin);
-          while (begin < nSlots_ && key == getKey(begin)) {
-            setInvalid(begin); 
-            ++begin;
-          }
-        } else {
-          ++begin;
-        }
-      }
-
-      for (uint32_t _slotId = slotId;
-          _slotId < slotId + nSlotsOccupied;
-          ++_slotId) {
-        setKey(_slotId, fpSignature);
-        setValid(_slotId);
-      }
     }
 
     void FPBucket::evict(uint64_t fpSignature) {

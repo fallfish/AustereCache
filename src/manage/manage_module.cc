@@ -12,7 +12,7 @@ namespace cache {
   ManageModule::ManageModule()
   {
 #if defined(CDARC)
-    weuSize_ = Config::getInstance().getWriteBufferSize();
+    weuSize_ = Config::getInstance().getWeuSize();
     currentCachedataLocation_ = 0;
     currentWEUId_ = 0;
 #endif
@@ -61,7 +61,7 @@ namespace cache {
         buf = chunk.buf_;
       }
       addr = chunk.cachedataLocation_;
-      len = (chunk.compressedLevel_ + 1) * Config::getInstance().getSectorSize();
+      len = (chunk.nSubchunks_ + 1) * Config::getInstance().getSubchunkSize();
 #endif
     } else {
       deviceType = PRIMARY_DEVICE;
@@ -111,7 +111,7 @@ namespace cache {
 #if !defined(CACHE_DEDUP)
       addr = chunk.cachedataLocation_;
       buf = chunk.compressedBuf_;
-      len = (chunk.compressedLevel_ + 1) * Config::getInstance().getSectorSize();
+      len = (chunk.nSubchunks_ + 1) * Config::getInstance().getSubchunkSize();
 #else
 #if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
       addr = chunk.cachedataLocation_;

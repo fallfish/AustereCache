@@ -31,7 +31,7 @@ namespace cache {
 
     enum CachePolicyEnum {
         // For ACDC
-          tRecencyAwareLeastReferenceCount, tLeastReferenceCount, tLRU,
+          tRecencyAwareLeastReferenceCount, tLRU,
         // For DLRU
           tNormal,
     };
@@ -54,7 +54,7 @@ namespace cache {
 
         // getters
         uint32_t getChunkSize() { return chunkSize_; }
-        uint32_t getSectorSize() { return sectorSize_; }
+        uint32_t getSubchunkSize() { return subchunkSize_; }
         uint32_t getMetadataSize() { return metadataSize_; }
         uint32_t getFingerprintLength() { return fingerprintLen_; }
         uint64_t getPrimaryDeviceSize() { return primaryDeviceSize_; }
@@ -79,7 +79,7 @@ namespace cache {
           }
         }
         uint32_t getnFpBuckets() {
-          return cacheDeviceSize_ / (sectorSize_ * nSlotsPerFpBucket_);
+          return cacheDeviceSize_ / (subchunkSize_ * nSlotsPerFpBucket_);
         }
 
         // For CacheDedup
@@ -96,17 +96,9 @@ namespace cache {
 
         // For RecencyAware - the boundary of core slots and shadow slots
         uint32_t getLBASlotSeperator() {
-          if (coreListBaseLbaIndex_ == true) {
-            return std::max(
-                (uint32_t)(getnLBASlotsPerBucket() - getnLBASlotsPerBucket() * coreListSize_), 1u);
-          } else {
-            return std::max(
-                (uint32_t)(getnLBASlotsPerBucket() - cacheDeviceSize_ /
-                  (uint64_t)chunkSize_ / (uint64_t)getnLbaBuckets() * coreListSize_),
-                1u);
-          }
+          return std::max((uint32_t)(getnLBASlotsPerBucket() - getnLBASlotsPerBucket() * coreSlotsSize_), 1u);
         }
-        uint32_t getCompressionLevels() { return chunkSize_ / sectorSize_; }
+        uint32_t getMaxSubchunks() { return chunkSize_ / subchunkSize_; }
 
         // CachePolicy:
         //
@@ -119,7 +111,7 @@ namespace cache {
         char *getCacheDeviceName() { return cacheDeviceName_; }
         char *getPrimaryDeviceName() { return primaryDeviceName_; }
 
-        uint32_t getWriteBufferSize() { return writeBufferSize_; }
+        uint32_t getWeuSize() { return weuSize_; }
 
         // setters
         void setFingerprintLength(uint32_t ca_length) { fingerprintLen_ = ca_length; }
@@ -130,9 +122,7 @@ namespace cache {
         void setLBAAmplifier(float v) {
           lbaAmplifier_ = v;
         }
-        void setCoreListSize(double v) {
-          coreListSize_ = v;
-        }
+
         void setCachePolicyForFPIndex(CachePolicyEnum v) {
           cachePolicyForFPIndex_ = v;
         }
@@ -141,13 +131,14 @@ namespace cache {
         void setnSlotsPerFpBucket(uint32_t v) { nSlotsPerFpBucket_ = v; }
         void setnBitsPerLbaSignature (uint32_t v) { nBitsPerLbaSignature_ = v; }
         void setnSlotsPerLbaBucket(uint32_t v) { nSlotsPerLbaBucket_ = v; }
-        void setSectorSize(uint32_t v) { sectorSize_ = v; }
+        void setSubchunkSize(uint32_t v) { subchunkSize_ = v; }
         void setChunkSize(uint32_t v) { chunkSize_ = v; }
+        void setnThreads(uint32_t v) { maxNumGlobalThreads_ = v; }
 
         void setCacheDeviceName(char *cache_device_name) { cacheDeviceName_ = cache_device_name; }
         void setPrimaryDeviceName(char *primary_device_name) { primaryDeviceName_ = primary_device_name; }
 
-        void setWriteBufferSize(uint32_t v) { writeBufferSize_ = v; }
+        void setWeuSize(uint32_t v) { weuSize_ = v; }
 
         // Functionality enabler
         void enableMultiThreading(bool v) { enableMultiThreading_ = v; }
@@ -157,8 +148,6 @@ namespace cache {
         void enableTraceReplay(bool v) { enableTraceReplay_ = v; }
         void enableSketchRF(bool v) { enableSketchRF_ = v; }
         void enableCompactCachePolicy(bool v) { enableCompactCachePolicy_ = v; }
-        void enableCoreListBaseLbaIndex(bool v) { coreListBaseLbaIndex_ = v; }
-        void enableJournal(bool v) { enableJournal_ = v; }
         void setCacheMode(CacheModeEnum v) { cacheMode_ = v; }
 
         bool isMultiThreadingEnabled() { return enableMultiThreading_; }
@@ -168,7 +157,6 @@ namespace cache {
         bool isSynthenticCompressionEnabled() { return enableSynthenticCompression_; }
         bool isSketchRFEnabled() { return enableSketchRF_; }
         bool isCompactCachePolicyEnabled() { return enableCompactCachePolicy_; }
-        bool isJournalEnabled() { return enableJournal_; }
         CacheModeEnum getCacheMode() { return cacheMode_; }
 
         void setFingerprint(uint64_t lba, char *fingerprint) {
@@ -185,22 +173,17 @@ namespace cache {
           }
         }
 
-        bool currentEvictionIsRewrite = false;
     private:
         Config() {
           // Initialize default configuration
           chunkSize_ = 8192 * 4;
-          sectorSize_ = 8192;
+          subchunkSize_ = 8192;
           metadataSize_ = 512;
           fingerprintLen_ = 20;
           primaryDeviceSize_ = 1024 * 1024 * 1024LL * 20;
           cacheDeviceSize_ = 1024 * 1024 * 1024LL * 20;
           workingSetSize_ = 1024 * 1024 * 1024LL * 4;
 
-          // Each bucket has 32 slots. Each index has nBuckets_ buckets,
-          // Each slot represents one chunk 32K.
-          // To store all lbas without eviction
-          // nBuckets_ = primary_storage_size / 32K / 32 = 512
           nBitsPerLbaSignature_ = 16;
           nSlotsPerLbaBucket_ = 128;
           nBitsPerFpSignature_ = 16;
@@ -209,14 +192,10 @@ namespace cache {
 
           enableMultiThreading_ = false;
           maxNumGlobalThreads_ = 8;
-
-          // io related
-          cacheDeviceName_ = "./ramdisk/cache_device";
-          primaryDeviceName_ = "./primary_device";
         }
 
         uint32_t chunkSize_; // 8k size chunk
-        uint32_t sectorSize_; // 8k size sector
+        uint32_t subchunkSize_; // 8k size sector
         uint32_t metadataSize_; // 512 byte size chunk
         uint32_t fingerprintLen_; // fingerprint length, 20 bytes if using SHA1
 
@@ -227,8 +206,7 @@ namespace cache {
         uint32_t nBitsPerLbaSignature_;
         uint32_t nSlotsPerLbaBucket_;
         float lbaAmplifier_;
-        bool coreListBaseLbaIndex_ = true;
-        double coreListSize_ = 0.5;
+        double coreSlotsSize_ = 0.5;
 
         uint32_t nBitsPerFpSignature_;
         uint32_t nSlotsPerFpBucket_;
@@ -251,7 +229,7 @@ namespace cache {
         uint64_t primaryDeviceSize_;
         uint64_t workingSetSize_;
         uint64_t cacheDeviceSize_;
-        uint32_t writeBufferSize_ = 0;
+        uint32_t weuSize_ = 0;
 
 
         // Trace replay related
@@ -259,9 +237,7 @@ namespace cache {
         bool enableFakeIO_ = true;
         bool enableSynthenticCompression_ = false;
         bool enableTraceReplay_ = true;
-        bool enableJournal_ = false;
         CacheModeEnum cacheMode_ = tWriteThrough;
-
 
         bool enableCompactCachePolicy_ = true;
 

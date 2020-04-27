@@ -120,8 +120,8 @@ namespace cache {
         }
         nTotalFingerprints += 1;
       }
-      std::cout << "Zero ref list length: " << zeroReferenceList_.size() << std::endl;
-      printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
-      fingerprints.clear();
+      //std::cout << "Zero ref list length: " << zeroReferenceList_.size() << std::endl;
+      //printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
+      //fingerprints.clear();
     }
 }

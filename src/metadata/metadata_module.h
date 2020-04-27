@@ -16,9 +16,6 @@ class MetadataModule {
   void lookup(Chunk &chunk);
   void update(Chunk &chunk);
   void dumpStats();
-  void recoverLbaIndex(uint64_t lbaHash, uint64_t fpHash);
-  void recoverFpIndex(uint64_t fpHash, uint64_t cachedataLocation, uint32_t nSlotsOccupied);
-  void recover();
 
   std::shared_ptr<LBAIndex> lbaIndex_;
   std::shared_ptr<FPIndex> fpIndex_;

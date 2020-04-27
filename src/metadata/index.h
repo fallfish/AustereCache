@@ -48,7 +48,6 @@ namespace cache {
       bool lookup(uint64_t lbaHash, uint64_t &fpHash);
       void promote(uint64_t lbaHash);
       uint64_t update(uint64_t lbaHash, uint64_t fpHash);
-      void recover(uint64_t lbaHash, uint64_t fpHash);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t lbaHash);
 
       std::unique_ptr<LBABucket> getLBABucket(uint32_t bucketId)
@@ -70,10 +69,9 @@ namespace cache {
       // n_bits_per_key = 12, n_bits_per_value = 0
       FPIndex();
       ~FPIndex();
-      bool lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation);
+      bool lookup(uint64_t fpHash, uint32_t &nSubchunks, uint64_t &cachedataLocation, uint64_t &metadataLocation);
       void promote(uint64_t fpHash);
-      void update(uint64_t fpHash, uint32_t compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation);
-      void recover(uint64_t fpHash, uint64_t cachedataLocation, uint32_t nSlotsOccupied);
+      void update(uint64_t fpHash, uint32_t nSubchunks, uint64_t &cachedataLocation, uint64_t &metadataLocation);
       std::unique_ptr<std::lock_guard<std::mutex>> lock(uint64_t fpHash);
 
       void getFingerprints(std::set<uint64_t> &fpSet);

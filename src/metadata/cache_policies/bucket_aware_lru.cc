@@ -45,7 +45,7 @@ namespace cache {
 
     // Only LBA Index would call this function
     // LBA signature only takes one slot.
-    // So there is no need to care about the entry may take contiguous slots.
+    // So there is no need to worry about the entry taking contiguous slots.
     void BucketAwareLRUExecutor::clearObsolete(std::shared_ptr<FPIndex> fpIndex)
     {
       for (uint32_t slotId = 0; slotId < bucket_->getnSlots(); ++slotId) {

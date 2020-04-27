@@ -39,19 +39,15 @@ void CompressionModule::compress(Chunk &chunk)
     chunk.compressedBuf_ = chunk.buf_;
   }
 #else // ACDC
-  uint32_t numCompressionLevels = Config::getInstance().getCompressionLevels();
+  uint32_t numMaxSubchunks = Config::getInstance().getMaxSubchunks();
   if (chunk.compressedLen_ == 0) {
-    chunk.compressedLevel_ = numCompressionLevels - 1;
+    chunk.nSubchunks_ = numMaxSubchunks;
   } else {
-    uint32_t compressedLen = chunk.compressedLen_;
-    chunk.compressedLevel_ = 0;
-    while (compressedLen > 0 && compressedLen <= chunk.compressedLen_) {
-      chunk.compressedLevel_ += 1;
-      compressedLen -= Config::getInstance().getSectorSize();
-    }
-    --chunk.compressedLevel_;
+    chunk.nSubchunks_ = (chunk.compressedLen_ +
+        Config::getInstance().getSubchunkSize() - 1) /
+      Config::getInstance().getSubchunkSize();
   }
-  if (chunk.compressedLevel_ == numCompressionLevels - 1) {
+  if (chunk.nSubchunks_ == numMaxSubchunks) {
     chunk.compressedBuf_ = chunk.buf_;
   }
 #endif

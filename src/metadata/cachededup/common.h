@@ -49,7 +49,7 @@ namespace cache {
         void init()
         {
           // 2 MiB weu size
-          weuSize_ = Config::getInstance().getWriteBufferSize();
+          weuSize_ = Config::getInstance().getWeuSize();
           currentOffset = 0;
         }
 

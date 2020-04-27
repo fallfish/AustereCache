@@ -8,7 +8,6 @@
 #include "utils/utils.h"
 #include "manage/dirtylist.h"
 #include <cassert>
-#include <csignal>
 
 namespace cache {
   MetadataModule& MetadataModule::getInstance() {
@@ -41,7 +40,7 @@ namespace cache {
         nInvalidFingerprints += 1;
       }
     }
-    printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
+    //printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
   }
 
   // Note:
@@ -62,7 +61,7 @@ namespace cache {
     if (chunk.fpBucketLock_ == nullptr) {
       chunk.fpBucketLock_ = std::move(fpIndex_->lock(chunk.fingerprintHash_));
     }
-    chunk.hitFPIndex_ = fpIndex_->lookup(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
+    chunk.hitFPIndex_ = fpIndex_->lookup(chunk.fingerprintHash_, chunk.nSubchunks_, chunk.cachedataLocation_, chunk.metadataLocation_);
 
     if (chunk.hitFPIndex_) {
       chunk.verficationResult_ = metaVerification_->verify(chunk);
@@ -86,7 +85,7 @@ namespace cache {
     chunk.hitLBAIndex_ = lbaIndex_->lookup(chunk.lbaHash_, chunk.fingerprintHash_);
     if (chunk.hitLBAIndex_) {
       chunk.fpBucketLock_ = std::move(fpIndex_->lock(chunk.fingerprintHash_));
-      chunk.hitFPIndex_ = fpIndex_->lookup(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
+      chunk.hitFPIndex_ = fpIndex_->lookup(chunk.fingerprintHash_, chunk.nSubchunks_, chunk.cachedataLocation_, chunk.metadataLocation_);
       if (chunk.hitFPIndex_) {
         chunk.verficationResult_ = metaVerification_->verify(chunk);
       }
@@ -96,7 +95,6 @@ namespace cache {
       chunk.compressedLen_ = chunk.metadata_.compressedLen_;
       chunk.lookupResult_ = HIT;
     } else {
-      //std::cout << chunk.addr_ << std::endl;
       chunk.fpBucketLock_.reset();
       assert(chunk.fpBucketLock_.get() == nullptr);
       chunk.lookupResult_ = NOT_HIT;
@@ -123,7 +121,7 @@ namespace cache {
       if (chunk.dedupResult_ == DUP_CONTENT) {
         fpIndex_->promote(chunk.fingerprintHash_);
       } else {
-        fpIndex_->update(chunk.fingerprintHash_, chunk.compressedLevel_, chunk.cachedataLocation_, chunk.metadataLocation_);
+        fpIndex_->update(chunk.fingerprintHash_, chunk.nSubchunks_, chunk.cachedataLocation_, chunk.metadataLocation_);
       }
     }
 
@@ -143,27 +141,12 @@ namespace cache {
     if (Config::getInstance().getCacheMode() == tWriteBack) {
       DirtyList::getInstance().addLatestUpdate(chunk.addr_,
           chunk.cachedataLocation_,
-          (chunk.compressedLevel_ + 1) *
-          Config::getInstance().getSectorSize());
+          (chunk.nSubchunks_ + 1) *
+          Config::getInstance().getSubchunkSize());
     }
 #endif
     if (removedFingerprintHash != ~0ull && removedFingerprintHash != chunk.fingerprintHash_) {
       fpIndex_->dereference(removedFingerprintHash);
     }
-  }
-
-  void MetadataModule::recoverLbaIndex(uint64_t lbaHash, uint64_t fpHash)
-  {
-    lbaIndex_->update(lbaHash, fpHash);
-    fpIndex_->reference(fpHash);
-  }
-
-  void MetadataModule::recoverFpIndex(uint64_t fpHash, uint64_t cachedataLocation, uint32_t nSlotsOccupied)
-  {
-    fpIndex_->recover(fpHash, cachedataLocation, nSlotsOccupied);
-  }
-
-  void MetadataModule::recover() {
-    metaJournal_->recover();
   }
 }

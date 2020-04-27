@@ -1,6 +1,3 @@
-//
-//
-
 #include <common/stats.h>
 #include "darc_lbaindex.h"
 #include "cdarc_fpindex.h"
@@ -17,7 +14,7 @@ namespace cache {
     }
     void CDARCFPIndex::init()
     {
-      capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getWriteBufferSize();
+      capacity_ = Config::getInstance().getCacheDeviceSize() / Config::getInstance().getWeuSize();
       weuAllocator_.init();
     }
 
@@ -109,7 +106,7 @@ namespace cache {
         weuReferenceCount_.erase(weu_id);
 
         if (Config::getInstance().getCacheMode() == tWriteBack) {
-          DirtyList::getInstance().addEvictedChunk(weu_id, Config::getInstance().getWriteBufferSize());
+          DirtyList::getInstance().addEvictedChunk(weu_id, Config::getInstance().getWeuSize());
         }
         weuAllocator_.recycle(weu_id);
         evicted_weu_id = weu_id;
@@ -140,8 +137,8 @@ namespace cache {
           nInvalidFingerprints += 1;
         }
       }
-      printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
-      fingerprints.clear();
+      //printf("Zero Referenced Fingerprints: %u, Total Fingerprints: %u\n", nInvalidFingerprints, nTotalFingerprints);
+      //fingerprints.clear();
     }
 
     void CDARCFPIndex::clearObsolete()

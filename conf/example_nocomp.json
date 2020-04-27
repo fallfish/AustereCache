@@ -1,0 +1,31 @@
+{
+  "workload": "../traces/syn_traces/rw37_dup0.4.txt",
+  "config": {
+    "primaryDeviceName": "./primary_device",
+    "cacheDeviceName": "./cache_device",
+    "primarryDeviceSize": 5368709120,
+    "cacheDeviceSize": 33554432,
+    "workingSetSize": 134217728,
+
+    "chunkSize": 32768,
+    "subchunkSize": 32768,
+    "nSlotsPerLbaBucket": 128,
+    "nSlotsPerFpBucket": 128,
+    "nBitsPerLbaSignature": 16,
+    "nBitsPerFpSignature": 16,
+    "lbaAmplifier": 4,
+
+    "syntheticCompression": 0,
+    "compactCachePolicy": 1,
+    "sketchBasedReferenceCounter": 1,
+
+    "multiThreading": 0,
+    "nThreads": 1,
+    "cacheMode": "WriteThrough",
+    "weuSize": 2097152,
+
+    "directIO": 0,
+    "traceReplay": 1,
+    "fakeIO": 1
+  }
+}

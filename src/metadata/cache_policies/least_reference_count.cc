@@ -79,7 +79,7 @@ namespace cache {
             /* Compute ssd location of the evicted data */
             /* Actually, full Fingerprint and address is sufficient. */
             FPIndex::computeCachedataLocation(bucket_->getBucketId(), slotsToReferenceCounts[0].first),
-            (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSectorSize()
+            (slotId - slotsToReferenceCounts[0].first) * Config::getInstance().getSubchunkSize()
           );
         }
 

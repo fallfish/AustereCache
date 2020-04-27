@@ -1,5 +1,3 @@
-//
-
 #ifndef AUSTERECACHE_CDARCFPINDEX_H
 #define AUSTERECACHE_CDARCFPINDEX_H
 #include "common.h"

@@ -26,9 +26,8 @@ namespace cache {
   void MetadataModule::dedup(Chunk &c)
   {
     c.hitFPIndex_ = CDARCFPIndex::getInstance().lookup(c.fingerprint_, c.weuId_, c.weuOffset_, c.compressedLen_);
-    if (c.hitFPIndex_) {
+    if (c.hitFPIndex_)
       c.dedupResult_ = DUP_CONTENT;
-    }
     else
       c.dedupResult_ = NOT_DUP;
   }

@@ -8,23 +8,24 @@
 #include "common/stats.h"
 #include "utils/utils.h"
 #include <cassert>
-#include "metadata/cachededup/dlru_lbaindex.h"
-#include "metadata/cachededup/dlru_fpindex.h"
+#include <metadata/cachededup/dlru_lbaindex.h>
+#include <metadata/cachededup/dlru_fpindex.h>
 
 namespace cache {
-  MetadataModule& MetadataModule::getInstance() {
-    static MetadataModule instance;
-    return instance;
-  }
+    MetadataModule& MetadataModule::getInstance() {
+      static MetadataModule instance;
+      return instance;
+    }
 
-  MetadataModule::MetadataModule() {
-    DLRULBAIndex::getInstance().init();
-    DLRUFPIndex::getInstance().init();
-    std::cout << "SourceIndex capacity: " << DLRULBAIndex::getInstance().capacity_ << std::endl;
-    std::cout << "FingerprintIndex capacity: " << DLRUFPIndex::getInstance().capacity_ << std::endl;
-  }
+    MetadataModule::MetadataModule() {
+      DLRULBAIndex::getInstance().init();
+      DLRUFPIndex::getInstance().init();
+      std::cout << "SourceIndex capacity: " << DLRULBAIndex::getInstance().capacity_ << std::endl;
+      std::cout << "FingerprintIndex capacity: " << DLRUFPIndex::getInstance().capacity_ << std::endl;
 
-  MetadataModule::~MetadataModule() = default;
+
+    }
+    MetadataModule::~MetadataModule() = default;
 
   void MetadataModule::dedup(Chunk &c)
   {

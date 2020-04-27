@@ -200,8 +200,6 @@ namespace cache {
       // This is required for hit but verification-failed chunk.
       void evict(uint64_t fpSignature);
 
-      void recover(uint64_t fpSignature, uint32_t slotId, uint32_t nSlotsOccupied);
-
       void getFingerprints(std::set<uint64_t> &fpSet);
   };
 }

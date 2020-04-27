@@ -10,39 +10,39 @@
  * be a new free address and it will be allocated to the new entry immediately.
  */
 namespace cache {
-  class DLRUFPIndex {
+    class DLRUFPIndex {
     public:
-      struct DP {
-        uint64_t cachedataLocation_{};
-        uint32_t referenceCount_{};
-        std::list<Fingerprint>::iterator it_;
-        std::list<Fingerprint>::iterator zeroReferenceListIter_;
-      };
+        struct DP {
+            uint64_t cachedataLocation_{};
+            uint32_t referenceCount_{};
+            std::list<Fingerprint>::iterator it_;
+            std::list<Fingerprint>::iterator zeroReferenceListIter_;
+        };
 
-      DLRUFPIndex();
+        DLRUFPIndex();
 
-      explicit DLRUFPIndex(uint32_t capacity);
+        explicit DLRUFPIndex(uint32_t capacity);
 
-      static DLRUFPIndex &getInstance();
+        static DLRUFPIndex &getInstance();
 
-      void init();
+        void init();
 
-      void reference(uint8_t *fp);
+        void reference(uint8_t *fp);
 
-      void dereference(uint8_t *fp);
+        void dereference(uint8_t *fp);
 
-      bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
+        bool lookup(uint8_t *fp, uint64_t &cachedataLocation);
 
-      void promote(uint8_t *fp);
+        void promote(uint8_t *fp);
 
-      void update(uint8_t *fp, uint64_t &cachedataLocation);
+        void update(uint8_t *fp, uint64_t &cachedataLocation);
 
-      uint32_t capacity_;
+        uint32_t capacity_;
     private:
-      std::map<Fingerprint, DP> mp_; // mapping from Fingerprint to list
-      std::list<Fingerprint> list_;
-      std::list<Fingerprint> zeroReferenceList_;
-      SpaceAllocator spaceAllocator_;
-  };
+        std::map<Fingerprint, DP> mp_; // mapping from Fingerprint to list
+        std::list<Fingerprint> list_;
+        std::list<Fingerprint> zeroReferenceList_;
+        SpaceAllocator spaceAllocator_;
+    };
 }
 #endif //AUSTERECACHE_DLRUFPINDEX_H

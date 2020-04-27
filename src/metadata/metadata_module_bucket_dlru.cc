@@ -35,9 +35,8 @@ namespace cache {
     }
     if (c.hitLBAIndex_ && c.hitFPIndex_)
       c.lookupResult_ = HIT;
-    else {
+    else
       c.lookupResult_ = NOT_HIT;
-    }
   }
   void MetadataModule::update(Chunk &c)
   {

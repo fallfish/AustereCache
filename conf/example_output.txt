@@ -1,0 +1,62 @@
+defined: REPLAY_FIU
+cache device size: 32 MiB
+primary device size: 300 GiB
+woring set size: 128 MiB
+WEU init
+BlockDevice::Open existing device!
+BlockDevice::Open existing device!
+../traces/syn_traces/rw37_dup0.4.txt: Go through 163840 operations, selected 163840
+req 0
+Number of LBA buckets: 32
+Number of Fingerprint buckets: 32
+req 100000
+Replay finished, statistics: 
+total MBs: 5120
+elapsed: 3199344 us
+Throughput: 1678.07 MBytes/s
+Write: 
+    Num total write: 114923
+    Num write dup content: 24905
+    Num write not dup: 90018
+        Num write not dup caused by ca not hit: 89920
+        Num write not dup caused by ca not match: 98
+
+Read: 
+    Num total read: 48917
+    Num read hit: 38534
+    Num read not hit: 10383
+        Num read not hit caused by lba not hit: 1599
+        Num read not hit caused by ca not hit: 7134
+        Num read not hit caused by lba not match: 1650
+            Num read not hit dup content: 2122
+            Num read not hit not dup: 8261
+                Num read not hit not dup caused by ca not hit: 8250
+                Num read not hit not dup caused by ca not match: 11
+
+IO statistics: 
+    Num bytes metadata written to ssd: 63913984
+    Num bytes metadata read from ssd: 34467840
+    Num total bytes data should written to ssd: 4106027008
+    Num bytes data written to ssd: 2886868992
+    Num bytes data read from ssd: 1139372032
+    Num bytes data written to write buffer: 0
+    Num bytes data read from write buffer: 0
+    Num bytes written to hdd: 3765796864
+    Num bytes read from hdd: 340230144
+
+Time Elapsed: 
+    Time elpased for compression: 476915
+    Time elpased for decompression: 702
+    Time elpased for computeFingerprint: 46295
+    Time elpased for dedup: 196031
+    Time elpased for lookup: 88185
+    Time elpased for update_index: 2538324
+    Time elpased for io_ssd: 191437
+    Time elpased for io_hdd: 3284
+    Time elpased for debug: 0
+
+Overall Stats: 
+    Hit ratio: 78.77%
+    Dup ratio: 21.57%
+    Dup ratio (not include read): 21.67%
+VM: 97876.00; RSS: 3824.00

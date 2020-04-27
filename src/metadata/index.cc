@@ -65,6 +65,7 @@ namespace cache {
     uint32_t signature = lbaHash & ((1u << nBitsPerKey_) - 1);
     uint64_t evictedFPHash = getLBABucket(bucketId)->update(signature, fpHash, fpIndex_);
 
+
     return evictedFPHash;
   }
 
@@ -93,7 +94,7 @@ namespace cache {
   uint64_t FPIndex::computeCachedataLocation(uint32_t bucketId, uint32_t slotId)
   {
     return (bucketId * Config::getInstance().getnFPSlotsPerBucket() + slotId) *
-      1ull * Config::getInstance().getSectorSize() + 1ull *
+      1ull * Config::getInstance().getSubchunkSize() + 1ull *
       Config::getInstance().getnFpBuckets() *
       Config::getInstance().getnFPSlotsPerBucket() *
       Config::getInstance().getMetadataSize();
@@ -111,11 +112,11 @@ namespace cache {
         Config::getInstance().getnFPSlotsPerBucket() *
         Config::getInstance().getMetadataSize() *
         Config::getInstance().getnFpBuckets()) /
-      Config::getInstance().getSectorSize() *
+      Config::getInstance().getSubchunkSize() *
       Config::getInstance().getMetadataSize();
   }
 
-  bool FPIndex::lookup(uint64_t fpHash, uint32_t &compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)
+  bool FPIndex::lookup(uint64_t fpHash, uint32_t &nSubchunks, uint64_t &cachedataLocation, uint64_t &metadataLocation)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_,
              signature = fpHash & ((1u << nBitsPerKey_) - 1),
@@ -123,7 +124,7 @@ namespace cache {
     uint32_t index = getFPBucket(bucketId)->lookup(signature, nSlotsOccupied);
     if (index == ~0u) return false;
 
-    compressedLevel = nSlotsOccupied - 1;
+    nSubchunks = nSlotsOccupied;
     cachedataLocation = computeCachedataLocation(bucketId, index);
     metadataLocation = computeMetadataLocation(bucketId, index);
 
@@ -137,11 +138,11 @@ namespace cache {
     getFPBucket(bucketId)->promote(signature);
   }
 
-  void FPIndex::update(uint64_t fpHash, uint32_t compressedLevel, uint64_t &cachedataLocation, uint64_t &metadataLocation)
+  void FPIndex::update(uint64_t fpHash, uint32_t nSubchunks, uint64_t &cachedataLocation, uint64_t &metadataLocation)
   {
     uint32_t bucketId = fpHash >> nBitsPerKey_,
              signature = fpHash & ((1u << nBitsPerKey_) - 1),
-             nSlotsToOccupy = compressedLevel + 1;
+             nSlotsToOccupy = nSubchunks;
 
     uint32_t slotId = getFPBucket(bucketId)->update(signature, nSlotsToOccupy);
     cachedataLocation = computeCachedataLocation(bucketId, slotId);
@@ -181,16 +182,6 @@ namespace cache {
     } else {
       return nullptr;
     }
-  }
-
-  void FPIndex::recover(uint64_t fpHash, uint64_t cachedataLocation, uint32_t nSlotsOccupied) {
-    uint32_t bucketId = fpHash >> nBitsPerKey_,
-             signature = fpHash & ((1u << nBitsPerKey_) - 1);
-    uint32_t slotId = cachedataLocationToMetadataLocation(cachedataLocation) %
-      (Config::getInstance().getMetadataSize() *
-       Config::getInstance().getnFPSlotsPerBucket()) /
-      Config::getInstance().getMetadataSize();
-    getFPBucket(bucketId)->recover(signature, slotId, nSlotsOccupied);
   }
 
   void FPIndex::reference(uint64_t fpHash) {

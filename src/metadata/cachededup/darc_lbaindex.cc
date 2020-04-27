@@ -1,6 +1,3 @@
-//
-//
-
 #include "darc_lbaindex.h"
 #include "darc_fpindex.h"
 #include "cdarc_fpindex.h"
