@@ -1,5 +1,11 @@
 ## AustereCache
-AustereCache is a memory-efficient SSD cache system enhanced by compression and deduplication.
+AustereCache is a memory-efficient SSD cache system enhanced by compression and deduplication. You can find more details
+in our publication.
+
+### Publication
+* Qiuping Wang, Jinhong Li, Wen Xia, Erik Kruus, Biplob Debnath, and Patrick P. C. Lee.
+  [Austere Flash Caching with Deduplication and Compression.](https://www.cse.cuhk.edu.hk/~pclee/www/pubs/atc20.pdf)
+  USENIX ATC 2020.
 
 ### Build
 #### Testbed Environment
