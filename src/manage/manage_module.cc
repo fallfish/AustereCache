@@ -61,7 +61,7 @@ namespace cache {
         buf = chunk.buf_;
       }
       addr = chunk.cachedataLocation_;
-      len = (chunk.nSubchunks_ + 1) * Config::getInstance().getSubchunkSize();
+      len = (chunk.nSubchunks_) * Config::getInstance().getSubchunkSize();
 #endif
     } else {
       deviceType = PRIMARY_DEVICE;
@@ -111,7 +111,7 @@ namespace cache {
 #if !defined(CACHE_DEDUP)
       addr = chunk.cachedataLocation_;
       buf = chunk.compressedBuf_;
-      len = (chunk.nSubchunks_ + 1) * Config::getInstance().getSubchunkSize();
+      len = (chunk.nSubchunks_) * Config::getInstance().getSubchunkSize();
 #else
 #if defined(DLRU) || defined(DARC) || defined(BUCKETDLRU)
       addr = chunk.cachedataLocation_;
